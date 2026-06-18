@@ -1,0 +1,2558 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Odoo Time Dashboard</title>
+  <style>
+    :root {
+      --bg: #f5f7f6;
+      --panel: #ffffff;
+      --panel-soft: #eef4f2;
+      --ink: #182322;
+      --muted: #64726f;
+      --line: #d7dfdc;
+      --teal: #0f766e;
+      --teal-dark: #0b5f59;
+      --coral: #c75f4c;
+      --gold: #a87618;
+      --indigo: #4556b2;
+      --shadow: 0 18px 38px rgba(24, 35, 34, 0.08);
+      color-scheme: light;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      min-width: 320px;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    .app-header {
+      background: #162422;
+      color: #f8fbfa;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+    }
+
+    .header-inner {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 24px clamp(16px, 3vw, 36px);
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) minmax(320px, 1.2fr);
+      gap: 24px;
+      align-items: end;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin: 0;
+    }
+
+    h1 {
+      font-size: clamp(1.75rem, 4vw, 2.75rem);
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      margin-top: 10px;
+      color: #bed1cd;
+      max-width: 58ch;
+      line-height: 1.5;
+    }
+
+    .file-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .file-picker {
+      display: grid;
+      gap: 8px;
+      position: relative;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 8px;
+      padding: 14px;
+      min-width: 0;
+    }
+
+    .file-picker::after {
+      content: attr(data-help);
+      position: absolute;
+      left: 0;
+      top: calc(100% + 8px);
+      z-index: 20;
+      width: min(320px, 100%);
+      padding: 9px 10px;
+      border-radius: 6px;
+      background: #f7fbfa;
+      color: #162422;
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
+      font-size: 0.82rem;
+      line-height: 1.35;
+      font-weight: 700;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-4px);
+      transition: opacity 140ms ease, transform 140ms ease;
+    }
+
+    .file-picker:hover::after,
+    .file-picker:focus-within::after {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .file-picker span {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #e8f1ef;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .file-picker input {
+      width: 100%;
+      color: #dce8e5;
+      min-width: 0;
+    }
+
+    .file-picker input::file-selector-button {
+      margin-right: 10px;
+      border: 0;
+      border-radius: 6px;
+      background: #f7fbfa;
+      color: #162422;
+      padding: 8px 10px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    main {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 22px clamp(16px, 3vw, 36px) 44px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .status-bar,
+    .filter-bar,
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .status-bar {
+      min-height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 28px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: var(--panel-soft);
+      color: var(--teal-dark);
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .status-pill.warn {
+      background: #fff2df;
+      color: #92570b;
+    }
+
+    .filter-bar {
+      display: none;
+      padding: 14px;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+
+    .filter-bar.visible {
+      display: flex;
+    }
+
+    .filter-title {
+      display: grid;
+      gap: 2px;
+    }
+
+    .filter-title strong {
+      font-size: 0.95rem;
+    }
+
+    .filter-title span {
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+
+    .year-chips {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .year-chip {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--ink);
+      min-height: 34px;
+      padding: 6px 12px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .year-chip.active {
+      border-color: var(--teal);
+      background: var(--teal);
+      color: #fff;
+    }
+
+    .kpis {
+      display: none;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .kpis.visible {
+      display: grid;
+    }
+
+    .kpi {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      min-height: 96px;
+      display: grid;
+      align-content: space-between;
+      gap: 12px;
+      box-shadow: var(--shadow);
+    }
+
+    .kpi span {
+      color: var(--muted);
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-weight: 800;
+    }
+
+    .kpi strong {
+      font-size: clamp(1.35rem, 3vw, 2rem);
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    .panel {
+      padding: 18px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .panel[hidden],
+    .project-list[hidden] {
+      display: none;
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 14px;
+    }
+
+    .panel-head h2 {
+      font-size: clamp(1.2rem, 2vw, 1.55rem);
+      letter-spacing: 0;
+    }
+
+    .panel-meta {
+      color: var(--muted);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .project-tools {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .task-upload-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 34px;
+      padding: 7px 12px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fbfdfc;
+      color: var(--ink);
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .task-upload-button:hover {
+      border-color: var(--teal);
+      color: var(--teal-dark);
+    }
+
+    .task-upload-button input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+    }
+
+    .deadline-meta {
+      color: var(--muted);
+      font-size: 0.88rem;
+      font-weight: 700;
+    }
+
+    .employee-chart {
+      display: grid;
+      gap: 18px;
+    }
+
+    .employee-pie-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(280px, 1fr));
+      gap: 18px;
+      align-items: start;
+    }
+
+    .employee-pie-block {
+      min-width: 0;
+      display: grid;
+      gap: 12px;
+    }
+
+    .employee-pie-block h3 {
+      color: var(--muted);
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-weight: 800;
+    }
+
+    .employee-chart .pie-wrap {
+      grid-template-columns: 1fr;
+    }
+
+    .employee-chart .chart-canvas {
+      height: 460px;
+    }
+
+    .project-chart-grid {
+      display: grid;
+      grid-template-columns: minmax(260px, 0.72fr) minmax(360px, 1.28fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .pie-wrap,
+    .trend-stack,
+    .chart-block {
+      min-width: 0;
+      display: grid;
+      gap: 14px;
+    }
+
+    .chart-block {
+      gap: 10px;
+    }
+
+    .chart-block h3 {
+      color: var(--muted);
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-weight: 800;
+    }
+
+    .line-key {
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 700;
+      margin-top: -4px;
+    }
+
+    .trend-stack .chart-canvas {
+      height: 260px;
+    }
+
+    .chart-canvas {
+      width: 100%;
+      height: 320px;
+      background: #fbfdfc;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      display: block;
+    }
+
+    .legend {
+      display: grid;
+      gap: 8px;
+      max-height: 360px;
+      overflow: auto;
+      padding-right: 2px;
+    }
+
+    .legend-row {
+      display: grid;
+      grid-template-columns: 14px minmax(0, 1fr) auto;
+      align-items: start;
+      gap: 9px;
+      line-height: 1.3;
+      font-size: 0.92rem;
+    }
+
+    .legend-toggle {
+      width: 100%;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .legend-toggle:hover .legend-name {
+      color: var(--teal-dark);
+      text-decoration: underline;
+      text-decoration-thickness: 2px;
+      text-underline-offset: 3px;
+    }
+
+    .legend-toggle.disabled-series {
+      opacity: 0.42;
+    }
+
+    .legend-toggle.disabled-series .legend-name {
+      text-decoration: line-through;
+      text-decoration-thickness: 2px;
+    }
+
+    .swatch {
+      width: 12px;
+      height: 12px;
+      margin-top: 3px;
+      border-radius: 3px;
+      border: 1px solid rgba(0, 0, 0, 0.08);
+    }
+
+    .legend-name {
+      min-width: 0;
+      overflow-wrap: anywhere;
+      color: var(--ink);
+      font-weight: 700;
+    }
+
+    .legend-value {
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.92rem;
+    }
+
+    th,
+    td {
+      padding: 10px 8px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    td:first-child,
+    th:first-child {
+      width: 62%;
+    }
+
+    td {
+      overflow-wrap: anywhere;
+    }
+
+    .number {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .project-list {
+      display: grid;
+      gap: 18px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 42px 18px;
+      color: var(--muted);
+    }
+
+    .empty-state strong {
+      display: block;
+      color: var(--ink);
+      font-size: 1.1rem;
+      margin-bottom: 6px;
+    }
+
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    @media (max-width: 900px) {
+      .header-inner,
+      .project-chart-grid,
+      .employee-pie-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .employee-chart .chart-canvas {
+        height: 380px;
+      }
+
+      .header-inner {
+        align-items: stretch;
+      }
+
+      .file-grid,
+      .kpis {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 620px) {
+      .file-grid,
+      .kpis {
+        grid-template-columns: 1fr;
+      }
+
+      .status-bar,
+      .panel-head {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .panel-meta {
+        white-space: normal;
+      }
+
+      .year-chips {
+        justify-content: flex-start;
+      }
+
+      .chart-canvas {
+        height: 280px;
+      }
+
+      .employee-chart .chart-canvas {
+        height: 320px;
+      }
+
+      .trend-stack .chart-canvas {
+        height: 260px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <div>
+        <h1>Odoo Time Dashboard</h1>
+        <p class="subtitle">Timesheet and project contribution exports, excluding Internal holiday rows from every percentage.</p>
+      </div>
+      <div class="file-grid" aria-label="Workbook uploads">
+        <label class="file-picker" data-help="Your own timesheet export: months as columns, projects as rows, with Temps passe hours.">
+          <span>My timesheet export</span>
+          <input id="employeeFile" data-testid="employee-file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+        </label>
+        <label class="file-picker" data-help="Your personal planning by project: date rows with project subrows, using the planned-hours column.">
+          <span>My planning export</span>
+          <input id="personalPlanFile" data-testid="personal-plan-file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+        </label>
+        <label class="file-picker" data-help="Actual hours for one or more projects: project row with employee rows below it and months as columns.">
+          <span>Project exports</span>
+          <input id="projectFiles" data-testid="project-files" type="file" multiple accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+        </label>
+        <label class="file-picker" data-help="Optional planning for projects: employees as rows, end-date month columns, planned hours as values.">
+          <span>Planned project exports</span>
+          <input id="plannedFiles" data-testid="planned-files" type="file" multiple accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+        </label>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="status-bar" aria-live="polite">
+      <p id="statusText">Load one employee export, optional personal planning, project exports, and optional planned project exports.</p>
+      <span id="statusPill" class="status-pill warn">Waiting</span>
+    </section>
+
+    <section id="filterBar" class="filter-bar" aria-label="Year filters">
+      <div class="filter-title">
+        <strong>Year scope</strong>
+        <span id="scopeText">All available months</span>
+      </div>
+      <div id="yearChips" class="year-chips"></div>
+    </section>
+
+    <section id="kpiGrid" class="kpis" aria-label="Summary metrics">
+      <div class="kpi">
+        <span>My hours</span>
+        <strong id="myHours">0</strong>
+      </div>
+      <div class="kpi">
+        <span>My projects</span>
+        <strong id="myProjectCount">0</strong>
+      </div>
+      <div class="kpi">
+        <span>Project hours</span>
+        <strong id="projectHours">0</strong>
+      </div>
+      <div class="kpi">
+        <span>Employees</span>
+        <strong id="employeeCount">0</strong>
+      </div>
+    </section>
+
+    <section id="employeePanel" class="panel" hidden>
+      <div class="panel-head">
+        <div>
+          <h2>My Time by Project</h2>
+        </div>
+        <div id="employeeMeta" class="panel-meta"></div>
+      </div>
+      <div class="employee-chart">
+        <div class="employee-pie-grid">
+          <div id="employeeActualBlock" class="employee-pie-block">
+            <h3>Actual time</h3>
+            <div class="pie-wrap">
+              <canvas id="employeePie" class="chart-canvas" aria-label="My actual project time pie chart"></canvas>
+              <div id="employeeLegend" class="legend"></div>
+            </div>
+          </div>
+          <div id="employeePlanBlock" class="employee-pie-block" hidden>
+            <h3>Planned time</h3>
+            <div class="pie-wrap">
+              <canvas id="employeePlanPie" class="chart-canvas" aria-label="My planned project time pie chart"></canvas>
+              <div id="employeePlanLegend" class="legend"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="projectList" class="project-list" hidden></section>
+
+    <section id="emptyState" class="panel empty-state">
+      <strong>No workbook loaded</strong>
+      <p>Select the Odoo exports above to build the dashboard.</p>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const CHART_COLORS = [
+        "#0f766e", "#c75f4c", "#4556b2", "#a87618", "#7b3f8c", "#2f855a",
+        "#c05621", "#2b6cb0", "#b83280", "#718096", "#b7791f", "#00838f",
+        "#9f1239", "#4c51bf", "#2c7a7b", "#805ad5", "#b45309", "#047857"
+      ];
+      const CURRENT_YEAR = new Date().getFullYear();
+
+      const MONTHS = {
+        january: 0, jan: 0, janvier: 0,
+        february: 1, feb: 1, fevrier: 1, fev: 1,
+        march: 2, mar: 2, mars: 2,
+        april: 3, apr: 3, avril: 3,
+        may: 4, mai: 4,
+        june: 5, jun: 5, juin: 5,
+        july: 6, jul: 6, juillet: 6,
+        august: 7, aug: 7, aout: 7,
+        september: 8, sep: 8, sept: 8, septembre: 8,
+        october: 9, oct: 9, octobre: 9,
+        november: 10, nov: 10, novembre: 10,
+        december: 11, dec: 11, decembre: 11
+      };
+
+      const state = {
+        employee: null,
+        personalPlan: null,
+        projects: [],
+        plans: [],
+        hiddenSeries: new Map(),
+        taskDeadlines: new Map(),
+        errors: [],
+        years: [],
+        selectedYears: new Set()
+      };
+
+      const els = {
+        employeeFile: document.getElementById("employeeFile"),
+        personalPlanFile: document.getElementById("personalPlanFile"),
+        projectFiles: document.getElementById("projectFiles"),
+        plannedFiles: document.getElementById("plannedFiles"),
+        statusText: document.getElementById("statusText"),
+        statusPill: document.getElementById("statusPill"),
+        filterBar: document.getElementById("filterBar"),
+        yearChips: document.getElementById("yearChips"),
+        scopeText: document.getElementById("scopeText"),
+        kpiGrid: document.getElementById("kpiGrid"),
+        myHours: document.getElementById("myHours"),
+        myProjectCount: document.getElementById("myProjectCount"),
+        projectHours: document.getElementById("projectHours"),
+        employeeCount: document.getElementById("employeeCount"),
+        employeePanel: document.getElementById("employeePanel"),
+        employeeMeta: document.getElementById("employeeMeta"),
+        employeeActualBlock: document.getElementById("employeeActualBlock"),
+        employeePlanBlock: document.getElementById("employeePlanBlock"),
+        employeePie: document.getElementById("employeePie"),
+        employeeLegend: document.getElementById("employeeLegend"),
+        employeePlanPie: document.getElementById("employeePlanPie"),
+        employeePlanLegend: document.getElementById("employeePlanLegend"),
+        projectList: document.getElementById("projectList"),
+        emptyState: document.getElementById("emptyState")
+      };
+
+      els.employeeFile.addEventListener("change", () => {
+        const file = els.employeeFile.files[0];
+        if (!file) {
+          state.employee = null;
+          refreshYears();
+          render();
+          return;
+        }
+        loadEmployee(file);
+      });
+
+      els.personalPlanFile.addEventListener("change", () => {
+        const file = els.personalPlanFile.files[0];
+        if (!file) {
+          state.personalPlan = null;
+          refreshYears(true);
+          render();
+          return;
+        }
+        loadPersonalPlan(file);
+      });
+
+      els.projectFiles.addEventListener("change", () => {
+        loadProjects(Array.from(els.projectFiles.files || []));
+      });
+
+      els.plannedFiles.addEventListener("change", () => {
+        loadPlans(Array.from(els.plannedFiles.files || []));
+      });
+
+      window.addEventListener("resize", debounce(renderChartsOnly, 160));
+
+      async function loadEmployee(file) {
+        setStatus("Reading employee export...", "Loading", false);
+        state.errors = [];
+        try {
+          const parsed = await parseOdooWorkbook(file);
+          state.employee = buildEmployeeDataset(file.name, parsed);
+        } catch (error) {
+          state.employee = null;
+          state.errors.push(`${file.name}: ${error.message}`);
+        }
+        refreshYears(true);
+        render();
+      }
+
+      async function loadPersonalPlan(file) {
+        setStatus("Reading personal planning export...", "Loading", false);
+        state.errors = [];
+        try {
+          state.personalPlan = await parsePersonalPlanningWorkbook(file);
+        } catch (error) {
+          state.personalPlan = null;
+          state.errors.push(`${file.name}: ${error.message}`);
+        }
+        refreshYears(true);
+        render();
+      }
+
+      async function loadProjects(files) {
+        state.projects = [];
+        state.errors = [];
+        if (!files.length) {
+          refreshYears();
+          render();
+          return;
+        }
+
+        setStatus("Reading project exports...", "Loading", false);
+        const next = [];
+        for (const file of files) {
+          try {
+            const parsed = await parseOdooWorkbook(file);
+            next.push(...buildProjectDatasets(file.name, parsed));
+          } catch (error) {
+            state.errors.push(`${file.name}: ${error.message}`);
+          }
+        }
+        state.projects = next;
+        refreshYears(true);
+        render();
+      }
+
+      async function loadPlans(files) {
+        state.plans = [];
+        state.errors = [];
+        if (!files.length) {
+          refreshYears();
+          render();
+          return;
+        }
+
+        setStatus("Reading planned project exports...", "Loading", false);
+        const next = [];
+        for (const file of files) {
+          try {
+            next.push(await parsePlannedWorkbook(file));
+          } catch (error) {
+            state.errors.push(`${file.name}: ${error.message}`);
+          }
+        }
+        state.plans = next;
+        refreshYears(true);
+        render();
+      }
+
+      async function loadProjectTaskDeadlines(project, file) {
+        const wasAll = state.years.length > 0 && state.selectedYears.size === state.years.length;
+        setStatus("Reading task deadline export...", "Loading", false);
+        state.errors = [];
+        try {
+          state.taskDeadlines.set(projectSeriesKey(project), await parseTaskDeadlineWorkbook(file));
+        } catch (error) {
+          state.taskDeadlines.delete(projectSeriesKey(project));
+          state.errors.push(`${file.name}: ${error.message}`);
+        }
+        refreshYears(false);
+        if (wasAll) {
+          state.selectedYears = new Set(state.years);
+        }
+        render();
+      }
+
+      async function parseOdooWorkbook(file) {
+        const workbook = await readXlsx(file);
+        const sheet = workbook.sheets[0];
+        if (!sheet) {
+          throw new Error("No worksheet found");
+        }
+        const monthColumns = detectMonthColumns(sheet.rows);
+        const rows = extractTimeRows(sheet.rows, monthColumns);
+        if (!rows.length) {
+          throw new Error("No timesheet rows found");
+        }
+        return {
+          fileName: file.name,
+          sheetName: sheet.name,
+          monthColumns,
+          rows
+        };
+      }
+
+      async function parsePersonalPlanningWorkbook(file) {
+        const workbook = await readXlsx(file);
+        const sheet = workbook.sheets[0];
+        if (!sheet) {
+          throw new Error("No worksheet found");
+        }
+
+        const plannedColumn = detectPlannedHoursColumn(sheet.rows);
+        const dateMonths = detectPersonalPlanningMonths(sheet.rows);
+        const events = extractPersonalPlanningEvents(sheet.rows, plannedColumn);
+        if (!events.length) {
+          throw new Error("No personal planned project rows found");
+        }
+
+        return buildPersonalPlanDataset(file.name, sheet.name, events, dateMonths);
+      }
+
+      async function parseTaskDeadlineWorkbook(file) {
+        const workbook = await readXlsx(file);
+        const sheet = workbook.sheets[0];
+        if (!sheet) {
+          throw new Error("No worksheet found");
+        }
+
+        const monthColumns = detectMonthColumns(sheet.rows);
+        const headerIndex = Math.min(...monthColumns.map((month) => month.rowIndex || 0));
+        const grouped = new Map();
+
+        for (let rowIndex = headerIndex + 1; rowIndex < sheet.rows.length; rowIndex += 1) {
+          const row = sheet.rows[rowIndex] || [];
+          const label = cleanLabel(row[0]);
+          if (!label || isTotal(label)) {
+            continue;
+          }
+
+          monthColumns.forEach((month) => {
+            const count = toHours(row[month.colIndex]);
+            if (count <= 0) {
+              return;
+            }
+            if (!grouped.has(month.key)) {
+              grouped.set(month.key, {
+                month,
+                count: 0,
+                labels: []
+              });
+            }
+            const deadline = grouped.get(month.key);
+            deadline.count += count;
+            deadline.labels.push(label);
+          });
+        }
+
+        const deadlines = Array.from(grouped.values()).sort((a, b) => a.month.date - b.month.date);
+        if (!deadlines.length) {
+          throw new Error("No task deadlines found");
+        }
+
+        return {
+          fileName: file.name,
+          sheetName: sheet.name,
+          months: deadlines.map((deadline) => deadline.month),
+          deadlines
+        };
+      }
+
+      async function parsePlannedWorkbook(file) {
+        const workbook = await readXlsx(file);
+        const sheet = workbook.sheets[0];
+        if (!sheet) {
+          throw new Error("No worksheet found");
+        }
+
+        const monthColumns = detectMonthColumns(sheet.rows);
+        const projectName = detectPlannedProjectName(sheet.rows, monthColumns) || file.name.replace(/\.xlsx$/i, "");
+        const rows = extractTimeRows(sheet.rows, monthColumns).filter((row) => isDataRow(row));
+        if (!rows.length) {
+          throw new Error("No planned employee rows found");
+        }
+
+        return buildPlannedDataset(file.name, {
+          sheetName: sheet.name,
+          projectName,
+          monthColumns,
+          rows
+        });
+      }
+
+      async function readXlsx(file) {
+        const arrayBuffer = await file.arrayBuffer();
+        const entries = await unzipEntries(arrayBuffer);
+        const strings = parseSharedStrings(entries.get("xl/sharedStrings.xml"));
+        const workbookXml = parseXml(entries.get("xl/workbook.xml"), "workbook.xml");
+        const relationships = parseWorkbookRelationships(entries.get("xl/_rels/workbook.xml.rels"));
+        const sheets = Array.from(workbookXml.getElementsByTagName("sheet")).map((sheetNode, index) => {
+          const name = sheetNode.getAttribute("name") || `Sheet ${index + 1}`;
+          const relId = sheetNode.getAttribute("r:id");
+          const target = relationships.get(relId) || `worksheets/sheet${index + 1}.xml`;
+          const path = resolveXlPath(target);
+          const xml = entries.get(path);
+          return xml ? { name, rows: parseWorksheet(xml, strings) } : null;
+        }).filter(Boolean);
+        return { sheets };
+      }
+
+      async function unzipEntries(arrayBuffer) {
+        const view = new DataView(arrayBuffer);
+        const eocdOffset = findEndOfCentralDirectory(view);
+        const entryCount = view.getUint16(eocdOffset + 10, true);
+        const centralOffset = view.getUint32(eocdOffset + 16, true);
+        const entries = new Map();
+        let offset = centralOffset;
+
+        for (let i = 0; i < entryCount; i += 1) {
+          if (view.getUint32(offset, true) !== 0x02014b50) {
+            throw new Error("Invalid XLSX central directory");
+          }
+
+          const method = view.getUint16(offset + 10, true);
+          const compressedSize = view.getUint32(offset + 20, true);
+          const fileNameLength = view.getUint16(offset + 28, true);
+          const extraLength = view.getUint16(offset + 30, true);
+          const commentLength = view.getUint16(offset + 32, true);
+          const localOffset = view.getUint32(offset + 42, true);
+          const nameBytes = new Uint8Array(arrayBuffer, offset + 46, fileNameLength);
+          const name = decodeUtf8(nameBytes).replace(/\\/g, "/");
+
+          const localNameLength = view.getUint16(localOffset + 26, true);
+          const localExtraLength = view.getUint16(localOffset + 28, true);
+          const dataOffset = localOffset + 30 + localNameLength + localExtraLength;
+          const compressed = arrayBuffer.slice(dataOffset, dataOffset + compressedSize);
+
+          let bytes;
+          if (method === 0) {
+            bytes = new Uint8Array(compressed);
+          } else if (method === 8) {
+            bytes = await inflateRaw(compressed);
+          } else {
+            throw new Error(`Unsupported XLSX compression method ${method}`);
+          }
+
+          entries.set(name, decodeUtf8(bytes));
+          offset += 46 + fileNameLength + extraLength + commentLength;
+        }
+
+        return entries;
+      }
+
+      function findEndOfCentralDirectory(view) {
+        const min = Math.max(0, view.byteLength - 65557);
+        for (let offset = view.byteLength - 22; offset >= min; offset -= 1) {
+          if (view.getUint32(offset, true) === 0x06054b50) {
+            return offset;
+          }
+        }
+        throw new Error("Invalid XLSX file");
+      }
+
+      async function inflateRaw(compressed) {
+        if (!("DecompressionStream" in window)) {
+          throw new Error("This browser cannot decompress XLSX files");
+        }
+        const formats = ["deflate-raw", "deflate"];
+        let lastError = null;
+        for (const format of formats) {
+          try {
+            const stream = new Blob([compressed]).stream().pipeThrough(new DecompressionStream(format));
+            return new Uint8Array(await new Response(stream).arrayBuffer());
+          } catch (error) {
+            lastError = error;
+          }
+        }
+        throw lastError || new Error("Unable to decompress XLSX file");
+      }
+
+      function decodeUtf8(bytes) {
+        return new TextDecoder("utf-8").decode(bytes);
+      }
+
+      function parseXml(text, label) {
+        if (!text) {
+          throw new Error(`${label} missing from XLSX`);
+        }
+        const xml = new DOMParser().parseFromString(text, "application/xml");
+        if (xml.getElementsByTagName("parsererror").length) {
+          throw new Error(`${label} could not be parsed`);
+        }
+        return xml;
+      }
+
+      function parseSharedStrings(text) {
+        if (!text) {
+          return [];
+        }
+        const xml = parseXml(text, "sharedStrings.xml");
+        return Array.from(xml.getElementsByTagName("si")).map((node) => node.textContent || "");
+      }
+
+      function parseWorkbookRelationships(text) {
+        const relationships = new Map();
+        if (!text) {
+          return relationships;
+        }
+        const xml = parseXml(text, "workbook.xml.rels");
+        for (const rel of xml.getElementsByTagName("Relationship")) {
+          relationships.set(rel.getAttribute("Id"), rel.getAttribute("Target"));
+        }
+        return relationships;
+      }
+
+      function resolveXlPath(target) {
+        if (!target) {
+          return "";
+        }
+        const clean = target.replace(/\\/g, "/").replace(/^\//, "");
+        return clean.startsWith("xl/") ? clean : `xl/${clean}`;
+      }
+
+      function parseWorksheet(text, sharedStrings) {
+        const xml = parseXml(text, "worksheet.xml");
+        const rows = [];
+        const rowNodes = xml.getElementsByTagName("row");
+        for (const rowNode of rowNodes) {
+          const rowIndex = Number(rowNode.getAttribute("r") || rows.length + 1) - 1;
+          const values = rows[rowIndex] || [];
+          let fallbackColumn = 0;
+          for (const cell of rowNode.getElementsByTagName("c")) {
+            const ref = cell.getAttribute("r");
+            const colIndex = ref ? columnIndexFromRef(ref) : fallbackColumn;
+            values[colIndex] = parseCellValue(cell, sharedStrings);
+            fallbackColumn = colIndex + 1;
+          }
+          rows[rowIndex] = values;
+        }
+        return rows.map((row) => row || []);
+      }
+
+      function parseCellValue(cell, sharedStrings) {
+        const type = cell.getAttribute("t");
+        if (type === "inlineStr") {
+          const inline = cell.getElementsByTagName("is")[0];
+          return inline ? inline.textContent || "" : "";
+        }
+
+        const valueNode = cell.getElementsByTagName("v")[0];
+        if (!valueNode) {
+          return "";
+        }
+        const raw = valueNode.textContent || "";
+
+        if (type === "s") {
+          return sharedStrings[Number(raw)] || "";
+        }
+        if (type === "b") {
+          return raw === "1";
+        }
+        if (type === "str") {
+          return raw;
+        }
+        const numeric = Number(raw);
+        return Number.isFinite(numeric) ? numeric : raw;
+      }
+
+      function columnIndexFromRef(ref) {
+        const letters = (ref.match(/[A-Z]+/i) || [""])[0].toUpperCase();
+        let index = 0;
+        for (const letter of letters) {
+          index = index * 26 + letter.charCodeAt(0) - 64;
+        }
+        return index - 1;
+      }
+
+      function detectMonthColumns(rows) {
+        let best = null;
+        const scanRows = rows.slice(0, Math.min(rows.length, 12));
+        scanRows.forEach((row, rowIndex) => {
+          const months = [];
+          row.forEach((value, colIndex) => {
+            const parsed = parseMonth(value);
+            if (parsed) {
+              months.push({ ...parsed, rowIndex, colIndex, rawLabel: String(value) });
+            }
+          });
+          if (!best || months.length > best.months.length) {
+            best = { rowIndex, months };
+          }
+        });
+
+        if (!best || best.months.length === 0) {
+          throw new Error("No month columns found");
+        }
+        return best.months.sort((a, b) => a.date - b.date);
+      }
+
+      function parseMonth(value) {
+        if (value instanceof Date && Number.isFinite(value.getTime())) {
+          return monthObject(value.getFullYear(), value.getMonth());
+        }
+
+        if (typeof value === "number" && value > 20000 && value < 80000) {
+          const date = excelSerialToDate(value);
+          return monthObject(date.getFullYear(), date.getMonth());
+        }
+
+        const text = normalizeText(String(value || ""));
+        if (!text) {
+          return null;
+        }
+
+        let match = text.match(/\b(20\d{2}|19\d{2})[-/ ](0?[1-9]|1[0-2])\b/);
+        if (match) {
+          return monthObject(Number(match[1]), Number(match[2]) - 1);
+        }
+
+        match = text.match(/\b(0?[1-9]|1[0-2])[-/ ](20\d{2}|19\d{2})\b/);
+        if (match) {
+          return monthObject(Number(match[2]), Number(match[1]) - 1);
+        }
+
+        match = text.match(/\b([a-z]+)\s+(20\d{2}|19\d{2})\b/);
+        if (match && Object.prototype.hasOwnProperty.call(MONTHS, match[1])) {
+          return monthObject(Number(match[2]), MONTHS[match[1]]);
+        }
+
+        return null;
+      }
+
+      function monthObject(year, month) {
+        const date = new Date(year, month, 1);
+        const normalizedYear = date.getFullYear();
+        const normalizedMonth = date.getMonth();
+        return {
+          key: `${normalizedYear}-${String(normalizedMonth + 1).padStart(2, "0")}`,
+          year: normalizedYear,
+          month: normalizedMonth,
+          date,
+          label: new Intl.DateTimeFormat("en", { month: "short", year: "numeric" }).format(date)
+        };
+      }
+
+      function addMonths(month, offset) {
+        return monthObject(month.year, month.month + offset);
+      }
+
+      function monthFromKey(key) {
+        const [year, month] = String(key).split("-").map(Number);
+        return monthObject(year, month - 1);
+      }
+
+      function generateMonthRange(start, end) {
+        if (!start || !end || start.date > end.date) {
+          return [];
+        }
+        const result = [];
+        let current = monthObject(start.year, start.month);
+        while (current.date <= end.date) {
+          result.push(current);
+          current = addMonths(current, 1);
+        }
+        return result;
+      }
+
+      function excelSerialToDate(serial) {
+        return new Date(Math.round((serial - 25569) * 86400 * 1000));
+      }
+
+      function extractTimeRows(rows, monthColumns) {
+        const headerIndex = Math.min(...monthColumns.map((month) => month.rowIndex || 0));
+        const start = Math.max(0, headerIndex + 1);
+        const result = [];
+
+        for (let rowIndex = start; rowIndex < rows.length; rowIndex += 1) {
+          const row = rows[rowIndex] || [];
+          const rawLabel = row[0] == null ? "" : String(row[0]);
+          const label = cleanLabel(rawLabel);
+          if (!label) {
+            continue;
+          }
+          const values = new Map();
+          for (const month of monthColumns) {
+            const hours = toHours(row[month.colIndex]);
+            values.set(month.key, hours);
+          }
+          const total = sumMap(values);
+          result.push({
+            rowIndex,
+            rawLabel,
+            label,
+            indent: leadingWhitespace(rawLabel),
+            values,
+            total
+          });
+        }
+
+        return result;
+      }
+
+      function detectPlannedProjectName(rows, monthColumns) {
+        const monthRowIndex = Math.min(...monthColumns.map((month) => month.rowIndex || 0));
+        const candidates = [];
+        for (let rowIndex = 0; rowIndex < monthRowIndex; rowIndex += 1) {
+          (rows[rowIndex] || []).forEach((value) => {
+            const label = cleanLabel(value);
+            if (!label || isTotal(label) || parseMonth(label)) {
+              return;
+            }
+            candidates.push(label);
+          });
+        }
+        return candidates.sort((a, b) => b.length - a.length)[0] || "";
+      }
+
+      function detectPlannedHoursColumn(rows) {
+        for (const row of rows.slice(0, 12)) {
+          for (let colIndex = 0; colIndex < row.length; colIndex += 1) {
+            const label = normalizeText(row[colIndex]).replace(/[^a-z0-9]+/g, " ").trim();
+            if (label.includes("plann") && label.includes("heure")) {
+              return colIndex;
+            }
+          }
+        }
+        throw new Error("No planned-hours column found");
+      }
+
+      function detectPersonalPlanningMonths(rows) {
+        const months = new Map();
+        rows.forEach((row) => {
+          const label = cleanLabel(row[0]);
+          const month = parseStandaloneMonthLabel(label);
+          if (month && !isTotal(label)) {
+            months.set(month.key, month);
+          }
+        });
+        return Array.from(months.values()).sort((a, b) => a.date - b.date);
+      }
+
+      function extractPersonalPlanningEvents(rows, plannedColumn) {
+        const events = [];
+        let currentMonth = null;
+        let currentIndent = 0;
+
+        rows.forEach((row, rowIndex) => {
+          const rawLabel = row[0] == null ? "" : String(row[0]);
+          const label = cleanLabel(rawLabel);
+          if (!label || isTotal(label)) {
+            return;
+          }
+
+          const labelMonth = parseStandaloneMonthLabel(label);
+          if (labelMonth) {
+            currentMonth = labelMonth;
+            currentIndent = leadingWhitespace(rawLabel);
+            return;
+          }
+
+          if (!currentMonth || leadingWhitespace(rawLabel) <= currentIndent || isInternal(label)) {
+            return;
+          }
+
+          const hours = toHours(row[plannedColumn]);
+          if (hours > 0) {
+            events.push({
+              rowIndex,
+              name: label,
+              endMonth: currentMonth,
+              hours
+            });
+          }
+        });
+
+        return events;
+      }
+
+      function parseStandaloneMonthLabel(label) {
+        const clean = cleanLabel(label);
+        if (!clean || clean.includes("[") || clean.length > 32) {
+          return null;
+        }
+        return parseMonth(clean);
+      }
+
+      function buildEmployeeDataset(fileName, parsed) {
+        const candidates = parsed.rows.filter((row) => isDataRow(row));
+        if (!candidates.length) {
+          throw new Error("No project rows found after removing Internal");
+        }
+        const minIndent = Math.min(...candidates.map((row) => row.indent));
+        const projectRows = candidates.filter((row) => row.indent === minIndent && row.total > 0);
+        return {
+          type: "employee",
+          fileName,
+          sheetName: parsed.sheetName,
+          months: parsed.monthColumns,
+          rows: projectRows.map((row) => ({
+            name: row.label,
+            values: row.values
+          }))
+        };
+      }
+
+      function buildProjectDatasets(fileName, parsed) {
+        const candidates = parsed.rows.filter((row) => isDataRow(row));
+        if (!candidates.length) {
+          throw new Error("No project or employee rows found after removing Internal");
+        }
+
+        const minIndent = Math.min(...candidates.map((row) => row.indent));
+        const roots = candidates.filter((row) => row.indent === minIndent && row.total > 0);
+        const datasets = [];
+
+        roots.forEach((root, index) => {
+          const nextRoot = roots[index + 1];
+          const children = candidates.filter((row) => {
+            return row.rowIndex > root.rowIndex &&
+              (!nextRoot || row.rowIndex < nextRoot.rowIndex) &&
+              row.indent > root.indent &&
+              row.total > 0;
+          });
+
+          const maxIndent = children.length ? Math.max(...children.map((row) => row.indent)) : null;
+          const employeeRows = children.length
+            ? children.filter((row) => row.indent === maxIndent)
+            : [];
+
+          datasets.push({
+            type: "project",
+            fileName,
+            sheetName: parsed.sheetName,
+            name: root.label,
+            months: parsed.monthColumns,
+            rows: employeeRows.map((row) => ({
+              name: row.label,
+              values: row.values
+            }))
+          });
+        });
+
+        return datasets;
+      }
+
+      function buildPlannedDataset(fileName, parsed) {
+        const endpointMonths = parsed.monthColumns.sort((a, b) => a.date - b.date);
+        const projectStart = parseProjectStartMonth(parsed.projectName) || endpointMonths[0];
+        const projectEnd = endpointMonths[endpointMonths.length - 1];
+        return {
+          type: "planned",
+          fileName,
+          sheetName: parsed.sheetName,
+          name: parsed.projectName,
+          code: extractProjectCode(parsed.projectName),
+          projectStart,
+          months: endpointMonths,
+          timelineMonths: generateMonthRange(projectStart, projectEnd),
+          rows: parsed.rows.map((row) => ({
+            name: row.label,
+            values: row.values
+          }))
+        };
+      }
+
+      function buildPersonalPlanDataset(fileName, sheetName, events, dateMonths) {
+        const grouped = new Map();
+        events.forEach((event) => {
+          const key = projectColorKey(event.name);
+          if (!grouped.has(key)) {
+            grouped.set(key, { name: event.name, events: [] });
+          }
+          grouped.get(key).events.push(event);
+        });
+
+        const rows = Array.from(grouped.values()).map((group) => {
+          const values = new Map();
+          let previousEnd = null;
+          group.events
+            .sort((a, b) => a.endMonth.date - b.endMonth.date)
+            .forEach((event) => {
+              const periodStart = previousEnd
+                ? addMonths(previousEnd, 1)
+                : (parseProjectStartMonth(group.name) || event.endMonth);
+              const periodMonths = generateMonthRange(periodStart, event.endMonth);
+              if (periodMonths.length) {
+                const monthlyHours = event.hours / periodMonths.length;
+                periodMonths.forEach((month) => {
+                  values.set(month.key, (values.get(month.key) || 0) + monthlyHours);
+                });
+              }
+              previousEnd = event.endMonth;
+            });
+          return {
+            name: group.name,
+            values
+          };
+        });
+
+        const timelineMonths = Array.from(new Set([
+          ...dateMonths.map((month) => month.key),
+          ...rows.flatMap((row) => Array.from(row.values.keys()))
+        ])).sort().map(monthFromKey);
+
+        return {
+          type: "personal-plan",
+          fileName,
+          sheetName,
+          months: timelineMonths,
+          timelineMonths,
+          rows
+        };
+      }
+
+      function isDataRow(row) {
+        return row.total > 0 && !isTotal(row.label) && !isInternal(row.label);
+      }
+
+      function isTotal(label) {
+        const normalized = normalizeText(label).replace(/[^a-z0-9]+/g, " ").trim();
+        return normalized === "total" || normalized === "grand total";
+      }
+
+      function isInternal(label) {
+        const normalized = normalizeText(label).replace(/[^a-z0-9]+/g, " ").trim();
+        return normalized === "internal" ||
+          normalized === "interne" ||
+          normalized.startsWith("internal ") ||
+          normalized.startsWith("interne ");
+      }
+
+      function leadingWhitespace(text) {
+        return (String(text).match(/^\s*/) || [""])[0].length;
+      }
+
+      function cleanLabel(text) {
+        return String(text || "").replace(/\s+/g, " ").trim();
+      }
+
+      function normalizeText(text) {
+        return String(text || "")
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase()
+          .trim();
+      }
+
+      function extractProjectCode(text) {
+        const match = String(text || "").match(/\[(\d{5,})\]/);
+        return match ? match[1] : "";
+      }
+
+      function parseProjectStartMonth(text) {
+        const match = String(text || "").match(/\b(0?[1-9]|1[0-2])\/(\d{2}|\d{4})\s*[-–]\s*(0?[1-9]|1[0-2])\/(\d{2}|\d{4})\b/);
+        if (!match) {
+          return null;
+        }
+        return monthObject(resolveProjectYear(match[2]), Number(match[1]) - 1);
+      }
+
+      function resolveProjectYear(value) {
+        const year = Number(value);
+        return year < 100 ? 2000 + year : year;
+      }
+
+      function toHours(value) {
+        if (typeof value === "number" && Number.isFinite(value)) {
+          return value;
+        }
+        if (typeof value === "string") {
+          const normalized = value.trim().replace(",", ".");
+          if (!normalized) {
+            return 0;
+          }
+          const duration = normalized.match(/^(-?\d+):([0-5]?\d)(?::([0-5]?\d))?$/);
+          if (duration) {
+            const sign = duration[1].startsWith("-") ? -1 : 1;
+            const hours = Math.abs(Number(duration[1]));
+            const minutes = Number(duration[2] || 0);
+            const seconds = Number(duration[3] || 0);
+            return sign * (hours + minutes / 60 + seconds / 3600);
+          }
+          const numeric = Number(normalized);
+          return Number.isFinite(numeric) ? numeric : 0;
+        }
+        return 0;
+      }
+
+      function sumMap(values, keys = null) {
+        let total = 0;
+        const selected = keys || Array.from(values.keys());
+        for (const key of selected) {
+          total += values.get(key) || 0;
+        }
+        return total;
+      }
+
+      function refreshYears(resetSelection = false) {
+        const years = new Set();
+        if (state.employee) {
+          state.employee.months.forEach((month) => years.add(month.year));
+        }
+        if (state.personalPlan) {
+          state.personalPlan.timelineMonths.forEach((month) => years.add(month.year));
+        }
+        state.projects.forEach((project) => {
+          project.months.forEach((month) => years.add(month.year));
+        });
+        state.plans.forEach((plan) => {
+          plan.timelineMonths.forEach((month) => years.add(month.year));
+        });
+        state.taskDeadlines.forEach((deadlineSet) => {
+          deadlineSet.months.forEach((month) => years.add(month.year));
+        });
+        state.years = Array.from(years).sort((a, b) => a - b);
+        if (resetSelection || !state.selectedYears.size) {
+          state.selectedYears = state.personalPlan && years.has(CURRENT_YEAR)
+            ? new Set([CURRENT_YEAR])
+            : new Set(state.years);
+        } else {
+          state.selectedYears = new Set(
+            Array.from(state.selectedYears).filter((year) => years.has(year))
+          );
+        }
+      }
+
+      function render() {
+        renderStatus();
+        renderYearFilters();
+        const selectedKeys = getSelectedMonthKeys();
+        const employeeEntries = state.employee ? aggregateNamedRows(state.employee.rows, selectedKeys) : [];
+        const employeePlanEntries = state.personalPlan ? aggregateNamedRows(state.personalPlan.rows, selectedKeys) : [];
+        applySharedProjectColors(employeeEntries, employeePlanEntries);
+        const projectSummaries = state.projects.map((project) => ({
+          project,
+          entries: aggregateNamedRows(project.rows, selectedKeys)
+        }));
+
+        renderKpis(employeeEntries, projectSummaries);
+        renderEmployeePanel(employeeEntries, employeePlanEntries);
+        renderProjectPanels(projectSummaries);
+        els.emptyState.hidden = Boolean(state.employee || state.personalPlan || state.projects.length || state.plans.length);
+      }
+
+      function renderStatus() {
+        const loaded = [];
+        if (state.employee) {
+          loaded.push("employee export");
+        }
+        if (state.personalPlan) {
+          loaded.push("personal planning");
+        }
+        if (state.projects.length) {
+          loaded.push(`${state.projects.length} project view${state.projects.length === 1 ? "" : "s"}`);
+        }
+        if (state.plans.length) {
+          loaded.push(`${state.plans.length} planned export${state.plans.length === 1 ? "" : "s"}`);
+        }
+        if (state.taskDeadlines.size) {
+          loaded.push(`${state.taskDeadlines.size} task deadline file${state.taskDeadlines.size === 1 ? "" : "s"}`);
+        }
+
+        if (state.errors.length) {
+          setStatus(state.errors.join(" | "), "Check file", true);
+        } else if (loaded.length) {
+          setStatus(`Loaded ${loaded.join(" and ")}.`, "Ready", false);
+        } else {
+          setStatus("Load one employee export, optional personal planning, project exports, and optional planned project exports.", "Waiting", true);
+        }
+      }
+
+      function setStatus(text, pill, warn) {
+        els.statusText.textContent = text;
+        els.statusPill.textContent = pill;
+        els.statusPill.classList.toggle("warn", warn);
+      }
+
+      function renderYearFilters() {
+        els.filterBar.classList.toggle("visible", state.years.length > 0);
+        els.yearChips.innerHTML = "";
+        if (!state.years.length) {
+          els.scopeText.textContent = "All available months";
+          return;
+        }
+
+        const allActive = state.selectedYears.size === state.years.length;
+        els.scopeText.textContent = allActive
+          ? "All available months"
+          : Array.from(state.selectedYears).sort((a, b) => a - b).join(", ");
+
+        const allButton = makeYearButton("All", allActive, () => {
+          state.selectedYears = new Set(state.years);
+          render();
+        });
+        els.yearChips.appendChild(allButton);
+
+        state.years.forEach((year) => {
+          const button = makeYearButton(String(year), state.selectedYears.has(year), () => {
+            const currentlyAll = state.selectedYears.size === state.years.length;
+            if (currentlyAll) {
+              state.selectedYears = new Set([year]);
+            } else if (state.selectedYears.has(year) && state.selectedYears.size > 1) {
+              state.selectedYears.delete(year);
+            } else {
+              state.selectedYears.add(year);
+            }
+            render();
+          });
+          els.yearChips.appendChild(button);
+        });
+      }
+
+      function makeYearButton(label, active, onClick) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `year-chip${active ? " active" : ""}`;
+        button.textContent = label;
+        button.setAttribute("aria-pressed", String(active));
+        button.addEventListener("click", onClick);
+        return button;
+      }
+
+      function getSelectedMonthKeys() {
+        const selected = state.selectedYears.size ? state.selectedYears : new Set(state.years);
+        const keys = new Set();
+        const collect = (dataset) => dataset.months.forEach((month) => {
+          if (selected.has(month.year)) {
+            keys.add(month.key);
+          }
+        });
+        if (state.employee) {
+          collect(state.employee);
+        }
+        if (state.personalPlan) {
+          collect(state.personalPlan);
+        }
+        state.projects.forEach(collect);
+        state.plans.forEach((plan) => {
+          plan.timelineMonths.forEach((month) => {
+            if (selected.has(month.year)) {
+              keys.add(month.key);
+            }
+          });
+        });
+        return Array.from(keys).sort();
+      }
+
+      function aggregateNamedRows(rows, selectedKeys) {
+        return rows
+          .map((row, index) => ({
+            name: row.name,
+            value: sumMap(row.values, selectedKeys),
+            values: row.values,
+            color: CHART_COLORS[index % CHART_COLORS.length]
+          }))
+          .filter((entry) => entry.value > 0)
+          .sort((a, b) => b.value - a.value);
+      }
+
+      function applySharedProjectColors(actualEntries, plannedEntries) {
+        const colorMap = new Map();
+        const usedColors = new Set();
+        actualEntries.forEach((entry) => {
+          const key = projectColorKey(entry.name);
+          if (!colorMap.has(key)) {
+            colorMap.set(key, entry.color);
+            usedColors.add(entry.color);
+          }
+        });
+
+        plannedEntries.forEach((entry) => {
+          const key = projectColorKey(entry.name);
+          if (!colorMap.has(key)) {
+            const color = nextAvailableColor(usedColors);
+            colorMap.set(key, color);
+            usedColors.add(color);
+          }
+        });
+
+        [...actualEntries, ...plannedEntries].forEach((entry) => {
+          entry.color = colorMap.get(projectColorKey(entry.name)) || entry.color;
+        });
+      }
+
+      function nextAvailableColor(usedColors) {
+        return CHART_COLORS.find((color) => !usedColors.has(color)) ||
+          CHART_COLORS[usedColors.size % CHART_COLORS.length];
+      }
+
+      function renderKpis(employeeEntries, projectSummaries) {
+        const hasData = Boolean(state.employee || state.projects.length);
+        els.kpiGrid.classList.toggle("visible", hasData);
+        const myHours = sumEntries(employeeEntries);
+        const projectHours = projectSummaries.reduce((total, summary) => total + sumEntries(summary.entries), 0);
+        const employees = new Set();
+        projectSummaries.forEach((summary) => {
+          summary.entries.forEach((entry) => employees.add(entry.name));
+        });
+        els.myHours.textContent = formatHours(myHours);
+        els.myProjectCount.textContent = String(employeeEntries.length);
+        els.projectHours.textContent = formatHours(projectHours);
+        els.employeeCount.textContent = String(employees.size);
+      }
+
+      function renderEmployeePanel(entries, plannedEntries) {
+        if (!state.employee && !state.personalPlan) {
+          els.employeePanel.hidden = true;
+          return;
+        }
+        els.employeePanel.hidden = false;
+        els.employeeActualBlock.hidden = !state.employee;
+        els.employeePlanBlock.hidden = !state.personalPlan;
+
+        const actualTotal = sumEntries(entries);
+        const plannedTotal = sumEntries(plannedEntries);
+        const metaParts = [];
+        if (state.employee) {
+          metaParts.push(`${formatHours(actualTotal)} h actual`);
+        }
+        if (state.personalPlan) {
+          metaParts.push(`${formatHours(plannedTotal)} h planned`);
+        }
+        els.employeeMeta.textContent = metaParts.join(" / ");
+
+        if (state.employee) {
+          renderPieChart(els.employeePie, entries);
+          renderLegend(els.employeeLegend, entries);
+        }
+        if (state.personalPlan) {
+          renderPieChart(els.employeePlanPie, plannedEntries);
+          renderLegend(els.employeePlanLegend, plannedEntries);
+        }
+      }
+
+      function renderProjectPanels(projectSummaries) {
+        els.projectList.hidden = projectSummaries.length === 0;
+        els.projectList.innerHTML = "";
+        projectSummaries.forEach((summary, index) => {
+          const total = sumEntries(summary.entries);
+          const plan = findPlanForProject(summary.project);
+          const deadlineSet = state.taskDeadlines.get(projectSeriesKey(summary.project)) || null;
+          const panel = document.createElement("article");
+          panel.className = "panel project-panel";
+
+          const canvasPieId = `projectPie${index}`;
+          const canvasLineId = `projectLine${index}`;
+          const canvasCumulativeId = `projectCumulative${index}`;
+          const canvasPlannedId = `projectPlanned${index}`;
+          const legendId = `projectLegend${index}`;
+          const lineLegendId = `lineLegend${index}`;
+          const tableId = `projectTable${index}`;
+          const taskInputId = `projectTaskDeadlines${index}`;
+          const deadlineMeta = deadlineSet
+            ? `${deadlineSet.deadlines.length} deadline month${deadlineSet.deadlines.length === 1 ? "" : "s"} loaded`
+            : "Optional task deadline overlay";
+          const plannedBlock = plan ? `
+                <div class="chart-block">
+                  <h3>Planned vs actual</h3>
+                  <p class="line-key">Solid actual / dashed planned</p>
+                  <canvas id="${canvasPlannedId}" class="chart-canvas" aria-label="Planned versus actual employee contribution line chart"></canvas>
+                </div>
+          ` : "";
+          const trendLegendEntries = plan ? mergeLineLegendEntries(summary.entries, plan) : summary.entries;
+          const hiddenSeries = getHiddenSeries(summary.project);
+          const activeActualEntries = summary.entries.filter((entry) => !hiddenSeries.has(personKey(entry.name)));
+          const activeSeriesKeys = new Set(
+            trendLegendEntries
+              .map((entry) => personKey(entry.name))
+              .filter((key) => !hiddenSeries.has(key))
+          );
+
+          panel.innerHTML = `
+            <div class="panel-head">
+              <div>
+                <h2>${escapeHtml(summary.project.name)}</h2>
+              </div>
+              <div class="panel-meta">${formatHours(total)} h across ${summary.entries.length} employee${summary.entries.length === 1 ? "" : "s"}</div>
+            </div>
+            <div class="project-tools">
+              <label class="task-upload-button">
+                Upload task deadlines
+                <input id="${taskInputId}" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+              </label>
+              <span class="deadline-meta">${escapeHtml(deadlineMeta)}</span>
+            </div>
+            <div class="project-chart-grid">
+              <div class="pie-wrap">
+                <canvas id="${canvasPieId}" class="chart-canvas" aria-label="Employee contribution pie chart"></canvas>
+                <div id="${legendId}" class="legend"></div>
+              </div>
+              <div class="trend-stack">
+                <div class="chart-block">
+                  <h3>Monthly hours</h3>
+                  <canvas id="${canvasLineId}" class="chart-canvas" aria-label="Monthly employee contribution line chart"></canvas>
+                </div>
+                <div class="chart-block">
+                  <h3>Cumulative hours</h3>
+                  <canvas id="${canvasCumulativeId}" class="chart-canvas" aria-label="Cumulative employee contribution line chart"></canvas>
+                </div>
+                ${plannedBlock}
+                <div id="${lineLegendId}" class="legend"></div>
+              </div>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Employee</th>
+                  <th class="number">Hours</th>
+                  <th class="number">Share</th>
+                </tr>
+              </thead>
+              <tbody id="${tableId}"></tbody>
+            </table>
+          `;
+
+          els.projectList.appendChild(panel);
+          document.getElementById(taskInputId).addEventListener("change", (event) => {
+            const file = event.target.files[0];
+            if (file) {
+              loadProjectTaskDeadlines(summary.project, file);
+            }
+          });
+          renderPieChart(document.getElementById(canvasPieId), summary.entries);
+          renderLegend(document.getElementById(legendId), summary.entries);
+          renderLineChart(document.getElementById(canvasLineId), summary.project, activeActualEntries, { deadlines: deadlineSet });
+          renderLineChart(document.getElementById(canvasCumulativeId), summary.project, activeActualEntries, { cumulative: true, deadlines: deadlineSet });
+          if (plan) {
+            renderPlannedActualChart(document.getElementById(canvasPlannedId), summary.project, summary.entries, plan, activeSeriesKeys, deadlineSet);
+          }
+          renderLineLegend(document.getElementById(lineLegendId), trendLegendEntries, {
+            hiddenSeries,
+            onToggle: (entry) => toggleProjectSeries(summary.project, entry.name)
+          });
+          renderTable(document.getElementById(tableId), summary.entries);
+        });
+      }
+
+      function getHiddenSeries(project) {
+        return state.hiddenSeries.get(projectSeriesKey(project)) || new Set();
+      }
+
+      function toggleProjectSeries(project, employeeName) {
+        const key = projectSeriesKey(project);
+        const hidden = new Set(state.hiddenSeries.get(key) || []);
+        const employeeKey = personKey(employeeName);
+        if (hidden.has(employeeKey)) {
+          hidden.delete(employeeKey);
+        } else {
+          hidden.add(employeeKey);
+        }
+
+        if (hidden.size) {
+          state.hiddenSeries.set(key, hidden);
+        } else {
+          state.hiddenSeries.delete(key);
+        }
+        render();
+      }
+
+      function findPlanForProject(project) {
+        const projectCode = extractProjectCode(project.name);
+        if (projectCode) {
+          const codeMatch = state.plans.find((plan) => plan.code === projectCode);
+          if (codeMatch) {
+            return codeMatch;
+          }
+        }
+
+        const projectKey = projectMatchKey(project.name);
+        return state.plans.find((plan) => {
+          const planKey = projectMatchKey(plan.name);
+          return projectKey === planKey || projectKey.includes(planKey) || planKey.includes(projectKey);
+        }) || null;
+      }
+
+      function projectMatchKey(name) {
+        return normalizeText(name).replace(/[^a-z0-9]+/g, " ").trim();
+      }
+
+      function projectColorKey(name) {
+        return extractProjectCode(name) || projectMatchKey(name);
+      }
+
+      function projectSeriesKey(project) {
+        return projectColorKey(project.name);
+      }
+
+      function mergeLineLegendEntries(actualEntries, plan) {
+        const colorMap = buildEmployeeColorMap(actualEntries, plan);
+        const seen = new Set();
+        const entries = actualEntries.map((entry) => {
+          seen.add(personKey(entry.name));
+          return entry;
+        });
+
+        plan.rows.forEach((row) => {
+          const key = personKey(row.name);
+          if (!seen.has(key)) {
+            seen.add(key);
+            entries.push({
+              name: row.name,
+              value: sumMap(row.values),
+              color: colorMap.get(key)
+            });
+          }
+        });
+
+        return entries;
+      }
+
+      function buildEmployeeColorMap(actualEntries, plan) {
+        const colorMap = new Map();
+        actualEntries.forEach((entry) => {
+          colorMap.set(personKey(entry.name), entry.color);
+        });
+        plan.rows.forEach((row) => {
+          const key = personKey(row.name);
+          if (!colorMap.has(key)) {
+            colorMap.set(key, CHART_COLORS[colorMap.size % CHART_COLORS.length]);
+          }
+        });
+        return colorMap;
+      }
+
+      function personKey(name) {
+        return normalizeText(name).replace(/[^a-z0-9]+/g, " ").trim();
+      }
+
+      function renderChartsOnly() {
+        if (!state.employee && !state.projects.length) {
+          return;
+        }
+        render();
+      }
+
+      function renderPieChart(canvas, entries) {
+        drawCanvas(canvas, (ctx, width, height) => {
+          const total = sumEntries(entries);
+          const radius = Math.max(64, Math.min(width, height) * 0.34);
+          const cx = width / 2;
+          const cy = height / 2;
+
+          ctx.clearRect(0, 0, width, height);
+          if (!total) {
+            drawEmptyChart(ctx, width, height, "No hours");
+            return;
+          }
+
+          let start = -Math.PI / 2;
+          entries.forEach((entry, index) => {
+            const angle = (entry.value / total) * Math.PI * 2;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.arc(cx, cy, radius, start, start + angle);
+            ctx.closePath();
+            ctx.fillStyle = entry.color || CHART_COLORS[index % CHART_COLORS.length];
+            ctx.fill();
+            ctx.strokeStyle = "#ffffff";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            start += angle;
+          });
+
+          ctx.beginPath();
+          ctx.arc(cx, cy, radius * 0.55, 0, Math.PI * 2);
+          ctx.fillStyle = "#fbfdfc";
+          ctx.fill();
+
+          ctx.fillStyle = "#182322";
+          ctx.font = "800 22px system-ui, sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(`${formatHours(total)} h`, cx, cy - 6);
+          ctx.fillStyle = "#64726f";
+          ctx.font = "700 12px system-ui, sans-serif";
+          ctx.fillText("selected scope", cx, cy + 18);
+        });
+      }
+
+      function renderLineChart(canvas, project, entries, options = {}) {
+        drawCanvas(canvas, (ctx, width, height) => {
+          const selectedYears = state.selectedYears.size ? state.selectedYears : new Set(state.years);
+          const sourceMonths = mergeTimelineMonths(project.months, options.deadlines ? options.deadlines.months : []);
+          const months = sourceMonths
+            .filter((month) => selectedYears.has(month.year))
+            .sort((a, b) => a.date - b.date);
+          const series = entries.map((entry, index) => ({
+            ...entry,
+            color: entry.color || CHART_COLORS[index % CHART_COLORS.length],
+            points: buildLinePoints(entry, months, options)
+          })).filter((entry) => entry.points.some((value) => value > 0));
+
+          ctx.clearRect(0, 0, width, height);
+          if (!months.length || !series.length) {
+            drawEmptyChart(ctx, width, height, options.cumulative ? "No cumulative data" : "No monthly data");
+            return;
+          }
+
+          const maxValue = Math.max(1, ...series.flatMap((entry) => entry.points));
+          const left = 52;
+          const right = 18;
+          const top = 22;
+          const bottom = 46;
+          const plotWidth = Math.max(1, width - left - right);
+          const plotHeight = Math.max(1, height - top - bottom);
+
+          ctx.strokeStyle = "#d7dfdc";
+          ctx.lineWidth = 1;
+          ctx.fillStyle = "#64726f";
+          ctx.font = "700 11px system-ui, sans-serif";
+          ctx.textAlign = "right";
+          ctx.textBaseline = "middle";
+
+          for (let tick = 0; tick <= 4; tick += 1) {
+            const value = (maxValue / 4) * tick;
+            const y = top + plotHeight - (value / maxValue) * plotHeight;
+            ctx.beginPath();
+            ctx.moveTo(left, y);
+            ctx.lineTo(width - right, y);
+            ctx.stroke();
+            ctx.fillText(formatCompact(value), left - 8, y);
+          }
+
+          ctx.textAlign = "center";
+          ctx.textBaseline = "top";
+          const labelEvery = Math.max(1, Math.ceil(months.length / 6));
+          months.forEach((month, index) => {
+            if (index % labelEvery !== 0 && index !== months.length - 1) {
+              return;
+            }
+            const x = monthX(index, months.length, left, plotWidth);
+            const parts = month.label.split(" ");
+            ctx.fillText(parts[0], x, height - bottom + 12);
+            ctx.fillText(parts[1] || "", x, height - bottom + 26);
+          });
+
+          drawDeadlineMarkers(ctx, months, options.deadlines, left, right, top, bottom, plotWidth, plotHeight);
+
+          series.forEach((entry) => {
+            ctx.strokeStyle = entry.color;
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            entry.points.forEach((value, index) => {
+              const x = monthX(index, months.length, left, plotWidth);
+              const y = top + plotHeight - (value / maxValue) * plotHeight;
+              if (index === 0) {
+                ctx.moveTo(x, y);
+              } else {
+                ctx.lineTo(x, y);
+              }
+            });
+            ctx.stroke();
+
+            entry.points.forEach((value, index) => {
+              if (value <= 0) {
+                return;
+              }
+              const x = monthX(index, months.length, left, plotWidth);
+              const y = top + plotHeight - (value / maxValue) * plotHeight;
+              ctx.beginPath();
+              ctx.arc(x, y, 3.2, 0, Math.PI * 2);
+              ctx.fillStyle = entry.color;
+              ctx.fill();
+              ctx.strokeStyle = "#ffffff";
+              ctx.lineWidth = 1.5;
+              ctx.stroke();
+            });
+          });
+        });
+      }
+
+      function mergeTimelineMonths(...monthGroups) {
+        const months = new Map();
+        monthGroups.flat().filter(Boolean).forEach((month) => {
+          months.set(month.key, month);
+        });
+        return Array.from(months.values()).sort((a, b) => a.date - b.date);
+      }
+
+      function buildLinePoints(entry, months, options) {
+        const points = months.map((month) => entry.values.get(month.key) || 0);
+        if (!options.cumulative) {
+          return points;
+        }
+        let running = 0;
+        return points.map((value) => {
+          running += value;
+          return running;
+        });
+      }
+
+      function renderPlannedActualChart(canvas, project, actualEntries, plan, visibleSeriesKeys = null, deadlineSet = null) {
+        drawCanvas(canvas, (ctx, width, height) => {
+          const selectedYears = state.selectedYears.size ? state.selectedYears : new Set(state.years);
+          const timeline = buildComparisonTimeline(project, plan, deadlineSet);
+          const displayIndexes = [];
+          const displayMonths = timeline.filter((month, index) => {
+            const selected = selectedYears.has(month.year);
+            if (selected) {
+              displayIndexes.push(index);
+            }
+            return selected;
+          });
+
+          const colorMap = buildEmployeeColorMap(actualEntries, plan);
+          project.rows.forEach((row) => {
+            const key = personKey(row.name);
+            if (!colorMap.has(key)) {
+              colorMap.set(key, CHART_COLORS[colorMap.size % CHART_COLORS.length]);
+            }
+          });
+
+          const actualRows = new Map(project.rows.map((row) => [personKey(row.name), row]));
+          const plannedRows = new Map(plan.rows.map((row) => [personKey(row.name), row]));
+          const people = Array.from(new Set([...actualRows.keys(), ...plannedRows.keys()]))
+            .filter((key) => !visibleSeriesKeys || visibleSeriesKeys.has(key));
+          const series = people.map((key) => {
+            const actualRow = actualRows.get(key);
+            const plannedRow = plannedRows.get(key);
+            const actualAll = buildCumulativeActualPoints(actualRow ? actualRow.values : new Map(), timeline);
+            const plannedAll = plannedRow
+              ? buildPlannedCumulativePoints(plannedRow, plan, timeline, project)
+              : timeline.map(() => 0);
+            return {
+              name: actualRow ? actualRow.name : plannedRow.name,
+              color: colorMap.get(key),
+              actual: displayIndexes.map((index) => actualAll[index]),
+              planned: displayIndexes.map((index) => plannedAll[index])
+            };
+          }).filter((entry) => {
+            return entry.actual.some((value) => value > 0) || entry.planned.some((value) => value > 0);
+          });
+
+          ctx.clearRect(0, 0, width, height);
+          if (!displayMonths.length || !series.length) {
+            drawEmptyChart(ctx, width, height, "No planned data");
+            return;
+          }
+
+          const maxValue = Math.max(
+            1,
+            ...series.flatMap((entry) => [...entry.actual, ...entry.planned])
+          );
+          const left = 52;
+          const right = 18;
+          const top = 22;
+          const bottom = 46;
+          const plotWidth = Math.max(1, width - left - right);
+          const plotHeight = Math.max(1, height - top - bottom);
+
+          drawLineAxes(ctx, width, height, displayMonths, maxValue, left, right, top, bottom, plotWidth, plotHeight);
+          drawDeadlineMarkers(ctx, displayMonths, deadlineSet, left, right, top, bottom, plotWidth, plotHeight);
+
+          series.forEach((entry) => {
+            drawLineSeries(ctx, entry.actual, entry.color, false, displayMonths.length, maxValue, left, top, plotWidth, plotHeight);
+            drawLineSeries(ctx, entry.planned, entry.color, true, displayMonths.length, maxValue, left, top, plotWidth, plotHeight);
+          });
+        });
+      }
+
+      function buildComparisonTimeline(project, plan, deadlineSet = null) {
+        const starts = [
+          parseProjectStartMonth(project.name),
+          plan.projectStart,
+          project.months[0],
+          plan.months[0],
+          deadlineSet && deadlineSet.months[0]
+        ].filter(Boolean);
+        const ends = [
+          project.months[project.months.length - 1],
+          plan.months[plan.months.length - 1],
+          deadlineSet && deadlineSet.months[deadlineSet.months.length - 1]
+        ].filter(Boolean);
+        const start = starts.sort((a, b) => a.date - b.date)[0];
+        const end = ends.sort((a, b) => b.date - a.date)[0];
+        return generateMonthRange(start, end);
+      }
+
+      function buildCumulativeActualPoints(values, timeline) {
+        let running = 0;
+        return timeline.map((month) => {
+          running += values.get(month.key) || 0;
+          return running;
+        });
+      }
+
+      function buildPlannedCumulativePoints(row, plan, timeline, project) {
+        const allocations = new Map();
+        const projectStart = plan.projectStart || parseProjectStartMonth(project.name) || timeline[0];
+        const endpoints = plan.months
+          .map((month) => ({ month, hours: row.values.get(month.key) || 0 }))
+          .filter((entry) => entry.hours > 0)
+          .sort((a, b) => a.month.date - b.month.date);
+
+        let previousEnd = null;
+        endpoints.forEach((entry) => {
+          const periodStart = previousEnd ? addMonths(previousEnd, 1) : projectStart;
+          const periodMonths = generateMonthRange(periodStart, entry.month);
+          if (periodMonths.length) {
+            const monthlyHours = entry.hours / periodMonths.length;
+            periodMonths.forEach((month) => {
+              allocations.set(month.key, (allocations.get(month.key) || 0) + monthlyHours);
+            });
+          }
+          previousEnd = entry.month;
+        });
+
+        let running = 0;
+        return timeline.map((month) => {
+          running += allocations.get(month.key) || 0;
+          return running;
+        });
+      }
+
+      function drawLineAxes(ctx, width, height, months, maxValue, left, right, top, bottom, plotWidth, plotHeight) {
+        ctx.strokeStyle = "#d7dfdc";
+        ctx.lineWidth = 1;
+        ctx.fillStyle = "#64726f";
+        ctx.font = "700 11px system-ui, sans-serif";
+        ctx.textAlign = "right";
+        ctx.textBaseline = "middle";
+
+        for (let tick = 0; tick <= 4; tick += 1) {
+          const value = (maxValue / 4) * tick;
+          const y = top + plotHeight - (value / maxValue) * plotHeight;
+          ctx.beginPath();
+          ctx.moveTo(left, y);
+          ctx.lineTo(width - right, y);
+          ctx.stroke();
+          ctx.fillText(formatCompact(value), left - 8, y);
+        }
+
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        const labelEvery = Math.max(1, Math.ceil(months.length / 6));
+        months.forEach((month, index) => {
+          if (index % labelEvery !== 0 && index !== months.length - 1) {
+            return;
+          }
+          const x = monthX(index, months.length, left, plotWidth);
+          const parts = month.label.split(" ");
+          ctx.fillText(parts[0], x, height - bottom + 12);
+          ctx.fillText(parts[1] || "", x, height - bottom + 26);
+        });
+      }
+
+      function drawDeadlineMarkers(ctx, months, deadlineSet, left, right, top, bottom, plotWidth, plotHeight) {
+        if (!deadlineSet || !months.length) {
+          return;
+        }
+
+        const byKey = new Map(deadlineSet.deadlines.map((deadline) => [deadline.month.key, deadline]));
+        ctx.save();
+        ctx.strokeStyle = "#c75f4c";
+        ctx.fillStyle = "#9f3f31";
+        ctx.lineWidth = 1.6;
+        ctx.setLineDash([5, 5]);
+        ctx.font = "800 10px system-ui, sans-serif";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "top";
+
+        months.forEach((month, index) => {
+          const deadline = byKey.get(month.key);
+          if (!deadline) {
+            return;
+          }
+
+          const x = monthX(index, months.length, left, plotWidth);
+          ctx.beginPath();
+          ctx.moveTo(x, top);
+          ctx.lineTo(x, top + plotHeight);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          const label = deadline.count === 1 ? "1 task" : `${formatCompact(deadline.count)} tasks`;
+          ctx.fillText(label, Math.min(x + 4, left + plotWidth - 46), top + 4);
+          ctx.setLineDash([5, 5]);
+        });
+
+        ctx.restore();
+      }
+
+      function drawLineSeries(ctx, points, color, dashed, monthCount, maxValue, left, top, plotWidth, plotHeight) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = dashed ? 2 : 2.6;
+        ctx.setLineDash(dashed ? [7, 6] : []);
+        ctx.beginPath();
+        points.forEach((value, index) => {
+          const x = monthX(index, monthCount, left, plotWidth);
+          const y = top + plotHeight - (value / maxValue) * plotHeight;
+          if (index === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+        });
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        if (dashed) {
+          return;
+        }
+
+        points.forEach((value, index) => {
+          if (value <= 0) {
+            return;
+          }
+          const x = monthX(index, monthCount, left, plotWidth);
+          const y = top + plotHeight - (value / maxValue) * plotHeight;
+          ctx.beginPath();
+          ctx.arc(x, y, 3.2, 0, Math.PI * 2);
+          ctx.fillStyle = color;
+          ctx.fill();
+          ctx.strokeStyle = "#ffffff";
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        });
+      }
+
+      function monthX(index, count, left, plotWidth) {
+        return count === 1 ? left + plotWidth / 2 : left + (plotWidth * index) / (count - 1);
+      }
+
+      function drawCanvas(canvas, draw) {
+        const rect = canvas.getBoundingClientRect();
+        const width = Math.max(260, rect.width || canvas.clientWidth || 640);
+        const height = Math.max(240, rect.height || canvas.clientHeight || 320);
+        const ratio = window.devicePixelRatio || 1;
+        canvas.width = Math.round(width * ratio);
+        canvas.height = Math.round(height * ratio);
+        const ctx = canvas.getContext("2d");
+        ctx.save();
+        ctx.scale(ratio, ratio);
+        draw(ctx, width, height);
+        ctx.restore();
+      }
+
+      function drawEmptyChart(ctx, width, height, label) {
+        ctx.strokeStyle = "#d7dfdc";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(width / 2, height / 2, Math.min(width, height) * 0.24, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = "#64726f";
+        ctx.font = "800 14px system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(label, width / 2, height / 2);
+      }
+
+      function renderLegend(container, entries) {
+        const total = sumEntries(entries);
+        container.innerHTML = entries.length ? "" : `<p class="legend-value">No hours in selected scope.</p>`;
+        entries.forEach((entry) => {
+          const row = document.createElement("div");
+          row.className = "legend-row";
+          row.innerHTML = `
+            <span class="swatch" style="background:${entry.color}"></span>
+            <span class="legend-name">${escapeHtml(entry.name)}</span>
+            <span class="legend-value">${formatHours(entry.value)} h (${formatPercent(entry.value, total)})</span>
+          `;
+          container.appendChild(row);
+        });
+      }
+
+      function renderLineLegend(container, entries, options = {}) {
+        const hiddenSeries = options.hiddenSeries || new Set();
+        container.innerHTML = entries.length ? "" : `<p class="legend-value">No employees in selected scope.</p>`;
+        entries.forEach((entry) => {
+          const disabled = hiddenSeries.has(personKey(entry.name));
+          const row = document.createElement(options.onToggle ? "button" : "div");
+          row.className = `legend-row${options.onToggle ? " legend-toggle" : ""}${disabled ? " disabled-series" : ""}`;
+          if (options.onToggle) {
+            row.type = "button";
+            row.title = `Toggle ${entry.name}`;
+            row.setAttribute("aria-pressed", String(!disabled));
+            row.dataset.seriesKey = personKey(entry.name);
+            row.addEventListener("click", () => options.onToggle(entry));
+          }
+          row.innerHTML = `
+            <span class="swatch" style="background:${entry.color}"></span>
+            <span class="legend-name">${escapeHtml(entry.name)}</span>
+            <span class="legend-value">${formatHours(entry.value)} h</span>
+          `;
+          container.appendChild(row);
+        });
+      }
+
+      function renderTable(tbody, entries) {
+        const total = sumEntries(entries);
+        tbody.innerHTML = entries.map((entry) => `
+          <tr>
+            <td>${escapeHtml(entry.name)}</td>
+            <td class="number">${formatHours(entry.value)}</td>
+            <td class="number">${formatPercent(entry.value, total)}</td>
+          </tr>
+        `).join("");
+      }
+
+      function sumEntries(entries) {
+        return entries.reduce((total, entry) => total + entry.value, 0);
+      }
+
+      function formatHours(value) {
+        const hasDecimal = Math.abs(value - Math.round(value)) > 0.01;
+        return new Intl.NumberFormat("en", {
+          maximumFractionDigits: hasDecimal ? 1 : 0
+        }).format(value);
+      }
+
+      function formatPercent(value, total) {
+        if (!total) {
+          return "0%";
+        }
+        return `${new Intl.NumberFormat("en", { maximumFractionDigits: 1 }).format((value / total) * 100)}%`;
+      }
+
+      function formatCompact(value) {
+        return new Intl.NumberFormat("en", {
+          notation: value >= 1000 ? "compact" : "standard",
+          maximumFractionDigits: 0
+        }).format(value);
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+
+      function debounce(fn, delay) {
+        let timer = null;
+        return () => {
+          clearTimeout(timer);
+          timer = setTimeout(fn, delay);
+        };
+      }
+    })();
+  </script>
+</body>
+</html>
