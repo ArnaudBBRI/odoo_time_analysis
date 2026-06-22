@@ -3,6 +3,5 @@
   "database": "buildwiseprd",
   "username": "your.odoo.login@example.com",
   "apiKey": "paste-your-api-key-here",
-  "employeeName": "First Last",
-  "projectId": "54252043"
+  "employeeName": "First Last"
 }

@@ -566,7 +566,7 @@ function getMergedConnectorSettings(body = {}) {
     username: firstNonBlank(body.username, config.username),
     apiKey: firstNonBlank(body.apiKey, config.apiKey, config.api_key),
     employeeName: firstNonBlank(body.employeeName, config.employeeName),
-    projectCode: firstNonBlank(body.projectCode, config.projectId, config.projectID, config.projectCode)
+    projectCode: firstNonBlank(body.projectCode, body.projectName, body.projectQuery, config.projectId, config.projectID, config.projectCode)
   };
 }
 
@@ -649,11 +649,9 @@ function cleanRequired(value, label) {
 }
 
 function cleanProjectCode(value) {
-  const code = String(value || "").replace(/\D+/g, "");
-  if (!code) {
-    throw new Error("Project ID is required");
-  }
-  return code;
+  const text = cleanRequired(value, "Project");
+  const code = text.replace(/\D+/g, "");
+  return code || text;
 }
 
 async function authenticateOdoo(odooUrl, database, username, apiKey) {

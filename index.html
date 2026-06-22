@@ -49,7 +49,7 @@
       margin: 0 auto;
       padding: 24px clamp(16px, 3vw, 36px);
       display: grid;
-      grid-template-columns: minmax(220px, 1fr) minmax(320px, 1.2fr);
+      grid-template-columns: minmax(220px, 1fr);
       gap: 24px;
       align-items: end;
     }
@@ -558,6 +558,12 @@
       line-height: 1.45;
     }
 
+    .remaining-help {
+      color: var(--muted);
+      font-weight: 700;
+      line-height: 1.45;
+    }
+
     .remaining-table-wrap {
       overflow-x: auto;
     }
@@ -577,6 +583,39 @@
       gap: 8px;
       min-width: 0;
       font-weight: 800;
+    }
+
+    .remaining-project-button {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      color: var(--ink);
+      padding: 0;
+      text-align: left;
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .remaining-project-button:hover,
+    .remaining-project-button:focus-visible {
+      color: var(--teal-dark);
+      text-decoration: underline;
+      text-decoration-thickness: 2px;
+      text-underline-offset: 3px;
+      outline: none;
+    }
+
+    .remaining-row {
+      cursor: pointer;
+    }
+
+    .remaining-row:hover {
+      background: #f7fbfa;
+    }
+
+    .remaining-row.active {
+      background: #e7f4f1;
     }
 
     .remaining-table .swatch {
@@ -887,6 +926,7 @@
         <h1>Odoo Time Dashboard</h1>
         <p class="subtitle">Timesheet and project contribution exports, excluding Internal holiday rows from every percentage.</p>
       </div>
+      <!--
       <div class="file-grid" aria-label="Workbook uploads">
         <label class="file-picker" data-help="Your own timesheet export: months as columns, projects as rows, with Temps passe hours.">
           <span>My timesheet export</span>
@@ -905,12 +945,13 @@
           <input id="plannedFiles" data-testid="planned-files" type="file" multiple accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
         </label>
       </div>
+      -->
     </div>
   </header>
 
   <main>
     <section class="status-bar" aria-live="polite">
-      <p id="statusText">Load one employee export, optional personal planning, project exports, and optional planned project exports.</p>
+      <p id="statusText">Use the Odoo API fields below to fetch employee and project data.</p>
       <span id="statusPill" class="status-pill warn">Waiting</span>
     </section>
 
@@ -940,7 +981,9 @@
           <input id="odooApiKey" type="password" autocomplete="current-password" placeholder="Paste key or use config.local.json">
         </label>
         <div class="connector-actions">
+          <!--
           <button id="listOdooDatabases" class="secondary-button" type="button">List databases</button>
+          -->
           <button id="testOdooConnection" class="primary-button" type="submit">Test connection</button>
         </div>
       </form>
@@ -956,6 +999,7 @@
           </label>
           <button id="fetchEmployeeTimesheets" class="primary-button" type="submit">Fetch employee data</button>
         </form>
+        <!--
         <form id="projectDebugForm" class="debug-form">
           <label class="field">
             <span>Project ID</span>
@@ -963,6 +1007,7 @@
           </label>
           <button id="fetchProjectData" class="primary-button" type="submit">Fetch project data</button>
         </form>
+        -->
         <!--
         <pre id="timesheetDebugOutput" class="debug-output">{}</pre>
         -->
@@ -1025,6 +1070,7 @@
             <h3>Remaining hours by project</h3>
             <span id="employeeRemainingMeta" class="panel-meta"></span>
           </div>
+          <p class="remaining-help">Click on a project name to get more info about it.</p>
           <div id="employeeRemainingEmpty" class="remaining-empty" hidden></div>
           <div id="employeeRemainingTableWrap" class="remaining-table-wrap">
             <table class="remaining-table">
@@ -1047,8 +1093,8 @@
     <section id="projectList" class="project-list" hidden></section>
 
     <section id="emptyState" class="panel empty-state">
-      <strong>No workbook loaded</strong>
-      <p>Select the Odoo exports above to build the dashboard.</p>
+      <strong>No data loaded</strong>
+      <p>Use the Odoo API fields above to build the dashboard.</p>
     </section>
   </main>
 
@@ -1089,7 +1135,9 @@
         taskDeadlines: new Map(),
         errors: [],
         years: [],
-        selectedYears: new Set()
+        selectedYears: new Set(),
+        activeProjectKey: "",
+        projectFetchToken: 0
       };
 
       const els = {
@@ -1145,53 +1193,73 @@
       els.odooDatabase.value = ODOO_DEFAULT_DATABASE;
       loadConnectorConfig();
 
-      els.employeeFile.addEventListener("change", () => {
-        const file = els.employeeFile.files[0];
-        if (!file) {
-          state.employee = null;
-          refreshYears();
-          render();
-          return;
-        }
-        loadEmployee(file);
-      });
+      if (els.employeeFile) {
+        els.employeeFile.addEventListener("change", () => {
+          const file = els.employeeFile.files[0];
+          if (!file) {
+            state.employee = null;
+            refreshYears();
+            render();
+            return;
+          }
+          loadEmployee(file);
+        });
+      }
 
-      els.personalPlanFile.addEventListener("change", () => {
-        const file = els.personalPlanFile.files[0];
-        if (!file) {
-          state.personalPlan = null;
-          refreshYears(true);
-          render();
-          return;
-        }
-        loadPersonalPlan(file);
-      });
+      if (els.personalPlanFile) {
+        els.personalPlanFile.addEventListener("change", () => {
+          const file = els.personalPlanFile.files[0];
+          if (!file) {
+            state.personalPlan = null;
+            refreshYears(true);
+            render();
+            return;
+          }
+          loadPersonalPlan(file);
+        });
+      }
 
-      els.projectFiles.addEventListener("change", () => {
-        loadProjects(Array.from(els.projectFiles.files || []));
-      });
+      if (els.projectFiles) {
+        els.projectFiles.addEventListener("change", () => {
+          loadProjects(Array.from(els.projectFiles.files || []));
+        });
+      }
 
-      els.plannedFiles.addEventListener("change", () => {
-        loadPlans(Array.from(els.plannedFiles.files || []));
-      });
+      if (els.plannedFiles) {
+        els.plannedFiles.addEventListener("change", () => {
+          loadPlans(Array.from(els.plannedFiles.files || []));
+        });
+      }
 
       els.odooConnectionForm.addEventListener("submit", (event) => {
         event.preventDefault();
         testOdooConnection();
       });
 
-      els.listOdooDatabases.addEventListener("click", () => {
-        listOdooDatabases();
-      });
+      if (els.listOdooDatabases) {
+        els.listOdooDatabases.addEventListener("click", () => {
+          listOdooDatabases();
+        });
+      }
 
       els.timesheetDebugForm.addEventListener("submit", (event) => {
         event.preventDefault();
         fetchEmployeeTimesheets();
       });
 
-      els.projectDebugForm.addEventListener("submit", (event) => {
-        event.preventDefault();
-        fetchProjectData();
+      if (els.projectDebugForm) {
+        els.projectDebugForm.addEventListener("submit", (event) => {
+          event.preventDefault();
+          fetchProjectData();
+        });
+      }
+
+      els.employeeRemainingTable.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-project-drilldown]");
+        if (!button) {
+          return;
+        }
+        fetchProjectDrilldown(button.dataset.projectName || "");
       });
 
       window.addEventListener("resize", debounce(renderChartsOnly, 160));
@@ -1222,7 +1290,7 @@
           if (config.employeeName) {
             els.timesheetEmployeeName.value = config.employeeName;
           }
-          if (config.projectCode) {
+          if (config.projectCode && els.projectCodeInput) {
             els.projectCodeInput.value = config.projectCode;
           }
           if (config.hasApiKey) {
@@ -1269,6 +1337,10 @@
           const employeeDataset = buildEmployeeDatasetFromApi(result);
           const chartHours = employeeDataset.rows.reduce((total, row) => total + sumMap(row.values), 0);
           state.employee = employeeDataset;
+          state.projects = [];
+          state.plans = [];
+          state.hiddenSeries.clear();
+          state.activeProjectKey = "";
           let planningResult = null;
           let planningError = null;
           let planChartHours = 0;
@@ -1327,16 +1399,42 @@
           database: els.odooDatabase.value.trim(),
           username: els.odooUsername.value.trim(),
           apiKey: els.odooApiKey.value.trim(),
-          projectCode: els.projectCodeInput.value.trim()
+          projectCode: els.projectCodeInput ? els.projectCodeInput.value.trim() : ""
         };
 
         if (!payload.projectCode) {
           setTimesheetDebugStatus("Enter a project ID.", "warn");
-          els.projectCodeInput.focus();
+          if (els.projectCodeInput) {
+            els.projectCodeInput.focus();
+          }
           return;
         }
 
-        setTimesheetDebugStatus("Fetching project timesheets and planning...", "warn");
+        await fetchProjectDetails(payload.projectCode, payload.projectCode);
+      }
+
+      async function fetchProjectDrilldown(projectName) {
+        const cleanProjectName = cleanLabel(projectName);
+        if (!cleanProjectName) {
+          setTimesheetDebugStatus("This project row has no project name to fetch.", "warn");
+          return;
+        }
+        const projectReference = extractProjectCode(cleanProjectName) || cleanProjectName;
+        await fetchProjectDetails(projectReference, cleanProjectName);
+      }
+
+      async function fetchProjectDetails(projectReference, displayName) {
+        const fetchToken = ++state.projectFetchToken;
+        const payload = {
+          url: els.odooUrl.value.trim(),
+          database: els.odooDatabase.value.trim(),
+          username: els.odooUsername.value.trim(),
+          apiKey: els.odooApiKey.value.trim(),
+          projectCode: projectReference,
+          projectName: displayName
+        };
+
+        setTimesheetDebugStatus(`Fetching project details for ${compactLegendLabel(displayName || projectReference)}...`, "warn");
         setOdooButtonsDisabled(true);
         setDebugOutput({});
 
@@ -1351,8 +1449,12 @@
           }
 
           const timesheetResult = timesheetFetch.value;
+          if (fetchToken !== state.projectFetchToken) {
+            return;
+          }
           const projectDataset = buildProjectDatasetFromApi(timesheetResult);
-          upsertProjectDataset(projectDataset);
+          state.projects = [projectDataset];
+          state.activeProjectKey = projectSeriesKey(projectDataset);
           let planningResult = null;
           let planningError = null;
           let planDataset = null;
@@ -1362,23 +1464,29 @@
             planningResult = planningFetch.value;
             planDataset = buildProjectPlanDatasetFromApi(planningResult, projectDataset);
             if (planDataset) {
-              upsertProjectPlanDataset(planDataset);
+              state.plans = [planDataset];
               planChartHours = planDataset.rows.reduce((total, row) => total + sumMap(row.values), 0);
+            } else {
+              state.plans = [];
             }
           } else {
             planningError = planningFetch.reason.message || String(planningFetch.reason);
+            state.plans = [];
           }
 
           state.errors = [];
-          refreshYears(true);
+          refreshYears(false);
           render();
+          if (els.projectList && !els.projectList.hidden) {
+            els.projectList.scrollIntoView({ behavior: "smooth", block: "start" });
+          }
 
           const actualChartHours = projectDataset.rows.reduce((total, row) => total + sumMap(row.values), 0);
           const planningStatus = planningError
             ? `planning failed: ${planningError}`
             : `${planningResult.slotCount} planning slots, ${formatHours(planningResult.totalHours)} h fetched, ${formatHours(planChartHours)} h charted`;
           setTimesheetDebugStatus(
-            `Project ${payload.projectCode}: ${timesheetResult.lineCount} timesheet lines, ${formatHours(timesheetResult.totalHours)} h fetched, ${formatHours(actualChartHours)} h charted; ${planningStatus}`,
+            `${projectDataset.name}: ${timesheetResult.lineCount} timesheet lines, ${formatHours(timesheetResult.totalHours)} h fetched, ${formatHours(actualChartHours)} h charted; ${planningStatus}`,
             planningError ? "warn" : "ok"
           );
           setDebugOutput({
@@ -1501,10 +1609,14 @@
       }
 
       function setOdooButtonsDisabled(disabled) {
-        els.listOdooDatabases.disabled = disabled;
+        if (els.listOdooDatabases) {
+          els.listOdooDatabases.disabled = disabled;
+        }
         els.testOdooConnection.disabled = disabled;
         els.fetchEmployeeTimesheets.disabled = disabled;
-        els.fetchProjectData.disabled = disabled;
+        if (els.fetchProjectData) {
+          els.fetchProjectData.disabled = disabled;
+        }
       }
 
       function setOdooConnectionStatus(message, tone) {
@@ -2649,7 +2761,7 @@
         } else if (loaded.length) {
           setStatus(`Loaded ${loaded.join(" and ")}.`, "Ready", false);
         } else {
-          setStatus("Load one employee export, optional personal planning, project exports, and optional planned project exports.", "Waiting", true);
+          setStatus("Use the Odoo API fields to fetch employee and project data.", "Waiting", true);
         }
       }
 
@@ -2903,13 +3015,14 @@
         const label = compactLegendLabelWithDates(row.name);
         const fullName = escapeHtml(row.name);
         const displayName = escapeHtml(label);
+        const activeClass = state.activeProjectKey && state.activeProjectKey === row.key ? " active" : "";
         const title = `${row.name}\nActual: ${formatHours(row.actual)} h\nPlanned: ${formatHours(row.planned)} h\nRemaining: ${formatSignedHours(row.remaining)} h`;
         return `
-          <tr title="${escapeHtml(title)}">
+          <tr class="remaining-row${activeClass}" title="${escapeHtml(title)}" data-project-drilldown="true" data-project-name="${fullName}">
             <td>
               <span class="remaining-project">
                 <span class="swatch" style="background:${row.color || CHART_COLORS[0]}"></span>
-                <span title="${fullName}">${displayName}</span>
+                <button class="remaining-project-button" type="button" title="${fullName}" data-project-drilldown="true" data-project-name="${fullName}">${displayName}</button>
               </span>
             </td>
             <td class="number">${formatHours(row.actual)}</td>

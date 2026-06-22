@@ -37,8 +37,7 @@ To avoid re-entering the same Odoo values every time, copy `config.example.json`
   "database": "buildwiseprd",
   "username": "your.odoo.login@example.com",
   "apiKey": "paste-your-api-key-here",
-  "employeeName": "First Last",
-  "projectId": "54252043"
+  "employeeName": "First Last"
 }
 ```
 
@@ -59,8 +58,6 @@ The connection test asks for:
 
 When typed in the browser, the API key is not saved by the dashboard. It is only sent to the local server for the current API request, and the local server forwards it to Odoo as the XML-RPC password. If you choose to store it in `config.local.json`, keep that file private.
 
-Use **List databases** after entering the Odoo URL to ask Odoo's XML-RPC database service for available database names. Some Odoo instances disable database listing for security. If listing is disabled, enter the database manually, usually the subdomain part of an Odoo Online URL.
-
 The Buildwise connector fields are prefilled with:
 
 - **Odoo URL**: `https://odoo.buildwise.be/`
@@ -71,14 +68,14 @@ Use **Timesheet Debug** to enter an employee name and fetch matching API data. O
 - `account.analytic.line` timesheet records for actual hours.
 - `planning.slot` planning records for planned hours.
 
-The fetched actual hours feed the `Actual time` personal pie. The fetched planning slots feed the `Planned time` personal pie.
+The fetched actual hours feed the `Actual time` personal pie. The fetched planning slots feed the `Planned time` personal pie and the remaining-hours table.
 
-Use **Project ID** to fetch project data by the numeric code found in Odoo project names, for example `54252043`. One click fetches:
+Click a project name in the remaining-hours table to fetch detailed project data for that project. One click fetches:
 
 - `account.analytic.line` timesheet records for everyone who encoded hours on that project.
 - `planning.slot` planning records for everyone planned on that project.
 
-The fetched project timesheets feed the per-project contribution pie, monthly line chart, and cumulative line chart. The fetched project planning feeds the per-project `Planned vs actual` chart.
+The fetched project timesheets feed the per-project contribution pie, monthly line chart, and cumulative line chart. The fetched project planning feeds the per-project `Planned vs actual` chart. Only one project detail section is shown at a time; clicking another project replaces the previous one.
 
 ## Files To Provide
 
