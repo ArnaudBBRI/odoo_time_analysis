@@ -2,6 +2,65 @@
 
 `index.html` is a self-contained browser dashboard for Odoo timesheet and planning exports. Open it in a browser and upload the XLSX files through the inputs at the top of the page.
 
+## Local Server Quick Start
+
+To use the Odoo API features, start the local server from this repository folder:
+
+```bash
+node server.js
+```
+
+Then open:
+
+```text
+http://127.0.0.1:8765/
+```
+
+Keep the terminal open while using the dashboard. Stop the server with `Ctrl+C`.
+
+If port `8765` is already used, choose another port:
+
+```powershell
+$env:PORT=8766
+node server.js
+```
+
+Then open `http://127.0.0.1:8766/`.
+
+## Running With The Odoo API Connector
+
+The XLSX workflow still works by opening `index.html` directly. The Odoo API connection test needs the local proxy server in `server.js`, because browsers usually cannot call Odoo XML-RPC directly from a local page.
+
+The connection test asks for:
+
+- **Odoo URL**: the base URL of your Odoo instance, for example `https://example.odoo.com`. A copied `/web` URL is also accepted.
+- **Database**: the Odoo database name.
+- **Username**: your Odoo login email or username.
+- **API key**: the key generated from your Odoo account security settings.
+
+The API key is not saved by the dashboard. It is only sent to the local server for the connection test, and the local server forwards it to Odoo as the XML-RPC password.
+
+Use **List databases** after entering the Odoo URL to ask Odoo's XML-RPC database service for available database names. Some Odoo instances disable database listing for security. If listing is disabled, enter the database manually, usually the subdomain part of an Odoo Online URL.
+
+The Buildwise connector fields are prefilled with:
+
+- **Odoo URL**: `https://odoo.buildwise.be/`
+- **Database**: `buildwiseprd`
+
+Use **Timesheet Debug** to enter an employee name and fetch matching API data. One click fetches:
+
+- `account.analytic.line` timesheet records for actual hours.
+- `planning.slot` planning records for planned hours.
+
+The fetched actual hours feed the `Actual time` personal pie. The fetched planning slots feed the `Planned time` personal pie.
+
+Use **Project ID** to fetch project data by the numeric code found in Odoo project names, for example `54252043`. One click fetches:
+
+- `account.analytic.line` timesheet records for everyone who encoded hours on that project.
+- `planning.slot` planning records for everyone planned on that project.
+
+The fetched project timesheets feed the per-project contribution pie, monthly line chart, and cumulative line chart. The fetched project planning feeds the per-project `Planned vs actual` chart.
+
 ## Files To Provide
 
 ### 1. My Timesheet Export

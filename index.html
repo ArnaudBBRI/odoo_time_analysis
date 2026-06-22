@@ -189,6 +189,149 @@
       color: #92570b;
     }
 
+    .connector-panel {
+      display: grid;
+      gap: 12px;
+    }
+
+    .connector-form {
+      display: grid;
+      grid-template-columns: minmax(180px, 1.1fr) minmax(130px, 0.8fr) minmax(160px, 0.9fr) minmax(180px, 1fr) auto;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .field span {
+      color: var(--muted);
+      font-size: 0.76rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .field input {
+      min-height: 38px;
+      width: 100%;
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fbfdfc;
+      color: var(--ink);
+      padding: 8px 10px;
+    }
+
+    .field input:focus {
+      outline: 2px solid rgba(15, 118, 110, 0.24);
+      border-color: var(--teal);
+    }
+
+    .connector-actions {
+      display: flex;
+      gap: 8px;
+      align-items: end;
+      flex-wrap: wrap;
+    }
+
+    .primary-button,
+    .secondary-button {
+      min-height: 38px;
+      border-radius: 6px;
+      padding: 8px 14px;
+      font-weight: 900;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .primary-button {
+      border: 0;
+      background: var(--teal);
+      color: #fff;
+    }
+
+    .primary-button:hover {
+      background: var(--teal-dark);
+    }
+
+    .secondary-button {
+      border: 1px solid var(--line);
+      background: #fbfdfc;
+      color: var(--ink);
+    }
+
+    .secondary-button:hover {
+      border-color: var(--teal);
+      color: var(--teal-dark);
+    }
+
+    .primary-button:disabled,
+    .secondary-button:disabled {
+      cursor: wait;
+      opacity: 0.7;
+    }
+
+    .connector-status {
+      min-height: 22px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+
+    .connector-status.ok {
+      color: var(--teal-dark);
+    }
+
+    .connector-status.warn {
+      color: #92570b;
+    }
+
+    .timesheet-debug {
+      display: grid;
+      gap: 12px;
+      border-top: 1px solid var(--line);
+      padding-top: 14px;
+    }
+
+    .debug-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .debug-head h3 {
+      font-size: 1rem;
+      letter-spacing: 0;
+    }
+
+    .debug-form {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) auto;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .debug-output {
+      min-height: 180px;
+      max-height: 420px;
+      overflow: auto;
+      margin: 0;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #0f1d1b;
+      color: #d8eee9;
+      padding: 12px;
+      font: 12px/1.45 "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
     .filter-bar {
       display: none;
       padding: 14px;
@@ -576,15 +719,29 @@
       }
 
       .file-grid,
-      .kpis {
+      .kpis,
+      .connector-form,
+      .debug-form {
         grid-template-columns: 1fr 1fr;
+      }
+
+      .connector-actions,
+      .debug-form .primary-button {
+        grid-column: span 2;
       }
     }
 
     @media (max-width: 620px) {
       .file-grid,
-      .kpis {
+      .kpis,
+      .connector-form,
+      .debug-form {
         grid-template-columns: 1fr;
+      }
+
+      .connector-actions,
+      .debug-form .primary-button {
+        grid-column: auto;
       }
 
       .status-bar,
@@ -647,6 +804,61 @@
     <section class="status-bar" aria-live="polite">
       <p id="statusText">Load one employee export, optional personal planning, project exports, and optional planned project exports.</p>
       <span id="statusPill" class="status-pill warn">Waiting</span>
+    </section>
+
+    <section class="panel connector-panel" aria-label="Odoo API connection">
+      <div class="panel-head">
+        <div>
+          <h2>Odoo API</h2>
+        </div>
+        <div id="odooConnectionStatus" class="panel-meta connector-status">Not tested</div>
+      </div>
+      <form id="odooConnectionForm" class="connector-form">
+        <label class="field">
+          <span>Odoo URL</span>
+          <input id="odooUrl" type="url" value="https://odoo.buildwise.be/" placeholder="https://example.odoo.com" autocomplete="url" required>
+        </label>
+        <label class="field">
+          <span>Database</span>
+          <input id="odooDatabase" type="text" value="buildwiseprd" list="odooDatabaseOptions" autocomplete="off" required>
+          <datalist id="odooDatabaseOptions"></datalist>
+        </label>
+        <label class="field">
+          <span>Username</span>
+          <input id="odooUsername" type="email" autocomplete="username" required>
+        </label>
+        <label class="field">
+          <span>API key</span>
+          <input id="odooApiKey" type="password" autocomplete="current-password" required>
+        </label>
+        <div class="connector-actions">
+          <button id="listOdooDatabases" class="secondary-button" type="button">List databases</button>
+          <button id="testOdooConnection" class="primary-button" type="submit">Test connection</button>
+        </div>
+      </form>
+      <div class="timesheet-debug">
+        <div class="debug-head">
+          <h3>API Fetch</h3>
+          <span id="timesheetDebugStatus" class="connector-status">No query run</span>
+        </div>
+        <form id="timesheetDebugForm" class="debug-form">
+          <label class="field">
+            <span>Employee name</span>
+            <input id="timesheetEmployeeName" type="text" placeholder="First Last" autocomplete="off" required>
+          </label>
+          <button id="fetchEmployeeTimesheets" class="primary-button" type="submit">Fetch employee data</button>
+        </form>
+        <form id="projectDebugForm" class="debug-form">
+          <label class="field">
+            <span>Project ID</span>
+            <input id="projectCodeInput" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="54252043" autocomplete="off" required>
+          </label>
+          <button id="fetchProjectData" class="primary-button" type="submit">Fetch project data</button>
+        </form>
+        <!--
+        <pre id="timesheetDebugOutput" class="debug-output">{}</pre>
+        -->
+      </div>
     </section>
 
     <section id="filterBar" class="filter-bar" aria-label="Year filters">
@@ -721,6 +933,8 @@
         "#9f1239", "#4c51bf", "#2c7a7b", "#805ad5", "#b45309", "#047857"
       ];
       const CURRENT_YEAR = new Date().getFullYear();
+      const ODOO_DEFAULT_URL = "https://odoo.buildwise.be/";
+      const ODOO_DEFAULT_DATABASE = "buildwiseprd";
 
       const MONTHS = {
         january: 0, jan: 0, janvier: 0,
@@ -754,6 +968,23 @@
         personalPlanFile: document.getElementById("personalPlanFile"),
         projectFiles: document.getElementById("projectFiles"),
         plannedFiles: document.getElementById("plannedFiles"),
+        odooConnectionForm: document.getElementById("odooConnectionForm"),
+        odooUrl: document.getElementById("odooUrl"),
+        odooDatabase: document.getElementById("odooDatabase"),
+        odooDatabaseOptions: document.getElementById("odooDatabaseOptions"),
+        odooUsername: document.getElementById("odooUsername"),
+        odooApiKey: document.getElementById("odooApiKey"),
+        listOdooDatabases: document.getElementById("listOdooDatabases"),
+        testOdooConnection: document.getElementById("testOdooConnection"),
+        odooConnectionStatus: document.getElementById("odooConnectionStatus"),
+        timesheetDebugForm: document.getElementById("timesheetDebugForm"),
+        timesheetEmployeeName: document.getElementById("timesheetEmployeeName"),
+        fetchEmployeeTimesheets: document.getElementById("fetchEmployeeTimesheets"),
+        projectDebugForm: document.getElementById("projectDebugForm"),
+        projectCodeInput: document.getElementById("projectCodeInput"),
+        fetchProjectData: document.getElementById("fetchProjectData"),
+        timesheetDebugStatus: document.getElementById("timesheetDebugStatus"),
+        timesheetDebugOutput: document.getElementById("timesheetDebugOutput"),
         statusText: document.getElementById("statusText"),
         statusPill: document.getElementById("statusPill"),
         filterBar: document.getElementById("filterBar"),
@@ -775,6 +1006,9 @@
         projectList: document.getElementById("projectList"),
         emptyState: document.getElementById("emptyState")
       };
+
+      els.odooUrl.value = ODOO_DEFAULT_URL;
+      els.odooDatabase.value = ODOO_DEFAULT_DATABASE;
 
       els.employeeFile.addEventListener("change", () => {
         const file = els.employeeFile.files[0];
@@ -806,7 +1040,315 @@
         loadPlans(Array.from(els.plannedFiles.files || []));
       });
 
+      els.odooConnectionForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        testOdooConnection();
+      });
+
+      els.listOdooDatabases.addEventListener("click", () => {
+        listOdooDatabases();
+      });
+
+      els.timesheetDebugForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        fetchEmployeeTimesheets();
+      });
+
+      els.projectDebugForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        fetchProjectData();
+      });
+
       window.addEventListener("resize", debounce(renderChartsOnly, 160));
+
+      async function fetchEmployeeTimesheets() {
+        const payload = {
+          url: els.odooUrl.value.trim(),
+          database: els.odooDatabase.value.trim(),
+          username: els.odooUsername.value.trim(),
+          apiKey: els.odooApiKey.value.trim(),
+          employeeName: els.timesheetEmployeeName.value.trim()
+        };
+
+        if (!payload.employeeName) {
+          setTimesheetDebugStatus("Enter an employee name.", "warn");
+          els.timesheetEmployeeName.focus();
+          return;
+        }
+
+        setTimesheetDebugStatus("Fetching timesheets and planning...", "warn");
+        setOdooButtonsDisabled(true);
+        setDebugOutput({});
+
+        try {
+          const [timesheetFetch, planningFetch] = await Promise.allSettled([
+            postOdooJson("/api/odoo/employee-timesheets", payload, "Timesheet fetch"),
+            postOdooJson("/api/odoo/employee-planning", payload, "Planning fetch")
+          ]);
+
+          if (timesheetFetch.status === "rejected") {
+            throw timesheetFetch.reason;
+          }
+
+          const result = timesheetFetch.value;
+          const employeeDataset = buildEmployeeDatasetFromApi(result);
+          const chartHours = employeeDataset.rows.reduce((total, row) => total + sumMap(row.values), 0);
+          state.employee = employeeDataset;
+          let planningResult = null;
+          let planningError = null;
+          let planChartHours = 0;
+          let planChartRows = 0;
+
+          if (planningFetch.status === "fulfilled") {
+            planningResult = planningFetch.value;
+            const planDataset = buildPersonalPlanDatasetFromApi(planningResult);
+            state.personalPlan = planDataset;
+            if (planDataset) {
+              planChartRows = planDataset.rows.length;
+              planChartHours = planDataset.rows.reduce((total, row) => total + sumMap(row.values), 0);
+            }
+          } else {
+            planningError = planningFetch.reason.message || String(planningFetch.reason);
+            state.personalPlan = null;
+          }
+
+          state.errors = [];
+          refreshYears(true);
+          render();
+          const planningStatus = planningError
+            ? `planning failed: ${planningError}`
+            : `${planningResult.slotCount} planning slots, ${formatHours(planningResult.totalHours)} h fetched, ${formatHours(planChartHours)} h charted`;
+          setTimesheetDebugStatus(
+            `${result.lineCount} timesheet lines, ${formatHours(result.totalHours)} h fetched, ${formatHours(chartHours)} h charted; ${planningStatus}`,
+            planningError ? "warn" : "ok"
+          );
+          setDebugOutput({
+            timesheets: result,
+            planning: planningError ? { ok: false, error: planningError } : planningResult,
+            dashboard: {
+              actualChartedHours: chartHours,
+              plannedChartedHours: planChartHours,
+              plannedProjectCount: planChartRows
+            }
+          });
+        } catch (error) {
+          const unavailable = error instanceof TypeError;
+          const message = unavailable
+            ? "Connector unavailable. Run node server.js, then open the local URL."
+            : error.message;
+          setTimesheetDebugStatus(message, "warn");
+          setDebugOutput({
+            ok: false,
+            error: message
+          });
+        } finally {
+          setOdooButtonsDisabled(false);
+        }
+      }
+
+      async function fetchProjectData() {
+        const payload = {
+          url: els.odooUrl.value.trim(),
+          database: els.odooDatabase.value.trim(),
+          username: els.odooUsername.value.trim(),
+          apiKey: els.odooApiKey.value.trim(),
+          projectCode: els.projectCodeInput.value.trim()
+        };
+
+        if (!payload.projectCode) {
+          setTimesheetDebugStatus("Enter a project ID.", "warn");
+          els.projectCodeInput.focus();
+          return;
+        }
+
+        setTimesheetDebugStatus("Fetching project timesheets and planning...", "warn");
+        setOdooButtonsDisabled(true);
+        setDebugOutput({});
+
+        try {
+          const [timesheetFetch, planningFetch] = await Promise.allSettled([
+            postOdooJson("/api/odoo/project-timesheets", payload, "Project timesheet fetch"),
+            postOdooJson("/api/odoo/project-planning", payload, "Project planning fetch")
+          ]);
+
+          if (timesheetFetch.status === "rejected") {
+            throw timesheetFetch.reason;
+          }
+
+          const timesheetResult = timesheetFetch.value;
+          const projectDataset = buildProjectDatasetFromApi(timesheetResult);
+          upsertProjectDataset(projectDataset);
+          let planningResult = null;
+          let planningError = null;
+          let planDataset = null;
+          let planChartHours = 0;
+
+          if (planningFetch.status === "fulfilled") {
+            planningResult = planningFetch.value;
+            planDataset = buildProjectPlanDatasetFromApi(planningResult, projectDataset);
+            if (planDataset) {
+              upsertProjectPlanDataset(planDataset);
+              planChartHours = planDataset.rows.reduce((total, row) => total + sumMap(row.values), 0);
+            }
+          } else {
+            planningError = planningFetch.reason.message || String(planningFetch.reason);
+          }
+
+          state.errors = [];
+          refreshYears(true);
+          render();
+
+          const actualChartHours = projectDataset.rows.reduce((total, row) => total + sumMap(row.values), 0);
+          const planningStatus = planningError
+            ? `planning failed: ${planningError}`
+            : `${planningResult.slotCount} planning slots, ${formatHours(planningResult.totalHours)} h fetched, ${formatHours(planChartHours)} h charted`;
+          setTimesheetDebugStatus(
+            `Project ${payload.projectCode}: ${timesheetResult.lineCount} timesheet lines, ${formatHours(timesheetResult.totalHours)} h fetched, ${formatHours(actualChartHours)} h charted; ${planningStatus}`,
+            planningError ? "warn" : "ok"
+          );
+          setDebugOutput({
+            projectTimesheets: timesheetResult,
+            projectPlanning: planningError ? { ok: false, error: planningError } : planningResult,
+            dashboard: {
+              actualChartedHours: actualChartHours,
+              plannedChartedHours: planChartHours,
+              projectCount: state.projects.length,
+              planCount: state.plans.length
+            }
+          });
+        } catch (error) {
+          const unavailable = error instanceof TypeError;
+          const message = unavailable
+            ? "Connector unavailable. Run node server.js, then open the local URL."
+            : error.message;
+          setTimesheetDebugStatus(message, "warn");
+          setDebugOutput({
+            ok: false,
+            error: message
+          });
+        } finally {
+          setOdooButtonsDisabled(false);
+        }
+      }
+
+      async function postOdooJson(path, payload, label) {
+        const response = await fetch(path, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.ok) {
+          throw new Error(result.error || `${label} failed with HTTP ${response.status}`);
+        }
+        return result;
+      }
+
+      async function listOdooDatabases() {
+        const url = els.odooUrl.value.trim();
+        if (!url) {
+          setOdooConnectionStatus("Enter the Odoo URL first.", "warn");
+          els.odooUrl.focus();
+          return;
+        }
+
+        setOdooConnectionStatus("Listing databases...", "warn");
+        setOdooButtonsDisabled(true);
+
+        try {
+          const response = await fetch("/api/odoo/list-databases", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url })
+          });
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok || !result.ok) {
+            throw new Error(result.error || `Database listing failed with HTTP ${response.status}`);
+          }
+
+          const databases = Array.isArray(result.databases) ? result.databases : [];
+          els.odooDatabaseOptions.innerHTML = databases
+            .map((database) => `<option value="${escapeHtml(database)}"></option>`)
+            .join("");
+
+          if (databases.length === 1) {
+            els.odooDatabase.value = databases[0];
+            setOdooConnectionStatus(`Found database "${databases[0]}".`, "ok");
+          } else if (databases.length > 1) {
+            setOdooConnectionStatus(`Found ${databases.length} databases. Choose one from the database field.`, "ok");
+          } else {
+            setOdooConnectionStatus("Odoo returned no databases. Listing may be disabled on this instance.", "warn");
+          }
+        } catch (error) {
+          const unavailable = error instanceof TypeError;
+          setOdooConnectionStatus(
+            unavailable ? "Connector unavailable. Run node server.js, then open the local URL." : error.message,
+            "warn"
+          );
+        } finally {
+          setOdooButtonsDisabled(false);
+        }
+      }
+
+      async function testOdooConnection() {
+        const payload = {
+          url: els.odooUrl.value.trim(),
+          database: els.odooDatabase.value.trim(),
+          username: els.odooUsername.value.trim(),
+          apiKey: els.odooApiKey.value.trim()
+        };
+
+        setOdooConnectionStatus("Testing...", "warn");
+        setOdooButtonsDisabled(true);
+
+        try {
+          const response = await fetch("/api/odoo/test-connection", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok || !result.ok) {
+            throw new Error(result.error || `Connection test failed with HTTP ${response.status}`);
+          }
+
+          const suffix = result.serverVersion ? `, Odoo ${result.serverVersion}` : "";
+          setOdooConnectionStatus(`Connected as user #${result.uid}${suffix}`, "ok");
+        } catch (error) {
+          const unavailable = error instanceof TypeError;
+          setOdooConnectionStatus(
+            unavailable ? "Connector unavailable. Run node server.js, then open the local URL." : error.message,
+            "warn"
+          );
+        } finally {
+          setOdooButtonsDisabled(false);
+        }
+      }
+
+      function setOdooButtonsDisabled(disabled) {
+        els.listOdooDatabases.disabled = disabled;
+        els.testOdooConnection.disabled = disabled;
+        els.fetchEmployeeTimesheets.disabled = disabled;
+        els.fetchProjectData.disabled = disabled;
+      }
+
+      function setOdooConnectionStatus(message, tone) {
+        els.odooConnectionStatus.textContent = message;
+        els.odooConnectionStatus.classList.toggle("ok", tone === "ok");
+        els.odooConnectionStatus.classList.toggle("warn", tone === "warn");
+      }
+
+      function setTimesheetDebugStatus(message, tone) {
+        els.timesheetDebugStatus.textContent = message;
+        els.timesheetDebugStatus.classList.toggle("ok", tone === "ok");
+        els.timesheetDebugStatus.classList.toggle("warn", tone === "warn");
+      }
+
+      function setDebugOutput(value) {
+        if (els.timesheetDebugOutput) {
+          els.timesheetDebugOutput.textContent = JSON.stringify(value, null, 2);
+        }
+      }
 
       async function loadEmployee(file) {
         setStatus("Reading employee export...", "Loading", false);
@@ -1418,6 +1960,258 @@
         };
       }
 
+      function buildEmployeeDatasetFromApi(result) {
+        const monthMap = new Map();
+        const projectRows = new Map();
+        const monthly = Array.isArray(result.monthly) ? result.monthly : [];
+
+        monthly.forEach((monthEntry) => {
+          const month = monthFromKey(monthEntry.month);
+          if (!month || !Number.isFinite(month.date.getTime())) {
+            return;
+          }
+          monthMap.set(month.key, month);
+
+          const projects = Array.isArray(monthEntry.projects) ? monthEntry.projects : [];
+          projects.forEach((project) => {
+            const name = cleanLabel(project.name);
+            if (!name || isInternal(name)) {
+              return;
+            }
+            const hours = toHours(project.hours);
+            if (hours <= 0) {
+              return;
+            }
+            const key = projectColorKey(name);
+            if (!projectRows.has(key)) {
+              projectRows.set(key, {
+                name,
+                values: new Map()
+              });
+            }
+            const row = projectRows.get(key);
+            row.values.set(month.key, (row.values.get(month.key) || 0) + hours);
+          });
+        });
+
+        const months = Array.from(monthMap.values()).sort((a, b) => a.date - b.date);
+        const rows = Array.from(projectRows.values())
+          .map((row) => ({
+            name: row.name,
+            values: new Map(months.map((month) => [month.key, row.values.get(month.key) || 0]))
+          }))
+          .filter((row) => sumMap(row.values) > 0);
+
+        if (!months.length || !rows.length) {
+          throw new Error("No project rows found in API timesheets after removing Internal");
+        }
+
+        return {
+          type: "employee",
+          source: "api",
+          fileName: `Odoo API - ${result.employeeName || "employee timesheets"}`,
+          sheetName: "account.analytic.line",
+          months,
+          rows
+        };
+      }
+
+      function buildPersonalPlanDatasetFromApi(result) {
+        const monthMap = new Map();
+        const projectRows = new Map();
+        const monthly = Array.isArray(result.monthly) ? result.monthly : [];
+
+        monthly.forEach((monthEntry) => {
+          const month = monthFromKey(monthEntry.month);
+          if (!month || !Number.isFinite(month.date.getTime())) {
+            return;
+          }
+          monthMap.set(month.key, month);
+
+          const projects = Array.isArray(monthEntry.projects) ? monthEntry.projects : [];
+          projects.forEach((project) => {
+            const name = cleanLabel(project.name);
+            if (!name || isInternal(name)) {
+              return;
+            }
+            const hours = toHours(project.hours);
+            if (hours <= 0) {
+              return;
+            }
+            const key = projectColorKey(name);
+            if (!projectRows.has(key)) {
+              projectRows.set(key, {
+                name,
+                values: new Map()
+              });
+            }
+            const row = projectRows.get(key);
+            row.values.set(month.key, (row.values.get(month.key) || 0) + hours);
+          });
+        });
+
+        const months = Array.from(monthMap.values()).sort((a, b) => a.date - b.date);
+        const rows = Array.from(projectRows.values())
+          .map((row) => ({
+            name: row.name,
+            values: new Map(months.map((month) => [month.key, row.values.get(month.key) || 0]))
+          }))
+          .filter((row) => sumMap(row.values) > 0);
+
+        if (!months.length || !rows.length) {
+          return null;
+        }
+
+        return {
+          type: "personal-plan",
+          source: "api",
+          fileName: `Odoo API - ${result.employeeName || "employee planning"}`,
+          sheetName: "planning.slot",
+          months,
+          timelineMonths: months,
+          rows
+        };
+      }
+
+      function buildProjectDatasetFromApi(result) {
+        const monthMap = new Map();
+        const employeeRows = new Map();
+        const monthly = Array.isArray(result.monthly) ? result.monthly : [];
+
+        monthly.forEach((monthEntry) => {
+          const month = monthFromKey(monthEntry.month);
+          if (!month || !Number.isFinite(month.date.getTime())) {
+            return;
+          }
+          monthMap.set(month.key, month);
+
+          const employees = Array.isArray(monthEntry.employees) ? monthEntry.employees : [];
+          employees.forEach((employee) => {
+            const name = cleanLabel(employee.name);
+            if (!name) {
+              return;
+            }
+            const hours = toHours(employee.hours);
+            if (hours <= 0) {
+              return;
+            }
+            const key = personKey(name);
+            if (!employeeRows.has(key)) {
+              employeeRows.set(key, {
+                name,
+                values: new Map()
+              });
+            }
+            const row = employeeRows.get(key);
+            row.values.set(month.key, (row.values.get(month.key) || 0) + hours);
+          });
+        });
+
+        const months = Array.from(monthMap.values()).sort((a, b) => a.date - b.date);
+        const rows = Array.from(employeeRows.values())
+          .map((row) => ({
+            name: row.name,
+            values: new Map(months.map((month) => [month.key, row.values.get(month.key) || 0]))
+          }))
+          .filter((row) => sumMap(row.values) > 0);
+
+        if (!months.length || !rows.length) {
+          throw new Error("No employee rows found in API project timesheets");
+        }
+
+        return {
+          type: "project",
+          source: "api",
+          fileName: `Odoo API - project ${result.projectCode}`,
+          sheetName: "account.analytic.line",
+          name: result.projectName || `[${result.projectCode}] Project ${result.projectCode}`,
+          code: result.projectCode,
+          months,
+          rows
+        };
+      }
+
+      function buildProjectPlanDatasetFromApi(result, projectDataset = null) {
+        const monthMap = new Map();
+        const employeeRows = new Map();
+        const monthly = Array.isArray(result.monthly) ? result.monthly : [];
+
+        monthly.forEach((monthEntry) => {
+          const month = monthFromKey(monthEntry.month);
+          if (!month || !Number.isFinite(month.date.getTime())) {
+            return;
+          }
+          monthMap.set(month.key, month);
+
+          const employees = Array.isArray(monthEntry.employees) ? monthEntry.employees : [];
+          employees.forEach((employee) => {
+            const name = cleanLabel(employee.name);
+            if (!name) {
+              return;
+            }
+            const hours = toHours(employee.hours);
+            if (hours <= 0) {
+              return;
+            }
+            const key = personKey(name);
+            if (!employeeRows.has(key)) {
+              employeeRows.set(key, {
+                name,
+                values: new Map()
+              });
+            }
+            const row = employeeRows.get(key);
+            row.values.set(month.key, (row.values.get(month.key) || 0) + hours);
+          });
+        });
+
+        const months = Array.from(monthMap.values()).sort((a, b) => a.date - b.date);
+        const rows = Array.from(employeeRows.values())
+          .map((row) => ({
+            name: row.name,
+            values: new Map(months.map((month) => [month.key, row.values.get(month.key) || 0]))
+          }))
+          .filter((row) => sumMap(row.values) > 0);
+
+        if (!months.length || !rows.length) {
+          return null;
+        }
+
+        return {
+          type: "planned",
+          source: "api",
+          allocationMode: "monthly",
+          fileName: `Odoo API - project planning ${result.projectCode}`,
+          sheetName: "planning.slot",
+          name: result.projectName || (projectDataset && projectDataset.name) || `[${result.projectCode}] Project ${result.projectCode}`,
+          code: result.projectCode,
+          projectStart: months[0],
+          months,
+          timelineMonths: months,
+          rows
+        };
+      }
+
+      function upsertProjectDataset(projectDataset) {
+        const key = projectSeriesKey(projectDataset);
+        const index = state.projects.findIndex((project) => projectSeriesKey(project) === key);
+        if (index >= 0) {
+          state.projects.splice(index, 1, projectDataset);
+        } else {
+          state.projects.push(projectDataset);
+        }
+      }
+
+      function upsertProjectPlanDataset(planDataset) {
+        const key = projectSeriesKey(planDataset);
+        const index = state.plans.findIndex((plan) => projectSeriesKey(plan) === key);
+        if (index >= 0) {
+          state.plans.splice(index, 1, planDataset);
+        } else {
+          state.plans.push(planDataset);
+        }
+      }
+
       function buildProjectDatasets(fileName, parsed) {
         const candidates = parsed.rows.filter((row) => isDataRow(row));
         if (!candidates.length) {
@@ -1660,7 +2454,7 @@
       function renderStatus() {
         const loaded = [];
         if (state.employee) {
-          loaded.push("employee export");
+          loaded.push(state.employee.source === "api" ? "employee API data" : "employee export");
         }
         if (state.personalPlan) {
           loaded.push("personal planning");
@@ -2300,6 +3094,14 @@
       }
 
       function buildPlannedCumulativePoints(row, plan, timeline, project) {
+        if (plan.allocationMode === "monthly") {
+          let runningMonthly = 0;
+          return timeline.map((month) => {
+            runningMonthly += row.values.get(month.key) || 0;
+            return runningMonthly;
+          });
+        }
+
         const allocations = new Map();
         const projectStart = plan.projectStart || parseProjectStartMonth(project.name) || timeline[0];
         const endpoints = plan.months
