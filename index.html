@@ -2845,7 +2845,7 @@
       function renderPieChart(canvas, entries) {
         drawCanvas(canvas, (ctx, width, height) => {
           const total = sumEntries(entries);
-          const radius = Math.max(64, Math.min(width, height) * 0.34);
+          const radius = Math.max(52, Math.min(width, height) * 0.27);
           const cx = width / 2;
           const cy = height / 2;
 
@@ -2856,19 +2856,31 @@
           }
 
           let start = -Math.PI / 2;
+          const slices = [];
           entries.forEach((entry, index) => {
             const angle = (entry.value / total) * Math.PI * 2;
+            const end = start + angle;
+            slices.push({
+              entry,
+              start,
+              end,
+              mid: start + angle / 2,
+              color: entry.color || CHART_COLORS[index % CHART_COLORS.length],
+              label: compactLegendLabel(entry.name)
+            });
             ctx.beginPath();
             ctx.moveTo(cx, cy);
-            ctx.arc(cx, cy, radius, start, start + angle);
+            ctx.arc(cx, cy, radius, start, end);
             ctx.closePath();
-            ctx.fillStyle = entry.color || CHART_COLORS[index % CHART_COLORS.length];
+            ctx.fillStyle = slices[slices.length - 1].color;
             ctx.fill();
             ctx.strokeStyle = "#ffffff";
             ctx.lineWidth = 2;
             ctx.stroke();
-            start += angle;
+            start = end;
           });
+
+          drawPieSliceLabels(ctx, width, height, cx, cy, radius, slices);
 
           ctx.beginPath();
           ctx.arc(cx, cy, radius * 0.55, 0, Math.PI * 2);
@@ -2884,6 +2896,101 @@
           ctx.font = "700 12px system-ui, sans-serif";
           ctx.fillText("selected scope", cx, cy + 18);
         });
+      }
+
+      function drawPieSliceLabels(ctx, width, height, cx, cy, radius, slices) {
+        if (!slices.length) {
+          return;
+        }
+
+        const labels = slices.map((slice) => {
+          const side = Math.cos(slice.mid) >= 0 ? 1 : -1;
+          const lineStart = {
+            x: cx + Math.cos(slice.mid) * radius * 0.98,
+            y: cy + Math.sin(slice.mid) * radius * 0.98
+          };
+          const elbow = {
+            x: cx + Math.cos(slice.mid) * (radius + 16),
+            y: cy + Math.sin(slice.mid) * (radius + 16)
+          };
+          const edgePadding = 16;
+          const labelX = side > 0 ? width - edgePadding : edgePadding;
+          const preferredY = cy + Math.sin(slice.mid) * (radius + 28);
+          return {
+            ...slice,
+            side,
+            lineStart,
+            elbow,
+            labelX,
+            y: preferredY
+          };
+        });
+
+        positionPieLabels(labels.filter((label) => label.side < 0), height);
+        positionPieLabels(labels.filter((label) => label.side > 0), height);
+
+        ctx.save();
+        ctx.font = "800 12px system-ui, sans-serif";
+        ctx.textBaseline = "middle";
+        labels.forEach((label) => {
+          const textMaxWidth = Math.max(54, Math.min(140, width * 0.28));
+          const text = fitCanvasText(ctx, label.label, textMaxWidth);
+          const textWidth = ctx.measureText(text).width;
+          const dotRadius = 4;
+          const gap = 6;
+          const textX = label.side > 0
+            ? label.labelX - textWidth
+            : label.labelX + dotRadius * 2 + gap;
+          const dotX = label.side > 0
+            ? textX - gap - dotRadius
+            : label.labelX + dotRadius;
+          const lineEndX = label.side > 0
+            ? dotX - dotRadius - 4
+            : dotX + dotRadius + 4;
+
+          ctx.strokeStyle = label.color;
+          ctx.globalAlpha = 0.76;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(label.lineStart.x, label.lineStart.y);
+          ctx.lineTo(label.elbow.x, label.elbow.y);
+          ctx.lineTo(lineEndX, label.y);
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+
+          ctx.beginPath();
+          ctx.arc(dotX, label.y, dotRadius, 0, Math.PI * 2);
+          ctx.fillStyle = label.color;
+          ctx.fill();
+          ctx.strokeStyle = "#ffffff";
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+
+          const paddingX = 4;
+          ctx.fillStyle = "rgba(251, 253, 252, 0.88)";
+          ctx.fillRect(textX - paddingX, label.y - 8, textWidth + paddingX * 2, 16);
+          ctx.fillStyle = "#182322";
+          ctx.textAlign = "left";
+          ctx.fillText(text, textX, label.y);
+        });
+        ctx.restore();
+      }
+
+      function positionPieLabels(labels, height) {
+        const minGap = 18;
+        const top = 18;
+        const bottom = height - 18;
+        labels.sort((a, b) => a.y - b.y);
+
+        for (let index = 0; index < labels.length; index += 1) {
+          const previous = labels[index - 1];
+          labels[index].y = Math.max(index ? previous.y + minGap : top, labels[index].y);
+        }
+
+        for (let index = labels.length - 1; index >= 0; index -= 1) {
+          const next = labels[index + 1];
+          labels[index].y = Math.min(index < labels.length - 1 ? next.y - minGap : bottom, labels[index].y);
+        }
       }
 
       function renderLineChart(canvas, project, entries, options = {}) {
@@ -3269,14 +3376,37 @@
         container.innerHTML = entries.length ? "" : `<p class="legend-value">No hours in selected scope.</p>`;
         entries.forEach((entry) => {
           const row = document.createElement("div");
+          const label = compactLegendLabel(entry.name);
           row.className = "legend-row";
+          if (label !== entry.name) {
+            row.title = entry.name;
+          }
           row.innerHTML = `
             <span class="swatch" style="background:${entry.color}"></span>
-            <span class="legend-name">${escapeHtml(entry.name)}</span>
+            <span class="legend-name">${escapeHtml(label)}</span>
             <span class="legend-value">${formatHours(entry.value)} h (${formatPercent(entry.value, total)})</span>
           `;
           container.appendChild(row);
         });
+      }
+
+      function compactLegendLabel(name) {
+        const match = String(name || "").match(/\[([^\]]+)\]/);
+        return match ? match[1].trim() : String(name || "");
+      }
+
+      function fitCanvasText(ctx, text, maxWidth) {
+        const clean = String(text || "");
+        if (ctx.measureText(clean).width <= maxWidth) {
+          return clean;
+        }
+
+        const ellipsis = "...";
+        let fitted = clean;
+        while (fitted.length > 1 && ctx.measureText(`${fitted}${ellipsis}`).width > maxWidth) {
+          fitted = fitted.slice(0, -1);
+        }
+        return `${fitted.trim()}${ellipsis}`;
       }
 
       function renderLineLegend(container, entries, options = {}) {
