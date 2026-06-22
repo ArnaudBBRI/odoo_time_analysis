@@ -27,6 +27,25 @@ node server.js
 
 Then open `http://127.0.0.1:8766/`.
 
+## Optional Local Config
+
+To avoid re-entering the same Odoo values every time, copy `config.example.json` to `config.local.json` and fill in your own values:
+
+```json
+{
+  "odooUrl": "https://odoo.buildwise.be/",
+  "database": "buildwiseprd",
+  "username": "your.odoo.login@example.com",
+  "apiKey": "paste-your-api-key-here",
+  "employeeName": "First Last",
+  "projectId": "54252043"
+}
+```
+
+`config.local.json` is ignored by Git and is not served as a static file by `server.js`. The browser only receives the non-secret fields and whether an API key exists; the API key stays on the local server side.
+
+When `apiKey` is present in `config.local.json`, you can leave the dashboard's API key field empty. Typing a value in the field still overrides the config value for that request.
+
 ## Running With The Odoo API Connector
 
 The XLSX workflow still works by opening `index.html` directly. The Odoo API connection test needs the local proxy server in `server.js`, because browsers usually cannot call Odoo XML-RPC directly from a local page.
@@ -38,7 +57,7 @@ The connection test asks for:
 - **Username**: your Odoo login email or username.
 - **API key**: the key generated from your Odoo account security settings.
 
-The API key is not saved by the dashboard. It is only sent to the local server for the connection test, and the local server forwards it to Odoo as the XML-RPC password.
+When typed in the browser, the API key is not saved by the dashboard. It is only sent to the local server for the current API request, and the local server forwards it to Odoo as the XML-RPC password. If you choose to store it in `config.local.json`, keep that file private.
 
 Use **List databases** after entering the Odoo URL to ask Odoo's XML-RPC database service for available database names. Some Odoo instances disable database listing for security. If listing is disabled, enter the database manually, usually the subdomain part of an Odoo Online URL.
 

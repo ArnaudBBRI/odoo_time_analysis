@@ -6,6 +6,11 @@ const HOST = "127.0.0.1";
 const PORT = Number(process.env.PORT || 8765);
 const ROOT = __dirname;
 const MAX_BODY_BYTES = 64 * 1024;
+const DEFAULT_CONFIG = {
+  odooUrl: "https://odoo.buildwise.be/",
+  database: "buildwiseprd"
+};
+const CONFIG_FILE_NAME = "config.local.json";
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -21,6 +26,10 @@ const server = http.createServer(async (request, response) => {
     if (url.pathname === "/favicon.ico") {
       response.writeHead(204);
       response.end();
+      return;
+    }
+    if (url.pathname === "/api/config") {
+      await handleDashboardConfig(request, response);
       return;
     }
     if (url.pathname === "/api/odoo/test-connection") {
@@ -81,10 +90,7 @@ async function handleOdooConnectionTest(request, response) {
   let apiKey;
   try {
     body = await readJsonBody(request);
-    odooUrl = normalizeOdooUrl(body.url);
-    database = cleanRequired(body.database, "Database");
-    username = cleanRequired(body.username, "Username");
-    apiKey = cleanRequired(body.apiKey, "API key");
+    ({ odooUrl, database, username, apiKey } = getAuthSettings(body));
   } catch (error) {
     sendJson(response, 400, {
       ok: false,
@@ -126,7 +132,7 @@ async function handleOdooDatabaseList(request, response) {
   let odooUrl;
   try {
     const body = await readJsonBody(request);
-    odooUrl = normalizeOdooUrl(body.url);
+    odooUrl = normalizeOdooUrl(getMergedConnectorSettings(body).odooUrl);
   } catch (error) {
     sendJson(response, 400, {
       ok: false,
@@ -164,11 +170,7 @@ async function handleEmployeeTimesheets(request, response) {
   let employeeName;
   try {
     body = await readJsonBody(request);
-    odooUrl = normalizeOdooUrl(body.url);
-    database = cleanRequired(body.database, "Database");
-    username = cleanRequired(body.username, "Username");
-    apiKey = cleanRequired(body.apiKey, "API key");
-    employeeName = cleanRequired(body.employeeName, "Employee name");
+    ({ odooUrl, database, username, apiKey, employeeName } = getEmployeeFetchSettings(body));
   } catch (error) {
     sendJson(response, 400, {
       ok: false,
@@ -246,11 +248,7 @@ async function handleEmployeePlanning(request, response) {
   let employeeName;
   try {
     body = await readJsonBody(request);
-    odooUrl = normalizeOdooUrl(body.url);
-    database = cleanRequired(body.database, "Database");
-    username = cleanRequired(body.username, "Username");
-    apiKey = cleanRequired(body.apiKey, "API key");
-    employeeName = cleanRequired(body.employeeName, "Employee name");
+    ({ odooUrl, database, username, apiKey, employeeName } = getEmployeeFetchSettings(body));
   } catch (error) {
     sendJson(response, 400, {
       ok: false,
@@ -339,11 +337,7 @@ async function handleProjectTimesheets(request, response) {
   let projectCode;
   try {
     body = await readJsonBody(request);
-    odooUrl = normalizeOdooUrl(body.url);
-    database = cleanRequired(body.database, "Database");
-    username = cleanRequired(body.username, "Username");
-    apiKey = cleanRequired(body.apiKey, "API key");
-    projectCode = cleanProjectCode(body.projectCode);
+    ({ odooUrl, database, username, apiKey, projectCode } = getProjectFetchSettings(body));
   } catch (error) {
     sendJson(response, 400, {
       ok: false,
@@ -405,11 +399,7 @@ async function handleProjectPlanning(request, response) {
   let projectCode;
   try {
     body = await readJsonBody(request);
-    odooUrl = normalizeOdooUrl(body.url);
-    database = cleanRequired(body.database, "Database");
-    username = cleanRequired(body.username, "Username");
-    apiKey = cleanRequired(body.apiKey, "API key");
-    projectCode = cleanProjectCode(body.projectCode);
+    ({ odooUrl, database, username, apiKey, projectCode } = getProjectFetchSettings(body));
   } catch (error) {
     sendJson(response, 400, {
       ok: false,
@@ -492,10 +482,44 @@ async function handleProjectPlanning(request, response) {
   });
 }
 
+async function handleDashboardConfig(request, response) {
+  if (request.method !== "GET") {
+    sendJson(response, 405, { ok: false, error: "Use GET for this endpoint" });
+    return;
+  }
+
+  try {
+    const configInfo = readDashboardConfigInfo();
+    const config = configInfo.values;
+    const settings = getMergedConnectorSettings({});
+
+    sendJson(response, 200, {
+      ok: true,
+      hasConfig: Boolean(configInfo.source),
+      odooUrl: normalizeOdooUrl(settings.odooUrl),
+      database: settings.database,
+      username: settings.username,
+      employeeName: settings.employeeName,
+      projectCode: settings.projectCode,
+      hasApiKey: Boolean(firstNonBlank(config.apiKey, config.api_key))
+    });
+  } catch (error) {
+    sendJson(response, 500, {
+      ok: false,
+      error: error.message
+    });
+  }
+}
+
 async function serveStaticFile(pathname, response) {
   const requestPath = decodeURIComponent(pathname === "/" ? "/index.html" : pathname);
   const targetPath = path.resolve(ROOT, `.${requestPath}`);
   const relativePath = path.relative(ROOT, targetPath);
+
+  if (isPrivateConfigPath(relativePath)) {
+    sendJson(response, 403, { ok: false, error: "Local configuration files are not served" });
+    return;
+  }
 
   if (relativePath.startsWith("..") || path.isAbsolute(relativePath) || !fs.existsSync(targetPath) || fs.statSync(targetPath).isDirectory()) {
     sendJson(response, 404, { ok: false, error: "Not found" });
@@ -506,6 +530,75 @@ async function serveStaticFile(pathname, response) {
     "Content-Type": MIME_TYPES[path.extname(targetPath).toLowerCase()] || "application/octet-stream"
   });
   fs.createReadStream(targetPath).pipe(response);
+}
+
+function getAuthSettings(body) {
+  const settings = getMergedConnectorSettings(body);
+  return {
+    odooUrl: normalizeOdooUrl(settings.odooUrl),
+    database: cleanRequired(settings.database, "Database"),
+    username: cleanRequired(settings.username, "Username"),
+    apiKey: cleanRequired(settings.apiKey, "API key")
+  };
+}
+
+function getEmployeeFetchSettings(body) {
+  const settings = getMergedConnectorSettings(body);
+  return {
+    ...getAuthSettings(body),
+    employeeName: cleanRequired(settings.employeeName, "Employee name")
+  };
+}
+
+function getProjectFetchSettings(body) {
+  const settings = getMergedConnectorSettings(body);
+  return {
+    ...getAuthSettings(body),
+    projectCode: cleanProjectCode(settings.projectCode)
+  };
+}
+
+function getMergedConnectorSettings(body = {}) {
+  const config = readDashboardConfigInfo().values;
+  return {
+    odooUrl: firstNonBlank(body.url, body.odooUrl, config.odooUrl, config.url, DEFAULT_CONFIG.odooUrl),
+    database: firstNonBlank(body.database, config.database, DEFAULT_CONFIG.database),
+    username: firstNonBlank(body.username, config.username),
+    apiKey: firstNonBlank(body.apiKey, config.apiKey, config.api_key),
+    employeeName: firstNonBlank(body.employeeName, config.employeeName),
+    projectCode: firstNonBlank(body.projectCode, config.projectId, config.projectID, config.projectCode)
+  };
+}
+
+function readDashboardConfigInfo() {
+  const configPath = path.join(ROOT, CONFIG_FILE_NAME);
+  if (!fs.existsSync(configPath)) {
+    return { values: {}, source: null };
+  }
+
+  try {
+    const values = JSON.parse(fs.readFileSync(configPath, "utf8"));
+    if (!values || typeof values !== "object" || Array.isArray(values)) {
+      throw new Error("the file must contain a JSON object");
+    }
+    return { values, source: CONFIG_FILE_NAME };
+  } catch (error) {
+    throw new Error(`${CONFIG_FILE_NAME} could not be read: ${error.message}`);
+  }
+}
+
+function isPrivateConfigPath(relativePath) {
+  return path.basename(relativePath).toLowerCase() === CONFIG_FILE_NAME.toLowerCase();
+}
+
+function firstNonBlank(...values) {
+  for (const value of values) {
+    const text = String(value ?? "").trim();
+    if (text) {
+      return text;
+    }
+  }
+  return "";
 }
 
 function readJsonBody(request) {

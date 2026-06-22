@@ -526,6 +526,114 @@
       height: 460px;
     }
 
+    .remaining-block {
+      display: grid;
+      gap: 10px;
+      border-top: 1px solid var(--line);
+      padding-top: 16px;
+    }
+
+    .remaining-block[hidden] {
+      display: none;
+    }
+
+    .remaining-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .remaining-head h3 {
+      color: var(--muted);
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-weight: 800;
+    }
+
+    .remaining-empty {
+      color: var(--muted);
+      font-weight: 700;
+      line-height: 1.45;
+    }
+
+    .remaining-table-wrap {
+      overflow-x: auto;
+    }
+
+    .remaining-table {
+      min-width: 820px;
+    }
+
+    .remaining-table td:first-child,
+    .remaining-table th:first-child {
+      width: 34%;
+    }
+
+    .remaining-project {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      font-weight: 800;
+    }
+
+    .remaining-table .swatch {
+      flex: 0 0 auto;
+      margin-top: 0;
+    }
+
+    .remaining-bar-cell {
+      width: 30%;
+      min-width: 240px;
+    }
+
+    .remaining-bar-track {
+      position: relative;
+      height: 24px;
+      border-radius: 6px;
+      background: #eef4f2;
+      border: 1px solid var(--line);
+      overflow: hidden;
+    }
+
+    .remaining-bar-track::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      width: 1px;
+      background: #9aa9a6;
+    }
+
+    .remaining-bar {
+      position: absolute;
+      top: 4px;
+      height: 14px;
+      min-width: 2px;
+      border-radius: 999px;
+    }
+
+    .remaining-bar.positive {
+      left: 50%;
+      background: #0f766e;
+    }
+
+    .remaining-bar.negative {
+      right: 50%;
+      background: #c75f4c;
+    }
+
+    .remaining-value.positive {
+      color: var(--teal-dark);
+    }
+
+    .remaining-value.negative {
+      color: #9f3e31;
+    }
+
     .project-chart-grid {
       display: grid;
       grid-template-columns: minmax(260px, 0.72fr) minmax(360px, 1.28fr);
@@ -829,7 +937,7 @@
         </label>
         <label class="field">
           <span>API key</span>
-          <input id="odooApiKey" type="password" autocomplete="current-password" required>
+          <input id="odooApiKey" type="password" autocomplete="current-password" placeholder="Paste key or use config.local.json">
         </label>
         <div class="connector-actions">
           <button id="listOdooDatabases" class="secondary-button" type="button">List databases</button>
@@ -910,6 +1018,27 @@
               <canvas id="employeePlanPie" class="chart-canvas" aria-label="My planned project time pie chart"></canvas>
               <div id="employeePlanLegend" class="legend"></div>
             </div>
+          </div>
+        </div>
+        <div id="employeeRemainingBlock" class="remaining-block" hidden>
+          <div class="remaining-head">
+            <h3>Remaining hours by project</h3>
+            <span id="employeeRemainingMeta" class="panel-meta"></span>
+          </div>
+          <div id="employeeRemainingEmpty" class="remaining-empty" hidden></div>
+          <div id="employeeRemainingTableWrap" class="remaining-table-wrap">
+            <table class="remaining-table">
+              <thead>
+                <tr>
+                  <th>Project</th>
+                  <th class="number">Actual</th>
+                  <th class="number">Planned</th>
+                  <th class="number">Remaining</th>
+                  <th>Balance</th>
+                </tr>
+              </thead>
+              <tbody id="employeeRemainingTable"></tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -1003,12 +1132,18 @@
         employeeLegend: document.getElementById("employeeLegend"),
         employeePlanPie: document.getElementById("employeePlanPie"),
         employeePlanLegend: document.getElementById("employeePlanLegend"),
+        employeeRemainingBlock: document.getElementById("employeeRemainingBlock"),
+        employeeRemainingMeta: document.getElementById("employeeRemainingMeta"),
+        employeeRemainingEmpty: document.getElementById("employeeRemainingEmpty"),
+        employeeRemainingTableWrap: document.getElementById("employeeRemainingTableWrap"),
+        employeeRemainingTable: document.getElementById("employeeRemainingTable"),
         projectList: document.getElementById("projectList"),
         emptyState: document.getElementById("emptyState")
       };
 
       els.odooUrl.value = ODOO_DEFAULT_URL;
       els.odooDatabase.value = ODOO_DEFAULT_DATABASE;
+      loadConnectorConfig();
 
       els.employeeFile.addEventListener("change", () => {
         const file = els.employeeFile.files[0];
@@ -1060,6 +1195,46 @@
       });
 
       window.addEventListener("resize", debounce(renderChartsOnly, 160));
+
+      async function loadConnectorConfig() {
+        try {
+          const response = await fetch("/api/config", {
+            headers: { Accept: "application/json" }
+          });
+          if (!response.ok) {
+            return;
+          }
+
+          const config = await response.json().catch(() => ({}));
+          if (!config.ok) {
+            return;
+          }
+
+          if (config.odooUrl) {
+            els.odooUrl.value = config.odooUrl;
+          }
+          if (config.database) {
+            els.odooDatabase.value = config.database;
+          }
+          if (config.username) {
+            els.odooUsername.value = config.username;
+          }
+          if (config.employeeName) {
+            els.timesheetEmployeeName.value = config.employeeName;
+          }
+          if (config.projectCode) {
+            els.projectCodeInput.value = config.projectCode;
+          }
+          if (config.hasApiKey) {
+            els.odooApiKey.placeholder = "Loaded from config.local.json";
+          }
+          if (config.hasConfig) {
+            setOdooConnectionStatus("Config loaded, not tested", "warn");
+          }
+        } catch (_) {
+          // Opening index.html directly keeps the XLSX-only workflow working.
+        }
+      }
 
       async function fetchEmployeeTimesheets() {
         const payload = {
@@ -2639,6 +2814,114 @@
           renderPieChart(els.employeePlanPie, plannedEntries);
           renderLegend(els.employeePlanLegend, plannedEntries);
         }
+        renderEmployeeRemainingTable(entries, plannedEntries);
+      }
+
+      function renderEmployeeRemainingTable(actualEntries, plannedEntries) {
+        els.employeeRemainingBlock.hidden = !state.employee && !state.personalPlan;
+
+        if (!state.personalPlan) {
+          els.employeeRemainingMeta.textContent = "";
+          els.employeeRemainingEmpty.hidden = false;
+          els.employeeRemainingEmpty.textContent = "Load personal planning to calculate remaining hours.";
+          els.employeeRemainingTableWrap.hidden = true;
+          els.employeeRemainingTable.innerHTML = "";
+          return;
+        }
+
+        const rows = buildEmployeeRemainingRows(actualEntries, plannedEntries);
+        if (!rows.length) {
+          els.employeeRemainingMeta.textContent = "";
+          els.employeeRemainingEmpty.hidden = false;
+          els.employeeRemainingEmpty.textContent = "No actual or planned project hours in the selected year scope.";
+          els.employeeRemainingTableWrap.hidden = true;
+          els.employeeRemainingTable.innerHTML = "";
+          return;
+        }
+
+        const totalRemaining = rows.reduce((total, row) => total + row.remaining, 0);
+        const maxAbsRemaining = Math.max(...rows.map((row) => Math.abs(row.remaining)), 0);
+        els.employeeRemainingMeta.textContent = `${rows.length} project${rows.length === 1 ? "" : "s"} / ${formatSignedHours(totalRemaining)} h net`;
+        els.employeeRemainingEmpty.hidden = true;
+        els.employeeRemainingTableWrap.hidden = false;
+        els.employeeRemainingTable.innerHTML = rows.map((row) => renderRemainingRow(row, maxAbsRemaining)).join("");
+      }
+
+      function buildEmployeeRemainingRows(actualEntries, plannedEntries) {
+        const rows = new Map();
+        const ensureRow = (entry) => {
+          const key = projectColorKey(entry.name);
+          if (!rows.has(key)) {
+            rows.set(key, {
+              key,
+              name: entry.name,
+              color: entry.color,
+              actual: 0,
+              planned: 0
+            });
+          }
+          const row = rows.get(key);
+          if (!row.color && entry.color) {
+            row.color = entry.color;
+          }
+          return row;
+        };
+
+        actualEntries.forEach((entry) => {
+          const row = ensureRow(entry);
+          row.actual += entry.value;
+          row.name = entry.name || row.name;
+        });
+        plannedEntries.forEach((entry) => {
+          const row = ensureRow(entry);
+          row.planned += entry.value;
+          if (!row.actual) {
+            row.name = entry.name || row.name;
+          }
+        });
+
+        return Array.from(rows.values())
+          .map((row) => ({
+            ...row,
+            remaining: row.planned - row.actual
+          }))
+          .sort((a, b) => {
+            if (Math.sign(b.remaining) !== Math.sign(a.remaining)) {
+              return b.remaining - a.remaining;
+            }
+            return Math.abs(b.remaining) - Math.abs(a.remaining);
+          });
+      }
+
+      function renderRemainingRow(row, maxAbsRemaining) {
+        const remainingClass = row.remaining < -0.01 ? "negative" : "positive";
+        const absoluteRemaining = Math.abs(row.remaining);
+        const width = maxAbsRemaining && absoluteRemaining > 0.01
+          ? Math.max(2, absoluteRemaining / maxAbsRemaining * 50)
+          : 0;
+        const barStyle = width ? `width:${width}%` : "width:0;min-width:0";
+        const label = compactLegendLabelWithDates(row.name);
+        const fullName = escapeHtml(row.name);
+        const displayName = escapeHtml(label);
+        const title = `${row.name}\nActual: ${formatHours(row.actual)} h\nPlanned: ${formatHours(row.planned)} h\nRemaining: ${formatSignedHours(row.remaining)} h`;
+        return `
+          <tr title="${escapeHtml(title)}">
+            <td>
+              <span class="remaining-project">
+                <span class="swatch" style="background:${row.color || CHART_COLORS[0]}"></span>
+                <span title="${fullName}">${displayName}</span>
+              </span>
+            </td>
+            <td class="number">${formatHours(row.actual)}</td>
+            <td class="number">${formatHours(row.planned)}</td>
+            <td class="number remaining-value ${remainingClass}">${formatSignedHours(row.remaining)}</td>
+            <td class="remaining-bar-cell">
+              <div class="remaining-bar-track" aria-label="${escapeHtml(`Remaining ${formatSignedHours(row.remaining)} hours`)}">
+                <span class="remaining-bar ${remainingClass}" style="${barStyle}"></span>
+              </div>
+            </td>
+          </tr>
+        `;
       }
 
       function renderProjectPanels(projectSummaries) {
@@ -3376,7 +3659,7 @@
         container.innerHTML = entries.length ? "" : `<p class="legend-value">No hours in selected scope.</p>`;
         entries.forEach((entry) => {
           const row = document.createElement("div");
-          const label = compactLegendLabel(entry.name);
+          const label = compactLegendLabelWithDates(entry.name);
           row.className = "legend-row";
           if (label !== entry.name) {
             row.title = entry.name;
@@ -3393,6 +3676,20 @@
       function compactLegendLabel(name) {
         const match = String(name || "").match(/\[([^\]]+)\]/);
         return match ? match[1].trim() : String(name || "");
+      }
+
+      function compactLegendLabelWithDates(name) {
+        const label = compactLegendLabel(name);
+        if (label === String(name || "")) {
+          return label;
+        }
+        const dateRange = extractProjectDateRange(name);
+        return dateRange ? `${label}  ${dateRange}` : label;
+      }
+
+      function extractProjectDateRange(name) {
+        const match = String(name || "").match(/\b(?:0?[1-9]|1[0-2])\/(?:\d{2}|\d{4})\s*[-–]\s*(?:0?[1-9]|1[0-2])\/(?:\d{2}|\d{4})\b/);
+        return match ? match[0].replace(/\s*[-–]\s*/, " - ") : "";
       }
 
       function fitCanvasText(ctx, text, maxWidth) {
@@ -3452,6 +3749,13 @@
         return new Intl.NumberFormat("en", {
           maximumFractionDigits: hasDecimal ? 1 : 0
         }).format(value);
+      }
+
+      function formatSignedHours(value) {
+        if (Math.abs(value) <= 0.01) {
+          return "0";
+        }
+        return `${value > 0 ? "+" : "-"}${formatHours(Math.abs(value))}`;
       }
 
       function formatPercent(value, total) {
