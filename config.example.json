@@ -1,7 +1,7 @@
 {
   "odooUrl": "https://odoo.buildwise.be/",
   "database": "buildwiseprd",
-  "username": "your.odoo.login@example.com",
+  "username": "first.last@buildwise.be",
   "apiKey": "paste-your-api-key-here",
   "employeeName": "First Last"
 }

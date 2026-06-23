@@ -56,6 +56,10 @@ const server = http.createServer(async (request, response) => {
       await handleProjectPlanning(request, response);
       return;
     }
+    if (url.pathname === "/api/odoo/project-schedule") {
+      await handleProjectSchedule(request, response);
+      return;
+    }
     await serveStaticFile(url.pathname, response);
   } catch (error) {
     sendJson(response, 500, {
@@ -482,6 +486,61 @@ async function handleProjectPlanning(request, response) {
   });
 }
 
+async function handleProjectSchedule(request, response) {
+  if (request.method !== "POST") {
+    sendJson(response, 405, { ok: false, error: "Use POST for this endpoint" });
+    return;
+  }
+
+  let body;
+  let odooUrl;
+  let database;
+  let username;
+  let apiKey;
+  let projectCode;
+  try {
+    body = await readJsonBody(request);
+    ({ odooUrl, database, username, apiKey, projectCode } = getProjectFetchSettings(body));
+  } catch (error) {
+    sendJson(response, 400, {
+      ok: false,
+      error: error.message
+    });
+    return;
+  }
+
+  const uid = await authenticateOdoo(odooUrl, database, username, apiKey);
+  if (!uid) {
+    sendJson(response, 401, {
+      ok: false,
+      error: "Odoo rejected the database, username, or API key."
+    });
+    return;
+  }
+
+  const warnings = [];
+  const projects = await findProjectsByCode(odooUrl, database, uid, apiKey, projectCode, warnings);
+  const projectIds = projects.map((project) => Number(project.id)).filter((id) => Number.isFinite(id));
+  const [milestones, workPackages] = await Promise.all([
+    fetchProjectMilestones(odooUrl, database, uid, apiKey, projectCode, projectIds, warnings),
+    fetchProjectWorkPackageTasks(odooUrl, database, uid, apiKey, projectCode, projectIds, warnings)
+  ]);
+  const projectName = formatProjectName(projectCode, (projects[0] && projects[0].name) || body.projectName);
+
+  sendJson(response, 200, {
+    ok: true,
+    uid,
+    projectCode,
+    projectName,
+    projectIds,
+    milestoneCount: milestones.length,
+    workPackageCount: workPackages.length,
+    milestones,
+    workPackages,
+    warnings
+  });
+}
+
 async function handleDashboardConfig(request, response) {
   if (request.method !== "GET") {
     sendJson(response, 405, { ok: false, error: "Use GET for this endpoint" });
@@ -650,8 +709,12 @@ function cleanRequired(value, label) {
 
 function cleanProjectCode(value) {
   const text = cleanRequired(value, "Project");
+  const bracketCode = text.match(/\[(\d{5,})\]/);
+  if (bracketCode) {
+    return bracketCode[1];
+  }
   const code = text.replace(/\D+/g, "");
-  return code || text;
+  return /^[\s\d.-]+$/.test(text) && code ? code : text;
 }
 
 async function authenticateOdoo(odooUrl, database, username, apiKey) {
@@ -717,6 +780,144 @@ async function findProjectsByCode(odooUrl, database, uid, apiKey, projectCode, w
   }
 }
 
+async function fetchProjectMilestones(odooUrl, database, uid, apiKey, projectCode, projectIds, warnings) {
+  let fieldDefs;
+  try {
+    fieldDefs = await getModelFields(odooUrl, database, uid, apiKey, "project.milestone");
+  } catch (error) {
+    warnings.push(`Milestone lookup skipped: ${error.message}`);
+    return [];
+  }
+
+  const availableFields = new Set(Object.keys(fieldDefs));
+  const dateField = firstAvailableField(availableFields, [
+    "deadline",
+    "date_deadline",
+    "planned_date",
+    "target_date",
+    "date"
+  ]);
+  if (!dateField) {
+    warnings.push("Milestone lookup skipped: no supported milestone date field found.");
+    return [];
+  }
+
+  const fields = [
+    "id",
+    "name",
+    "project_id",
+    dateField,
+    "is_reached",
+    "reached",
+    "reached_date"
+  ].filter((field, index, list) => availableFields.has(field) && list.indexOf(field) === index);
+
+  try {
+    const rows = await searchReadAll(
+      odooUrl,
+      database,
+      uid,
+      apiKey,
+      "project.milestone",
+      buildProjectRecordDomain(availableFields, projectCode, projectIds),
+      fields,
+      { order: `${dateField} asc, id asc` }
+    );
+    return rows
+      .map((row) => normalizeMilestone(row, dateField))
+      .filter((milestone) => milestone.date);
+  } catch (error) {
+    warnings.push(`Milestone lookup failed: ${error.message}`);
+    return [];
+  }
+}
+
+async function fetchProjectWorkPackageTasks(odooUrl, database, uid, apiKey, projectCode, projectIds, warnings) {
+  let fieldDefs;
+  try {
+    fieldDefs = await getModelFields(odooUrl, database, uid, apiKey, "project.task");
+  } catch (error) {
+    warnings.push(`Work package task lookup skipped: ${error.message}`);
+    return [];
+  }
+
+  const availableFields = new Set(Object.keys(fieldDefs));
+  const dateFields = [
+    "planned_date_begin",
+    "planned_date_end",
+    "date_start",
+    "date_end",
+    "start_date",
+    "end_date",
+    "date_begin",
+    "date_deadline"
+  ].filter((field) => availableFields.has(field));
+  const typeFields = findWorkPackageTypeFields(fieldDefs);
+  const progressFields = findTaskProgressFields(fieldDefs);
+  const effortFields = [
+    "effective_hours",
+    "total_hours_spent",
+    "planned_hours",
+    "allocated_hours",
+    "remaining_hours"
+  ].filter((field) => availableFields.has(field));
+  const fields = [
+    "id",
+    "name",
+    "project_id",
+    "stage_id",
+    ...dateFields,
+    ...typeFields.map((entry) => entry.field),
+    ...progressFields.map((entry) => entry.field),
+    ...effortFields
+  ].filter((field, index, list) => availableFields.has(field) && list.indexOf(field) === index);
+  const projectDomain = buildProjectRecordDomain(availableFields, projectCode, projectIds);
+  const typeDomains = buildWorkPackageTypeDomains(typeFields);
+  const byId = new Map();
+
+  for (const typeDomain of typeDomains) {
+    try {
+      const rows = await searchReadAll(
+        odooUrl,
+        database,
+        uid,
+        apiKey,
+        "project.task",
+        [...projectDomain, ...typeDomain],
+        fields,
+        { order: availableFields.has("date_deadline") ? "date_deadline asc, id asc" : "id asc" }
+      );
+      rows.forEach((row) => byId.set(row.id, row));
+    } catch (error) {
+      warnings.push(`Work package task lookup failed for ${JSON.stringify(typeDomain)}: ${error.message}`);
+    }
+  }
+
+  if (!byId.size) {
+    try {
+      const rows = await searchReadAll(
+        odooUrl,
+        database,
+        uid,
+        apiKey,
+        "project.task",
+        projectDomain,
+        fields,
+        { order: availableFields.has("date_deadline") ? "date_deadline asc, id asc" : "id asc" }
+      );
+      rows
+        .filter((row) => taskLooksLikeWorkPackage(row, typeFields))
+        .forEach((row) => byId.set(row.id, row));
+    } catch (error) {
+      warnings.push(`Work package task fallback lookup failed: ${error.message}`);
+    }
+  }
+
+  return Array.from(byId.values())
+    .map((row) => normalizeWorkPackageTask(row, dateFields, typeFields, progressFields))
+    .filter((task) => task.name);
+}
+
 function buildPlanningEmployeeDomains(availableFields, employeeName) {
   const domains = [];
   if (availableFields.has("employee_id")) {
@@ -744,6 +945,96 @@ function buildPlanningProjectDomains(availableFields, projectCode, projectIds) {
   return domains;
 }
 
+function buildProjectRecordDomain(availableFields, projectCode, projectIds) {
+  if (availableFields.has("project_id")) {
+    return projectIds.length
+      ? [["project_id", "in", projectIds]]
+      : [["project_id.name", "ilike", projectCode]];
+  }
+  return [["name", "ilike", projectCode]];
+}
+
+function firstAvailableField(availableFields, names) {
+  return names.find((name) => availableFields.has(name)) || "";
+}
+
+function findWorkPackageTypeFields(fieldDefs) {
+  const preferred = [
+    "type_id",
+    "type_ids",
+    "task_type_id",
+    "task_type_ids",
+    "project_task_type_id",
+    "project_task_type_ids",
+    "tag_ids",
+    "x_studio_task_type",
+    "x_studio_task_type_id",
+    "x_studio_task_type_ids"
+  ];
+  const entries = new Map();
+  const add = (field, def) => {
+    if (!def) {
+      return;
+    }
+    const type = String(def.type || "");
+    if (["many2one", "many2many", "one2many", "selection", "char"].includes(type)) {
+      entries.set(field, { field, type });
+    }
+  };
+
+  preferred.forEach((field) => add(field, fieldDefs[field]));
+  Object.entries(fieldDefs).forEach(([field, def]) => {
+    const haystack = `${field} ${def.string || ""} ${def.relation || ""}`.toLowerCase();
+    if (/\btype\b/.test(haystack) || haystack.includes("tag")) {
+      add(field, def);
+    }
+  });
+
+  return Array.from(entries.values());
+}
+
+function findTaskProgressFields(fieldDefs) {
+  const preferred = [
+    "progress",
+    "progress_percentage",
+    "percentage",
+    "completion_percentage",
+    "subtask_completion_percentage",
+    "x_progress",
+    "x_studio_progress",
+    "x_studio_progress_percentage"
+  ];
+  const entries = new Map();
+  const add = (field, def) => {
+    if (!def) {
+      return;
+    }
+    const type = String(def.type || "");
+    if (["integer", "float", "monetary"].includes(type)) {
+      entries.set(field, { field, type });
+    }
+  };
+
+  preferred.forEach((field) => add(field, fieldDefs[field]));
+  Object.entries(fieldDefs).forEach(([field, def]) => {
+    const haystack = `${field} ${def.string || ""}`.toLowerCase();
+    if ((haystack.includes("progress") || haystack.includes("completion")) && !haystack.includes("remaining")) {
+      add(field, def);
+    }
+  });
+
+  return Array.from(entries.values());
+}
+
+function buildWorkPackageTypeDomains(typeFields) {
+  return typeFields.map((entry) => {
+    if (entry.type === "many2one" || entry.type === "many2many" || entry.type === "one2many") {
+      return [[`${entry.field}.name`, "ilike", "Work package"]];
+    }
+    return [[entry.field, "ilike", "Work package"]];
+  });
+}
+
 function normalizeTimesheetLine(line) {
   return {
     id: line.id,
@@ -758,6 +1049,141 @@ function normalizeTimesheetLine(line) {
     taskId: relationalId(line.task_id),
     description: String(line.name || "")
   };
+}
+
+function normalizeMilestone(row, dateField) {
+  const date = normalizeOdooDate(row[dateField]);
+  return {
+    id: row.id,
+    name: String(row.name || "(Unnamed milestone)"),
+    date,
+    month: monthKey(date),
+    project: relationalName(row.project_id),
+    projectId: relationalId(row.project_id),
+    reached: Boolean(row.is_reached || row.reached),
+    reachedDate: normalizeOdooDate(row.reached_date)
+  };
+}
+
+function normalizeWorkPackageTask(row, dateFields, typeFields, progressFields) {
+  const start = firstDateField(row, [
+    "planned_date_begin",
+    "date_start",
+    "start_date",
+    "date_begin"
+  ]);
+  const end = firstDateField(row, [
+    "planned_date_end",
+    "date_end",
+    "end_date",
+    "date_deadline"
+  ]);
+  return {
+    id: row.id,
+    name: String(row.name || ""),
+    project: relationalName(row.project_id),
+    projectId: relationalId(row.project_id),
+    start,
+    end,
+    deadline: normalizeOdooDate(row.date_deadline),
+    progress: normalizeTaskProgress(row, progressFields),
+    progressSource: taskProgressSource(row, progressFields),
+    type: summarizeTaskType(row, typeFields),
+    dateFields: Object.fromEntries(dateFields.map((field) => [field, normalizeOdooDate(row[field])]).filter(([, value]) => value))
+  };
+}
+
+function normalizeTaskProgress(row, progressFields) {
+  for (const entry of progressFields) {
+    const value = numberOrNull(row[entry.field]);
+    if (value != null) {
+      return clampPercent(value);
+    }
+  }
+
+  const planned = firstPositiveNumber(row.planned_hours, row.allocated_hours);
+  const spent = numberOrNull(row.effective_hours) ?? numberOrNull(row.total_hours_spent);
+  if (planned && spent != null) {
+    return clampPercent((spent / planned) * 100);
+  }
+
+  const remaining = numberOrNull(row.remaining_hours);
+  if (planned && remaining != null) {
+    return clampPercent(((planned - remaining) / planned) * 100);
+  }
+
+  return 0;
+}
+
+function taskProgressSource(row, progressFields) {
+  const direct = progressFields.find((entry) => numberOrNull(row[entry.field]) != null);
+  if (direct) {
+    return direct.field;
+  }
+  if (firstPositiveNumber(row.planned_hours, row.allocated_hours) && (numberOrNull(row.effective_hours) != null || numberOrNull(row.total_hours_spent) != null)) {
+    return "spent/planned hours";
+  }
+  if (firstPositiveNumber(row.planned_hours, row.allocated_hours) && numberOrNull(row.remaining_hours) != null) {
+    return "remaining/planned hours";
+  }
+  return "";
+}
+
+function numberOrNull(value) {
+  if (value === false || value == null || value === "") {
+    return null;
+  }
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function firstPositiveNumber(...values) {
+  for (const value of values) {
+    const number = numberOrNull(value);
+    if (number && number > 0) {
+      return number;
+    }
+  }
+  return 0;
+}
+
+function clampPercent(value) {
+  return Math.max(0, Math.min(100, Number(value) || 0));
+}
+
+function firstDateField(row, fields) {
+  for (const field of fields) {
+    const date = normalizeOdooDate(row[field]);
+    if (date) {
+      return date;
+    }
+  }
+  return "";
+}
+
+function normalizeOdooDate(value) {
+  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return match ? `${match[1]}-${match[2]}-${match[3]}` : "";
+}
+
+function summarizeTaskType(row, typeFields) {
+  return typeFields
+    .map((entry) => row[entry.field])
+    .filter((value) => value !== false && value != null && value !== "")
+    .map((value) => Array.isArray(value) ? value.join(" / ") : String(value))
+    .join(", ");
+}
+
+function taskLooksLikeWorkPackage(row, typeFields) {
+  return typeFields.some((entry) => containsWorkPackage(row[entry.field]));
+}
+
+function containsWorkPackage(value) {
+  if (Array.isArray(value)) {
+    return value.some((entry) => containsWorkPackage(entry));
+  }
+  const clean = String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  return clean.includes("work package") || clean.includes("workpackage");
 }
 
 function normalizePlanningSlot(slot) {

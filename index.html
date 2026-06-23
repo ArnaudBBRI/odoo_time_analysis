@@ -492,6 +492,106 @@
       font-weight: 700;
     }
 
+    .task-progress-block {
+      display: grid;
+      gap: 12px;
+      border-top: 1px solid var(--line);
+      padding-top: 16px;
+    }
+
+    .task-progress-block[hidden] {
+      display: none;
+    }
+
+    .task-progress-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .task-progress-head h3 {
+      color: var(--muted);
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-weight: 800;
+    }
+
+    .task-progress-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .task-progress-row {
+      display: grid;
+      grid-template-columns: minmax(180px, 0.82fr) minmax(260px, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      min-width: 0;
+    }
+
+    .task-progress-name {
+      min-width: 0;
+      overflow-wrap: anywhere;
+      font-weight: 800;
+      line-height: 1.3;
+    }
+
+    .task-progress-dates {
+      display: block;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 700;
+      margin-top: 3px;
+    }
+
+    .task-progress-track {
+      position: relative;
+      min-width: 0;
+      height: 24px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #eef4f2;
+      overflow: hidden;
+    }
+
+    .task-progress-fill {
+      position: absolute;
+      inset: 0 auto 0 0;
+      border-radius: 5px 0 0 5px;
+    }
+
+    .task-progress-fill.good {
+      background: #0f766e;
+    }
+
+    .task-progress-fill.warn {
+      background: #d88a28;
+    }
+
+    .task-progress-fill.bad {
+      background: #c75f4c;
+    }
+
+    .task-progress-cursor {
+      position: absolute;
+      top: 2px;
+      bottom: 2px;
+      width: 2px;
+      background: #121817;
+      transform: translateX(-1px);
+      z-index: 2;
+    }
+
+    .task-progress-value {
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+      font-weight: 800;
+      white-space: nowrap;
+      text-align: right;
+    }
+
     .employee-chart {
       display: grid;
       gap: 18px;
@@ -1339,6 +1439,7 @@
           state.employee = employeeDataset;
           state.projects = [];
           state.plans = [];
+          state.taskDeadlines.clear();
           state.hiddenSeries.clear();
           state.activeProjectKey = "";
           let planningResult = null;
@@ -1439,9 +1540,10 @@
         setDebugOutput({});
 
         try {
-          const [timesheetFetch, planningFetch] = await Promise.allSettled([
+          const [timesheetFetch, planningFetch, scheduleFetch] = await Promise.allSettled([
             postOdooJson("/api/odoo/project-timesheets", payload, "Project timesheet fetch"),
-            postOdooJson("/api/odoo/project-planning", payload, "Project planning fetch")
+            postOdooJson("/api/odoo/project-planning", payload, "Project planning fetch"),
+            postOdooJson("/api/odoo/project-schedule", payload, "Project schedule fetch")
           ]);
 
           if (timesheetFetch.status === "rejected") {
@@ -1454,9 +1556,12 @@
           }
           const projectDataset = buildProjectDatasetFromApi(timesheetResult);
           state.projects = [projectDataset];
+          state.taskDeadlines.clear();
           state.activeProjectKey = projectSeriesKey(projectDataset);
           let planningResult = null;
           let planningError = null;
+          let scheduleResult = null;
+          let scheduleError = null;
           let planDataset = null;
           let planChartHours = 0;
 
@@ -1474,6 +1579,16 @@
             state.plans = [];
           }
 
+          if (scheduleFetch.status === "fulfilled") {
+            scheduleResult = scheduleFetch.value;
+            const scheduleSet = buildProjectScheduleDatasetFromApi(scheduleResult);
+            if (scheduleSet) {
+              state.taskDeadlines.set(projectSeriesKey(projectDataset), scheduleSet);
+            }
+          } else {
+            scheduleError = scheduleFetch.reason.message || String(scheduleFetch.reason);
+          }
+
           state.errors = [];
           refreshYears(false);
           render();
@@ -1485,16 +1600,22 @@
           const planningStatus = planningError
             ? `planning failed: ${planningError}`
             : `${planningResult.slotCount} planning slots, ${formatHours(planningResult.totalHours)} h fetched, ${formatHours(planChartHours)} h charted`;
+          const scheduleStatus = scheduleError
+            ? `schedule failed: ${scheduleError}`
+            : `${scheduleResult.milestoneCount} milestones, ${scheduleResult.workPackageCount} Work package tasks fetched`;
           setTimesheetDebugStatus(
-            `${projectDataset.name}: ${timesheetResult.lineCount} timesheet lines, ${formatHours(timesheetResult.totalHours)} h fetched, ${formatHours(actualChartHours)} h charted; ${planningStatus}`,
-            planningError ? "warn" : "ok"
+            `${projectDataset.name}: ${timesheetResult.lineCount} timesheet lines, ${formatHours(timesheetResult.totalHours)} h fetched, ${formatHours(actualChartHours)} h charted; ${planningStatus}; ${scheduleStatus}`,
+            planningError || scheduleError ? "warn" : "ok"
           );
           setDebugOutput({
             projectTimesheets: timesheetResult,
             projectPlanning: planningError ? { ok: false, error: planningError } : planningResult,
+            projectSchedule: scheduleError ? { ok: false, error: scheduleError } : scheduleResult,
             dashboard: {
               actualChartedHours: actualChartHours,
               plannedChartedHours: planChartHours,
+              milestoneCount: scheduleResult ? scheduleResult.milestoneCount : 0,
+              workPackageCount: scheduleResult ? scheduleResult.workPackageCount : 0,
               projectCount: state.projects.length,
               planCount: state.plans.length
             }
@@ -2479,6 +2600,49 @@
         };
       }
 
+      function buildProjectScheduleDatasetFromApi(result) {
+        const milestones = Array.isArray(result.milestones) ? result.milestones : [];
+        const workPackages = Array.isArray(result.workPackages) ? result.workPackages : [];
+        const grouped = new Map();
+
+        milestones.forEach((milestone) => {
+          const month = monthFromKey(milestone.month || String(milestone.date || "").slice(0, 7));
+          if (!month || !Number.isFinite(month.date.getTime())) {
+            return;
+          }
+          if (!grouped.has(month.key)) {
+            grouped.set(month.key, {
+              month,
+              count: 0,
+              labels: [],
+              kind: "milestone"
+            });
+          }
+          const deadline = grouped.get(month.key);
+          deadline.count += 1;
+          deadline.labels.push(cleanLabel(milestone.name) || "Milestone");
+        });
+
+        const deadlines = Array.from(grouped.values())
+          .map((deadline) => ({
+            ...deadline,
+            label: deadline.count === 1 ? deadline.labels[0] : `${deadline.count} milestones`
+          }))
+          .sort((a, b) => a.month.date - b.month.date);
+
+        return {
+          source: "api",
+          fileName: `Odoo API - project schedule ${result.projectCode || ""}`.trim(),
+          sheetName: "project.milestone / project.task",
+          projectName: result.projectName || "",
+          months: deadlines.map((deadline) => deadline.month),
+          deadlines,
+          milestones,
+          workPackages,
+          warnings: Array.isArray(result.warnings) ? result.warnings : []
+        };
+      }
+
       function upsertProjectDataset(projectDataset) {
         const key = projectSeriesKey(projectDataset);
         const index = state.projects.findIndex((project) => projectSeriesKey(project) === key);
@@ -3055,9 +3219,7 @@
           const lineLegendId = `lineLegend${index}`;
           const tableId = `projectTable${index}`;
           const taskInputId = `projectTaskDeadlines${index}`;
-          const deadlineMeta = deadlineSet
-            ? `${deadlineSet.deadlines.length} deadline month${deadlineSet.deadlines.length === 1 ? "" : "s"} loaded`
-            : "Optional task deadline overlay";
+          const deadlineMeta = formatProjectScheduleMeta(deadlineSet);
           const plannedBlock = plan ? `
                 <div class="chart-block">
                   <h3>Planned vs actual</h3>
@@ -3082,10 +3244,12 @@
               <div class="panel-meta">${formatHours(total)} h across ${summary.entries.length} employee${summary.entries.length === 1 ? "" : "s"}</div>
             </div>
             <div class="project-tools">
+              <!--
               <label class="task-upload-button">
                 Upload task deadlines
                 <input id="${taskInputId}" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
               </label>
+              -->
               <span class="deadline-meta">${escapeHtml(deadlineMeta)}</span>
             </div>
             <div class="project-chart-grid">
@@ -3106,6 +3270,7 @@
                 <div id="${lineLegendId}" class="legend"></div>
               </div>
             </div>
+            <div id="taskProgress${index}" class="task-progress-block"></div>
             <table>
               <thead>
                 <tr>
@@ -3119,12 +3284,15 @@
           `;
 
           els.projectList.appendChild(panel);
-          document.getElementById(taskInputId).addEventListener("change", (event) => {
+          const taskInput = document.getElementById(`projectTaskDeadlines${index}`);
+          if (taskInput) {
+            taskInput.addEventListener("change", (event) => {
             const file = event.target.files[0];
             if (file) {
               loadProjectTaskDeadlines(summary.project, file);
             }
-          });
+            });
+          }
           renderPieChart(document.getElementById(canvasPieId), summary.entries);
           renderLegend(document.getElementById(legendId), summary.entries);
           renderLineChart(document.getElementById(canvasLineId), summary.project, activeActualEntries, { deadlines: deadlineSet });
@@ -3136,12 +3304,26 @@
             hiddenSeries,
             onToggle: (entry) => toggleProjectSeries(summary.project, entry.name)
           });
+          renderTaskProgress(document.getElementById(`taskProgress${index}`), deadlineSet);
           renderTable(document.getElementById(tableId), summary.entries);
         });
       }
 
       function getHiddenSeries(project) {
         return state.hiddenSeries.get(projectSeriesKey(project)) || new Set();
+      }
+
+      function formatProjectScheduleMeta(deadlineSet) {
+        if (!deadlineSet) {
+          return "No milestone data loaded.";
+        }
+        const milestoneCount = Array.isArray(deadlineSet.milestones)
+          ? deadlineSet.milestones.length
+          : deadlineSet.deadlines.reduce((total, deadline) => total + (deadline.count || 0), 0);
+        const workPackageCount = Array.isArray(deadlineSet.workPackages) ? deadlineSet.workPackages.length : 0;
+        const milestoneText = milestoneCount === 1 ? "1 milestone fetched" : `${milestoneCount} milestones fetched`;
+        const workPackageText = workPackageCount === 1 ? "1 Work package task fetched" : `${workPackageCount} Work package tasks fetched`;
+        return `${milestoneText} / ${workPackageText}`;
       }
 
       function toggleProjectSeries(project, employeeName) {
@@ -3691,8 +3873,9 @@
           ctx.lineTo(x, top + plotHeight);
           ctx.stroke();
           ctx.setLineDash([]);
-          const label = deadline.count === 1 ? "1 task" : `${formatCompact(deadline.count)} tasks`;
-          ctx.fillText(label, Math.min(x + 4, left + plotWidth - 46), top + 4);
+          const label = deadline.label || (deadline.count === 1 ? "1 task" : `${formatCompact(deadline.count)} tasks`);
+          const fittedLabel = fitCanvasText(ctx, label, 112);
+          ctx.fillText(fittedLabel, Math.min(x + 4, left + plotWidth - 72), top + 4);
           ctx.setLineDash([5, 5]);
         });
 

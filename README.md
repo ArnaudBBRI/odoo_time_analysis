@@ -175,34 +175,20 @@ Used for:
 
 This file can contain older years. The dashboard keeps those years available in the year filter, but when this file is loaded it defaults to the current year.
 
-### 5. Project Task Deadline Export
+### 5. Project Milestones And Work Packages
 
-Dashboard input: **Upload task deadlines** inside an individual project panel
+Dashboard input: none. This is fetched automatically from Odoo when you click a project name in the remaining-hours table.
 
-Example file: `extrai_tasks.xlsx`
+The dashboard asks Odoo for:
 
-Odoo source:
-
-- Go to the **Projects** app.
-- Open **Tasks**.
-- Switch to the **pivot table** view.
-- Use rows as **Titre**.
-- Use columns grouped per month.
-- Export the resulting pivot table as XLSX.
-
-Expected structure:
-
-- One Odoo pivot-style XLSX sheet for tasks.
-- Rows are task names or task group labels.
-- Columns are task deadline months, for example `mai 2026`, `janvier 2028`, `mars 2028`.
-- Cells contain counts under the relevant deadline month.
-- The final total column is ignored.
+- `project.milestone` records linked to the selected project.
+- `project.task` records linked to the selected project and matching a task type/tag/field named `Work package`.
 
 Used for:
 
-- Vertical deadline markers in that project section's line charts.
+- Milestones are shown as vertical markers in that project section's line charts when the milestone month is inside the selected year scope.
 - The markers appear on monthly hours, cumulative hours, and planned-vs-actual charts when those charts are present.
-- One file is uploaded per project panel, so each project can have its own task deadlines.
+- Work package tasks are fetched with their available planned start/end/deadline dates, but they are not drawn in the dashboard yet.
 
 ## Matching And Colors
 
@@ -213,6 +199,6 @@ Used for:
 
 ## Year Filtering
 
-- The `All` chip includes all available months from uploaded actual and planning files.
+- The `All` chip includes all available months from loaded actual hours, planning, and milestone data.
 - Individual year chips filter every graph.
 - `Interne` / `Internal` rows are excluded before totals and percentages are calculated.
