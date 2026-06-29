@@ -74,8 +74,9 @@ Click a project name in the remaining-hours table to fetch detailed project data
 
 - `account.analytic.line` timesheet records for everyone who encoded hours on that project.
 - `planning.slot` planning records for everyone planned on that project.
+- Budget records and budget lines linked to the project.
 
-The fetched project timesheets feed the per-project contribution pie, monthly line chart, and cumulative line chart. The fetched project planning feeds the per-project `Planned vs actual` chart. Only one project detail section is shown at a time; clicking another project replaces the previous one.
+The fetched project timesheets feed the per-project contribution pie, monthly line chart, and cumulative line chart. The fetched project planning feeds the per-project `Planned vs actual` chart. The fetched budget lines feed grouped bar charts for the convention budget and the current/past annual budgets; future annual budgets after the current year are excluded. Budget charts use a log scale by default and can be switched to linear scale from the project budget controls. Personnel budget lines such as `Frais de personnel` are hidden by default and can be shown from the same controls. Only one project detail section is shown at a time; clicking another project replaces the previous one.
 
 ## Files To Provide
 

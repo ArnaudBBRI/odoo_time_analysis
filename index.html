@@ -45,9 +45,9 @@
     }
 
     .header-inner {
-      max-width: 1280px;
+      max-width: 1880px;
       margin: 0 auto;
-      padding: 24px clamp(16px, 3vw, 36px);
+      padding: 24px clamp(16px, 2.4vw, 40px);
       display: grid;
       grid-template-columns: minmax(220px, 1fr);
       gap: 24px;
@@ -144,9 +144,9 @@
     }
 
     main {
-      max-width: 1280px;
+      max-width: 1880px;
       margin: 0 auto;
-      padding: 22px clamp(16px, 3vw, 36px) 44px;
+      padding: 22px clamp(16px, 2.4vw, 40px) 44px;
       display: grid;
       gap: 18px;
     }
@@ -680,8 +680,13 @@
       align-items: start;
     }
 
+    .project-chart-grid.with-budgets {
+      grid-template-columns: minmax(260px, 0.42fr) minmax(500px, 1.2fr) minmax(500px, 1.2fr);
+    }
+
     .pie-wrap,
     .trend-stack,
+    .budget-stack,
     .chart-block {
       min-width: 0;
       display: grid;
@@ -709,6 +714,57 @@
 
     .trend-stack .chart-canvas {
       height: 260px;
+    }
+
+    .budget-stack {
+      gap: 14px;
+    }
+
+    .budget-controls {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .budget-toggle {
+      min-height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fbfdfc;
+      color: var(--ink);
+      padding: 7px 12px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .budget-toggle:hover {
+      border-color: var(--teal);
+      color: var(--teal-dark);
+    }
+
+    .budget-series-key {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+      gap: 8px 10px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfdfc;
+    }
+
+    .budget-key-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 800;
+    }
+
+    .budget-stack .chart-canvas {
+      height: 400px;
     }
 
     .chart-canvas {
@@ -850,9 +906,21 @@
       border: 0;
     }
 
+    @media (max-width: 1340px) {
+      .project-chart-grid.with-budgets {
+        grid-template-columns: minmax(260px, 0.72fr) minmax(360px, 1.28fr);
+      }
+
+      .project-chart-grid.with-budgets .budget-stack {
+        grid-column: 1 / -1;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      }
+    }
+
     @media (max-width: 900px) {
       .header-inner,
       .project-chart-grid,
+      .project-chart-grid.with-budgets,
       .employee-pie-grid {
         grid-template-columns: 1fr;
       }
@@ -1107,6 +1175,13 @@
         "#c05621", "#2b6cb0", "#b83280", "#718096", "#b7791f", "#00838f",
         "#9f1239", "#4c51bf", "#2c7a7b", "#805ad5", "#b45309", "#047857"
       ];
+      const BUDGET_BAR_SERIES = [
+        { key: "budgeted", label: "Budgeted", color: "#4556b2" },
+        { key: "engaged", label: "Consumed + ordered + review", color: "#a87618" },
+        { key: "consumed", label: "Consumed", color: "#0f766e" },
+        { key: "ordered", label: "Ordered", color: "#c75f4c" },
+        { key: "underReview", label: "Under review", color: "#718096" }
+      ];
       const CURRENT_YEAR = new Date().getFullYear();
       const ODOO_DEFAULT_URL = "https://odoo.buildwise.be/";
       const ODOO_DEFAULT_DATABASE = "buildwiseprd";
@@ -1131,6 +1206,9 @@
         personalPlan: null,
         projects: [],
         plans: [],
+        projectBudgets: new Map(),
+        budgetPersonnelVisible: new Set(),
+        budgetLinearScale: new Set(),
         hiddenSeries: new Map(),
         taskDeadlines: new Map(),
         errors: [],
@@ -1339,6 +1417,9 @@
           state.employee = employeeDataset;
           state.projects = [];
           state.plans = [];
+          state.projectBudgets.clear();
+          state.budgetPersonnelVisible.clear();
+          state.budgetLinearScale.clear();
           state.hiddenSeries.clear();
           state.activeProjectKey = "";
           let planningResult = null;
@@ -1439,9 +1520,10 @@
         setDebugOutput({});
 
         try {
-          const [timesheetFetch, planningFetch] = await Promise.allSettled([
+          const [timesheetFetch, planningFetch, budgetFetch] = await Promise.allSettled([
             postOdooJson("/api/odoo/project-timesheets", payload, "Project timesheet fetch"),
-            postOdooJson("/api/odoo/project-planning", payload, "Project planning fetch")
+            postOdooJson("/api/odoo/project-planning", payload, "Project planning fetch"),
+            postOdooJson("/api/odoo/project-budgets", payload, "Project budget fetch")
           ]);
 
           if (timesheetFetch.status === "rejected") {
@@ -1454,11 +1536,18 @@
           }
           const projectDataset = buildProjectDatasetFromApi(timesheetResult);
           state.projects = [projectDataset];
+          state.projectBudgets.clear();
+          state.budgetPersonnelVisible.clear();
+          state.budgetLinearScale.clear();
           state.activeProjectKey = projectSeriesKey(projectDataset);
           let planningResult = null;
           let planningError = null;
           let planDataset = null;
           let planChartHours = 0;
+          let budgetResult = null;
+          let budgetError = null;
+          let budgetDataset = null;
+          let budgetChartCount = 0;
 
           if (planningFetch.status === "fulfilled") {
             planningResult = planningFetch.value;
@@ -1474,6 +1563,17 @@
             state.plans = [];
           }
 
+          if (budgetFetch.status === "fulfilled") {
+            budgetResult = budgetFetch.value;
+            budgetDataset = buildProjectBudgetDatasetFromApi(budgetResult);
+            if (budgetDataset) {
+              state.projectBudgets.set(projectSeriesKey(projectDataset), budgetDataset);
+              budgetChartCount = countRenderableBudgetCharts(budgetDataset);
+            }
+          } else {
+            budgetError = budgetFetch.reason.message || String(budgetFetch.reason);
+          }
+
           state.errors = [];
           refreshYears(false);
           render();
@@ -1485,16 +1585,21 @@
           const planningStatus = planningError
             ? `planning failed: ${planningError}`
             : `${planningResult.slotCount} planning slots, ${formatHours(planningResult.totalHours)} h fetched, ${formatHours(planChartHours)} h charted`;
+          const budgetStatus = budgetError
+            ? `budgets failed: ${budgetError}`
+            : `${budgetResult.budgetCount} budgets inspected, ${budgetChartCount} budget chart${budgetChartCount === 1 ? "" : "s"}`;
           setTimesheetDebugStatus(
-            `${projectDataset.name}: ${timesheetResult.lineCount} timesheet lines, ${formatHours(timesheetResult.totalHours)} h fetched, ${formatHours(actualChartHours)} h charted; ${planningStatus}`,
-            planningError ? "warn" : "ok"
+            `${projectDataset.name}: ${timesheetResult.lineCount} timesheet lines, ${formatHours(timesheetResult.totalHours)} h fetched, ${formatHours(actualChartHours)} h charted; ${planningStatus}; ${budgetStatus}`,
+            planningError || budgetError ? "warn" : "ok"
           );
           setDebugOutput({
             projectTimesheets: timesheetResult,
             projectPlanning: planningError ? { ok: false, error: planningError } : planningResult,
+            projectBudgets: budgetError ? { ok: false, error: budgetError } : budgetResult,
             dashboard: {
               actualChartedHours: actualChartHours,
               plannedChartedHours: planChartHours,
+              budgetChartCount,
               projectCount: state.projects.length,
               planCount: state.plans.length
             }
@@ -1666,6 +1771,9 @@
 
       async function loadProjects(files) {
         state.projects = [];
+        state.projectBudgets.clear();
+        state.budgetPersonnelVisible.clear();
+        state.budgetLinearScale.clear();
         state.errors = [];
         if (!files.length) {
           refreshYears();
@@ -2479,6 +2587,82 @@
         };
       }
 
+      function buildProjectBudgetDatasetFromApi(result) {
+        const rawBudgets = result && result.budgets ? result.budgets : {};
+        const convention = normalizeBudgetFromApi(rawBudgets.convention || null, "convention");
+        const annual = Array.isArray(rawBudgets.annual)
+          ? rawBudgets.annual
+            .map((budget) => normalizeBudgetFromApi(budget, "annual"))
+            .filter(Boolean)
+            .filter((budget) => !budget.year || budget.year <= CURRENT_YEAR)
+          : [];
+
+        if (!convention && !annual.length) {
+          return null;
+        }
+
+        return {
+          type: "project-budget",
+          source: "api",
+          projectCode: result.projectCode,
+          projectName: result.projectName,
+          currentYear: result.currentYear || CURRENT_YEAR,
+          convention,
+          annual
+        };
+      }
+
+      function normalizeBudgetFromApi(budget, fallbackKind) {
+        if (!budget || !Array.isArray(budget.lines)) {
+          return null;
+        }
+
+        const lines = budget.lines
+          .map((line) => {
+            const name = cleanLabel(line.name);
+            return {
+              name,
+              isPersonnel: isPersonnelBudgetLine(name),
+              budgeted: toBudgetAmount(line.budgeted),
+              engaged: toBudgetAmount(line.engaged),
+              consumed: toBudgetAmount(line.consumed),
+              ordered: toBudgetAmount(line.ordered),
+              underReview: toBudgetAmount(line.underReview)
+            };
+          })
+          .filter((line) => line.name && line.budgeted > 0);
+
+        if (!lines.length) {
+          return null;
+        }
+
+        const totals = lines.reduce((acc, line) => {
+          acc.budgeted += line.budgeted;
+          acc.engaged += line.engaged;
+          acc.consumed += line.consumed;
+          acc.ordered += line.ordered;
+          acc.underReview += line.underReview;
+          return acc;
+        }, { budgeted: 0, engaged: 0, consumed: 0, ordered: 0, underReview: 0 });
+
+        return {
+          id: budget.id,
+          model: budget.model,
+          name: cleanLabel(budget.name),
+          kind: budget.kind || fallbackKind,
+          year: Number.isFinite(Number(budget.year)) ? Number(budget.year) : null,
+          totals,
+          lines
+        };
+      }
+
+      function countRenderableBudgetCharts(budgetDataset) {
+        if (!budgetDataset) {
+          return 0;
+        }
+        return (budgetDataset.convention ? 1 : 0) + budgetDataset.annual.length;
+      }
+
       function upsertProjectDataset(projectDataset) {
         const key = projectSeriesKey(projectDataset);
         const index = state.projects.findIndex((project) => projectSeriesKey(project) === key);
@@ -2682,6 +2866,96 @@
         return 0;
       }
 
+      function toBudgetAmount(value) {
+        if (typeof value === "number" && Number.isFinite(value)) {
+          return Math.max(0, value);
+        }
+        if (typeof value !== "string") {
+          return 0;
+        }
+        let text = value.trim();
+        if (!text) {
+          return 0;
+        }
+        text = text.replace(/\s+/g, "").replace(/[^\d,.-]/g, "");
+        const comma = text.lastIndexOf(",");
+        const dot = text.lastIndexOf(".");
+        if (comma >= 0 && dot >= 0) {
+          text = comma > dot
+            ? text.replace(/\./g, "").replace(",", ".")
+            : text.replace(/,/g, "");
+        } else if (comma >= 0) {
+          text = text.replace(",", ".");
+        }
+        const number = Number(text);
+        return Number.isFinite(number) ? Math.max(0, number) : 0;
+      }
+
+      function isPersonnelBudgetLine(name) {
+        const normalized = normalizeText(name).replace(/[^a-z0-9]+/g, " ").trim();
+        const compact = normalized.replace(/\s+/g, "");
+        if (!normalized) {
+          return false;
+        }
+
+        const personnelPhrases = [
+          "frais de personnel",
+          "frais du personnel",
+          "frais personnel",
+          "charges de personnel",
+          "charges du personnel",
+          "depenses de personnel",
+          "couts de personnel",
+          "cout du personnel",
+          "couts salariaux",
+          "charges salariales",
+          "frais salariaux",
+          "masse salariale",
+          "ressources humaines",
+          "human resources",
+          "personnel costs",
+          "staff costs",
+          "employee costs",
+          "salary costs",
+          "wage costs",
+          "payroll costs",
+          "labour costs",
+          "labor costs",
+          "personeelskosten",
+          "loonkosten"
+        ];
+        const personnelWords = [
+          "personnel",
+          "salaire",
+          "salaires",
+          "salarial",
+          "salariale",
+          "salariales",
+          "remuneration",
+          "remunerations",
+          "emoluments",
+          "payroll",
+          "salary",
+          "salaries",
+          "wage",
+          "wages",
+          "staff",
+          "employee",
+          "employees",
+          "personeel",
+          "salaris",
+          "lonen",
+          "loonkost"
+        ];
+
+        return personnelPhrases.some((phrase) => normalized.includes(phrase)) ||
+          personnelWords.some((word) => normalized.split(" ").includes(word)) ||
+          compact === "rh" ||
+          normalized.startsWith("rh ") ||
+          normalized.endsWith(" rh") ||
+          normalized.includes(" rh ");
+      }
+
       function sumMap(values, keys = null) {
         let total = 0;
         const selected = keys || Array.from(values.keys());
@@ -2751,6 +3025,9 @@
         }
         if (state.plans.length) {
           loaded.push(`${state.plans.length} planned export${state.plans.length === 1 ? "" : "s"}`);
+        }
+        if (state.projectBudgets.size) {
+          loaded.push(`${state.projectBudgets.size} project budget set${state.projectBudgets.size === 1 ? "" : "s"}`);
         }
         if (state.taskDeadlines.size) {
           loaded.push(`${state.taskDeadlines.size} task deadline file${state.taskDeadlines.size === 1 ? "" : "s"}`);
@@ -3043,7 +3320,14 @@
         projectSummaries.forEach((summary, index) => {
           const total = sumEntries(summary.entries);
           const plan = findPlanForProject(summary.project);
-          const deadlineSet = state.taskDeadlines.get(projectSeriesKey(summary.project)) || null;
+          const projectKey = projectSeriesKey(summary.project);
+          const showPersonnelBudgetLines = state.budgetPersonnelVisible.has(projectKey);
+          const budgetScale = state.budgetLinearScale.has(projectKey) ? "linear" : "log";
+          const budgetDataset = findBudgetsForProject(summary.project);
+          const budgetCharts = buildBudgetChartEntries(budgetDataset, showPersonnelBudgetLines);
+          const personnelBudgetLineCount = countPersonnelBudgetLines(budgetDataset);
+          const totalBudgetLineCount = countBudgetLines(budgetDataset);
+          const deadlineSet = state.taskDeadlines.get(projectKey) || null;
           const panel = document.createElement("article");
           panel.className = "panel project-panel";
 
@@ -3051,6 +3335,9 @@
           const canvasLineId = `projectLine${index}`;
           const canvasCumulativeId = `projectCumulative${index}`;
           const canvasPlannedId = `projectPlanned${index}`;
+          const budgetCanvasPrefix = `projectBudget${index}_`;
+          const budgetToggleId = `budgetPersonnelToggle${index}`;
+          const budgetScaleToggleId = `budgetScaleToggle${index}`;
           const legendId = `projectLegend${index}`;
           const lineLegendId = `lineLegend${index}`;
           const tableId = `projectTable${index}`;
@@ -3064,6 +3351,28 @@
                   <p class="line-key">Solid actual / dashed planned</p>
                   <canvas id="${canvasPlannedId}" class="chart-canvas" aria-label="Planned versus actual employee contribution line chart"></canvas>
                 </div>
+          ` : "";
+          const budgetStack = budgetCharts.length ? `
+              <div class="budget-stack">
+                ${totalBudgetLineCount ? `
+                  <div class="budget-controls">
+                    <button id="${budgetToggleId}" class="budget-toggle" type="button" aria-pressed="${showPersonnelBudgetLines ? "true" : "false"}">
+                      ${budgetPersonnelToggleLabel(showPersonnelBudgetLines, personnelBudgetLineCount)}
+                    </button>
+                    <button id="${budgetScaleToggleId}" class="budget-toggle" type="button" aria-pressed="${budgetScale === "linear" ? "true" : "false"}">
+                      ${budgetScale === "linear" ? "Use log scale" : "Use linear scale"}
+                    </button>
+                  </div>
+                ` : ""}
+                ${renderBudgetSeriesKeyHtml()}
+                ${budgetCharts.map((budget, budgetIndex) => `
+                  <div class="chart-block">
+                    <h3>${escapeHtml(budgetChartTitle(budget))}</h3>
+                    <p class="line-key">${escapeHtml(budgetChartMeta(budget, budgetScale))}</p>
+                    <canvas id="${budgetCanvasPrefix}${budgetIndex}" class="chart-canvas" aria-label="${escapeHtml(budgetChartTitle(budget))} grouped budget bar chart"></canvas>
+                  </div>
+                `).join("")}
+              </div>
           ` : "";
           const trendLegendEntries = plan ? mergeLineLegendEntries(summary.entries, plan) : summary.entries;
           const hiddenSeries = getHiddenSeries(summary.project);
@@ -3088,7 +3397,7 @@
               </label>
               <span class="deadline-meta">${escapeHtml(deadlineMeta)}</span>
             </div>
-            <div class="project-chart-grid">
+            <div class="project-chart-grid${budgetCharts.length ? " with-budgets" : ""}">
               <div class="pie-wrap">
                 <canvas id="${canvasPieId}" class="chart-canvas" aria-label="Employee contribution pie chart"></canvas>
                 <div id="${legendId}" class="legend"></div>
@@ -3105,6 +3414,7 @@
                 ${plannedBlock}
                 <div id="${lineLegendId}" class="legend"></div>
               </div>
+              ${budgetStack}
             </div>
             <table>
               <thead>
@@ -3119,6 +3429,14 @@
           `;
 
           els.projectList.appendChild(panel);
+          if (totalBudgetLineCount) {
+            document.getElementById(budgetToggleId).addEventListener("click", () => {
+              toggleBudgetPersonnelLines(summary.project);
+            });
+            document.getElementById(budgetScaleToggleId).addEventListener("click", () => {
+              toggleBudgetScale(summary.project);
+            });
+          }
           document.getElementById(taskInputId).addEventListener("change", (event) => {
             const file = event.target.files[0];
             if (file) {
@@ -3132,6 +3450,9 @@
           if (plan) {
             renderPlannedActualChart(document.getElementById(canvasPlannedId), summary.project, summary.entries, plan, activeSeriesKeys, deadlineSet);
           }
+          budgetCharts.forEach((budget, budgetIndex) => {
+            renderBudgetBarChart(document.getElementById(`${budgetCanvasPrefix}${budgetIndex}`), budget, { scale: budgetScale });
+          });
           renderLineLegend(document.getElementById(lineLegendId), trendLegendEntries, {
             hiddenSeries,
             onToggle: (entry) => toggleProjectSeries(summary.project, entry.name)
@@ -3142,6 +3463,26 @@
 
       function getHiddenSeries(project) {
         return state.hiddenSeries.get(projectSeriesKey(project)) || new Set();
+      }
+
+      function toggleBudgetPersonnelLines(project) {
+        const key = projectSeriesKey(project);
+        if (state.budgetPersonnelVisible.has(key)) {
+          state.budgetPersonnelVisible.delete(key);
+        } else {
+          state.budgetPersonnelVisible.add(key);
+        }
+        render();
+      }
+
+      function toggleBudgetScale(project) {
+        const key = projectSeriesKey(project);
+        if (state.budgetLinearScale.has(key)) {
+          state.budgetLinearScale.delete(key);
+        } else {
+          state.budgetLinearScale.add(key);
+        }
+        render();
       }
 
       function toggleProjectSeries(project, employeeName) {
@@ -3176,6 +3517,124 @@
           const planKey = projectMatchKey(plan.name);
           return projectKey === planKey || projectKey.includes(planKey) || planKey.includes(projectKey);
         }) || null;
+      }
+
+      function findBudgetsForProject(project) {
+        return state.projectBudgets.get(projectSeriesKey(project)) || null;
+      }
+
+      function buildBudgetChartEntries(budgetDataset, showPersonnelLines) {
+        if (!budgetDataset) {
+          return [];
+        }
+
+        const entries = [];
+        if (budgetDataset.convention) {
+          entries.push(prepareBudgetChartEntry(budgetDataset.convention, "convention", showPersonnelLines));
+        }
+        budgetDataset.annual.forEach((budget) => {
+          entries.push(prepareBudgetChartEntry(budget, "annual", showPersonnelLines));
+        });
+        return entries.filter((budget) => budget && Array.isArray(budget.allLines) && budget.allLines.some((line) => line.budgeted > 0));
+      }
+
+      function prepareBudgetChartEntry(budget, chartKind, showPersonnelLines) {
+        if (!budget || !Array.isArray(budget.lines)) {
+          return null;
+        }
+        const allLines = budget.lines.filter((line) => line.budgeted > 0);
+        const hiddenPersonnelLines = showPersonnelLines ? [] : allLines.filter((line) => line.isPersonnel);
+        const visibleLines = showPersonnelLines ? allLines : allLines.filter((line) => !line.isPersonnel);
+        return {
+          ...budget,
+          chartKind,
+          allLines,
+          lines: visibleLines,
+          totals: budgetLineTotals(visibleLines),
+          hiddenPersonnelLineCount: hiddenPersonnelLines.length,
+          totalPersonnelLineCount: allLines.filter((line) => line.isPersonnel).length
+        };
+      }
+
+      function budgetLineTotals(lines) {
+        return lines.reduce((acc, line) => {
+          acc.budgeted += line.budgeted;
+          acc.engaged += line.engaged;
+          acc.consumed += line.consumed;
+          acc.ordered += line.ordered;
+          acc.underReview += line.underReview;
+          return acc;
+        }, { budgeted: 0, engaged: 0, consumed: 0, ordered: 0, underReview: 0 });
+      }
+
+      function countPersonnelBudgetLines(budgetDataset) {
+        if (!budgetDataset) {
+          return 0;
+        }
+        const budgets = [
+          budgetDataset.convention,
+          ...budgetDataset.annual
+        ].filter(Boolean);
+        return budgets.reduce((total, budget) => {
+          return total + budget.lines.filter((line) => line.isPersonnel && line.budgeted > 0).length;
+        }, 0);
+      }
+
+      function countBudgetLines(budgetDataset) {
+        if (!budgetDataset) {
+          return 0;
+        }
+        const budgets = [
+          budgetDataset.convention,
+          ...budgetDataset.annual
+        ].filter(Boolean);
+        return budgets.reduce((total, budget) => {
+          return total + budget.lines.filter((line) => line.budgeted > 0).length;
+        }, 0);
+      }
+
+      function budgetPersonnelToggleLabel(showPersonnelLines, personnelLineCount) {
+        if (showPersonnelLines) {
+          return "Hide personnel lines";
+        }
+        return personnelLineCount
+          ? `Show personnel lines (${personnelLineCount})`
+          : "Show personnel lines";
+      }
+
+      function budgetChartTitle(budget) {
+        if (budget.chartKind === "convention") {
+          return "Convention budget";
+        }
+        if (budget.year) {
+          return `Annual budget ${budget.year}`;
+        }
+        return budget.name || "Annual budget";
+      }
+
+      function budgetChartMeta(budget, scale) {
+        const lineCount = budget.lines.length;
+        const label = lineCount === 1 ? "line" : "lines";
+        const hidden = budget.hiddenPersonnelLineCount
+          ? ` / ${budget.hiddenPersonnelLineCount} personnel hidden`
+          : "";
+        if (!lineCount && budget.hiddenPersonnelLineCount) {
+          return `${budget.hiddenPersonnelLineCount} personnel ${budget.hiddenPersonnelLineCount === 1 ? "line" : "lines"} hidden`;
+        }
+        return `${formatAmount(budget.totals.budgeted)} budgeted / ${lineCount} ${label} / ${scale} scale${hidden}`;
+      }
+
+      function renderBudgetSeriesKeyHtml() {
+        return `
+          <div class="budget-series-key" aria-label="Budget bar legend">
+            ${BUDGET_BAR_SERIES.map((series) => `
+              <span class="budget-key-item">
+                <span class="swatch" style="background:${series.color}"></span>
+                <span>${escapeHtml(series.label)}</span>
+              </span>
+            `).join("")}
+          </div>
+        `;
       }
 
       function projectMatchKey(name) {
@@ -3476,6 +3935,107 @@
               ctx.strokeStyle = "#ffffff";
               ctx.lineWidth = 1.5;
               ctx.stroke();
+            });
+          });
+        });
+      }
+
+      function renderBudgetBarChart(canvas, budget, options = {}) {
+        if (!canvas) {
+          return;
+        }
+
+        drawCanvas(canvas, (ctx, width, height) => {
+          const useLogScale = options.scale !== "linear";
+          const lines = budget.lines.filter((line) => line.budgeted > 0);
+          ctx.clearRect(0, 0, width, height);
+
+          if (!lines.length) {
+            drawEmptyChart(ctx, width, height, budget.hiddenPersonnelLineCount ? "Personnel lines hidden" : "No budget data");
+            return;
+          }
+
+          const maxValue = Math.max(
+            1,
+            ...lines.flatMap((line) => BUDGET_BAR_SERIES.map((series) => line[series.key] || 0))
+          );
+          const left = 66;
+          const right = 18;
+          const top = 24;
+          const bottom = lines.length <= 3 ? 76 : 118;
+          const plotWidth = Math.max(1, width - left - right);
+          const plotHeight = Math.max(1, height - top - bottom);
+          const valueRatio = (value) => {
+            if (value <= 0) {
+              return 0;
+            }
+            if (!useLogScale) {
+              return value / maxValue;
+            }
+            return Math.log10(value + 1) / Math.log10(maxValue + 1);
+          };
+          const tickValue = (tick) => {
+            if (!useLogScale) {
+              return (maxValue / 4) * tick;
+            }
+            return Math.pow(maxValue + 1, tick / 4) - 1;
+          };
+
+          ctx.strokeStyle = "#d7dfdc";
+          ctx.lineWidth = 1;
+          ctx.fillStyle = "#64726f";
+          ctx.font = "700 11px system-ui, sans-serif";
+          ctx.textAlign = "right";
+          ctx.textBaseline = "middle";
+
+          for (let tick = 0; tick <= 4; tick += 1) {
+            const value = tickValue(tick);
+            const y = top + plotHeight - valueRatio(value) * plotHeight;
+            ctx.beginPath();
+            ctx.moveTo(left, y);
+            ctx.lineTo(width - right, y);
+            ctx.stroke();
+            ctx.fillText(formatCompact(value), left - 8, y);
+          }
+
+          const groupWidth = plotWidth / lines.length;
+          const barGap = 2;
+          const availableBarWidth = Math.max(8, groupWidth * 0.78);
+          const barWidth = Math.max(3, Math.min(14, (availableBarWidth - barGap * (BUDGET_BAR_SERIES.length - 1)) / BUDGET_BAR_SERIES.length));
+          const barsWidth = barWidth * BUDGET_BAR_SERIES.length + barGap * (BUDGET_BAR_SERIES.length - 1);
+
+          lines.forEach((line, lineIndex) => {
+            const groupCenter = left + groupWidth * lineIndex + groupWidth / 2;
+            const groupStart = groupCenter - barsWidth / 2;
+            BUDGET_BAR_SERIES.forEach((series, seriesIndex) => {
+              const value = line[series.key] || 0;
+              if (value <= 0) {
+                return;
+              }
+              const barHeight = Math.max(1, valueRatio(value) * plotHeight);
+              const x = groupStart + seriesIndex * (barWidth + barGap);
+              const y = top + plotHeight - barHeight;
+              ctx.fillStyle = series.color;
+              ctx.fillRect(x, y, barWidth, barHeight);
+            });
+          });
+
+          const labelSlots = Math.max(2, Math.floor(plotWidth / 86));
+          const labelEvery = Math.max(1, Math.ceil(lines.length / labelSlots));
+          ctx.fillStyle = "#64726f";
+          ctx.font = "800 10px system-ui, sans-serif";
+          ctx.textBaseline = "top";
+          ctx.textAlign = "center";
+          lines.forEach((line, index) => {
+            if (index % labelEvery !== 0 && index !== lines.length - 1) {
+              return;
+            }
+            const x = left + groupWidth * index + groupWidth / 2;
+            const maxLabelWidth = Math.max(58, Math.min(lines.length <= 3 ? groupWidth * 0.9 : groupWidth * 1.25, 128));
+            const labelLines = wrapCanvasText(ctx, compactLegendLabel(line.name), maxLabelWidth, 3);
+            const startY = top + plotHeight + 10;
+            labelLines.forEach((label, labelIndex) => {
+              ctx.fillText(label, x, startY + labelIndex * 13);
             });
           });
         });
@@ -3819,6 +4379,37 @@
         return `${fitted.trim()}${ellipsis}`;
       }
 
+      function wrapCanvasText(ctx, text, maxWidth, maxLines) {
+        const clean = String(text || "").replace(/\s+/g, " ").trim();
+        if (!clean) {
+          return [""];
+        }
+
+        const words = clean.split(" ");
+        const lines = [];
+        let current = "";
+        words.forEach((word) => {
+          const candidate = current ? `${current} ${word}` : word;
+          if (!current || ctx.measureText(candidate).width <= maxWidth) {
+            current = candidate;
+            return;
+          }
+          lines.push(current);
+          current = word;
+        });
+        if (current) {
+          lines.push(current);
+        }
+
+        if (lines.length <= maxLines) {
+          return lines;
+        }
+
+        const visible = lines.slice(0, maxLines);
+        visible[visible.length - 1] = fitCanvasText(ctx, lines.slice(maxLines - 1).join(" "), maxWidth);
+        return visible;
+      }
+
       function renderLineLegend(container, entries, options = {}) {
         const hiddenSeries = options.hiddenSeries || new Set();
         container.innerHTML = entries.length ? "" : `<p class="legend-value">No employees in selected scope.</p>`;
@@ -3861,6 +4452,13 @@
         const hasDecimal = Math.abs(value - Math.round(value)) > 0.01;
         return new Intl.NumberFormat("en", {
           maximumFractionDigits: hasDecimal ? 1 : 0
+        }).format(value);
+      }
+
+      function formatAmount(value) {
+        const abs = Math.abs(Number(value) || 0);
+        return new Intl.NumberFormat("en", {
+          maximumFractionDigits: abs >= 1000 ? 0 : 1
         }).format(value);
       }
 
