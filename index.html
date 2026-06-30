@@ -1131,6 +1131,8 @@
         personalPlan: null,
         projects: [],
         plans: [],
+        workPackages: new Map(),
+        milestones: new Map(),
         hiddenSeries: new Map(),
         taskDeadlines: new Map(),
         errors: [],
@@ -1339,6 +1341,8 @@
           state.employee = employeeDataset;
           state.projects = [];
           state.plans = [];
+          state.workPackages.clear();
+          state.milestones.clear();
           state.hiddenSeries.clear();
           state.activeProjectKey = "";
           let planningResult = null;
@@ -1439,9 +1443,11 @@
         setDebugOutput({});
 
         try {
-          const [timesheetFetch, planningFetch] = await Promise.allSettled([
+          const [timesheetFetch, planningFetch, workPackageFetch, milestoneFetch] = await Promise.allSettled([
             postOdooJson("/api/odoo/project-timesheets", payload, "Project timesheet fetch"),
-            postOdooJson("/api/odoo/project-planning", payload, "Project planning fetch")
+            postOdooJson("/api/odoo/project-planning", payload, "Project planning fetch"),
+            postOdooJson("/api/odoo/project-workpackages", payload, "Project work-package fetch"),
+            postOdooJson("/api/odoo/project-milestones", payload, "Project milestone fetch")
           ]);
 
           if (timesheetFetch.status === "rejected") {
@@ -1455,10 +1461,18 @@
           const projectDataset = buildProjectDatasetFromApi(timesheetResult);
           state.projects = [projectDataset];
           state.activeProjectKey = projectSeriesKey(projectDataset);
+          state.workPackages.clear();
+          state.milestones.clear();
           let planningResult = null;
           let planningError = null;
           let planDataset = null;
           let planChartHours = 0;
+          let workPackageResult = null;
+          let workPackageError = null;
+          let workPackageDataset = null;
+          let milestoneResult = null;
+          let milestoneError = null;
+          let milestoneDataset = null;
 
           if (planningFetch.status === "fulfilled") {
             planningResult = planningFetch.value;
@@ -1474,6 +1488,32 @@
             state.plans = [];
           }
 
+          if (workPackageFetch.status === "fulfilled") {
+            workPackageResult = workPackageFetch.value;
+            workPackageDataset = buildProjectWorkPackageDatasetFromApi(workPackageResult, projectDataset);
+            if (workPackageDataset) {
+              state.workPackages.set(projectSeriesKey(projectDataset), workPackageDataset);
+            } else {
+              state.workPackages.delete(projectSeriesKey(projectDataset));
+            }
+          } else {
+            workPackageError = workPackageFetch.reason.message || String(workPackageFetch.reason);
+            state.workPackages.delete(projectSeriesKey(projectDataset));
+          }
+
+          if (milestoneFetch.status === "fulfilled") {
+            milestoneResult = milestoneFetch.value;
+            milestoneDataset = buildProjectMilestoneDatasetFromApi(milestoneResult, projectDataset);
+            if (milestoneDataset) {
+              state.milestones.set(projectSeriesKey(projectDataset), milestoneDataset);
+            } else {
+              state.milestones.delete(projectSeriesKey(projectDataset));
+            }
+          } else {
+            milestoneError = milestoneFetch.reason.message || String(milestoneFetch.reason);
+            state.milestones.delete(projectSeriesKey(projectDataset));
+          }
+
           state.errors = [];
           refreshYears(false);
           render();
@@ -1485,16 +1525,30 @@
           const planningStatus = planningError
             ? `planning failed: ${planningError}`
             : `${planningResult.slotCount} planning slots, ${formatHours(planningResult.totalHours)} h fetched, ${formatHours(planChartHours)} h charted`;
+          const workPackageStatus = workPackageError
+            ? `work packages failed: ${workPackageError}`
+            : workPackageResult
+              ? `${workPackageResult.taskCount} task${workPackageResult.taskCount === 1 ? "" : "s"} fetched, ${workPackageResult.workPackageCount} WP${workPackageResult.workPackageCount === 1 ? "" : "s"} detected`
+              : "no task data";
+          const milestoneStatus = milestoneError
+            ? `milestones failed: ${milestoneError}`
+            : milestoneResult
+              ? `${milestoneResult.milestoneCount} milestone${milestoneResult.milestoneCount === 1 ? "" : "s"} fetched`
+              : "no milestone data";
           setTimesheetDebugStatus(
-            `${projectDataset.name}: ${timesheetResult.lineCount} timesheet lines, ${formatHours(timesheetResult.totalHours)} h fetched, ${formatHours(actualChartHours)} h charted; ${planningStatus}`,
-            planningError ? "warn" : "ok"
+            `${projectDataset.name}: ${timesheetResult.lineCount} timesheet lines, ${formatHours(timesheetResult.totalHours)} h fetched, ${formatHours(actualChartHours)} h charted; ${planningStatus}; ${workPackageStatus}; ${milestoneStatus}`,
+            planningError || workPackageError || milestoneError ? "warn" : "ok"
           );
           setDebugOutput({
             projectTimesheets: timesheetResult,
             projectPlanning: planningError ? { ok: false, error: planningError } : planningResult,
+            projectWorkPackages: workPackageError ? { ok: false, error: workPackageError } : workPackageResult,
+            projectMilestones: milestoneError ? { ok: false, error: milestoneError } : milestoneResult,
             dashboard: {
               actualChartedHours: actualChartHours,
               plannedChartedHours: planChartHours,
+              workPackageRows: workPackageDataset ? workPackageDataset.rows.length : 0,
+              milestoneCount: milestoneDataset ? milestoneDataset.milestones.length : 0,
               projectCount: state.projects.length,
               planCount: state.plans.length
             }
@@ -1666,6 +1720,8 @@
 
       async function loadProjects(files) {
         state.projects = [];
+        state.workPackages.clear();
+        state.milestones.clear();
         state.errors = [];
         if (!files.length) {
           refreshYears();
@@ -2479,6 +2535,111 @@
         };
       }
 
+      function buildProjectWorkPackageDatasetFromApi(result, projectDataset = null) {
+        const rows = (Array.isArray(result.workPackages) ? result.workPackages : [])
+          .map((workPackage) => {
+            const name = cleanLabel(workPackage.name || workPackage.displayName || `Task ${workPackage.id || ""}`);
+            const hoursSpent = Math.max(0, toHours(workPackage.hoursSpent));
+            const plannedHours = Math.max(0, toHours(workPackage.plannedHours));
+            const progressPercent = normalizeProgressPercent(workPackage.progressPercent);
+            const expectedProgressPercent = calculateLinearProgressPercent(workPackage.startDate, workPackage.endDate);
+            const consumptionPercent = plannedHours > 0 ? (hoursSpent / plannedHours) * 100 : null;
+            const startDate = String(workPackage.startDate || "");
+            const endDate = String(workPackage.endDate || "");
+            const missingInfo = !startDate || !endDate || plannedHours <= 0;
+
+            return {
+              id: workPackage.id,
+              name,
+              taskType: cleanLabel(workPackage.taskType),
+              isWorkPackage: Boolean(workPackage.isWorkPackage),
+              startDate,
+              endDate,
+              hoursSpent,
+              plannedHours,
+              missingInfo,
+              consumptionPercent: consumptionPercent == null ? null : clampNumber(consumptionPercent, 0, 999),
+              progressPercent,
+              expectedProgressPercent,
+              sourceFields: workPackage.sourceFields || {}
+            };
+          })
+          .filter((workPackage) => workPackage.name);
+
+        if (!rows.length) {
+          return null;
+        }
+
+        rows.sort((a, b) => {
+          const startA = parseDateValue(a.startDate);
+          const startB = parseDateValue(b.startDate);
+          if (startA && startB && startA.getTime() !== startB.getTime()) {
+            return startA - startB;
+          }
+          if (startA && !startB) {
+            return -1;
+          }
+          if (!startA && startB) {
+            return 1;
+          }
+          return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
+        });
+
+        return {
+          type: "workpackages",
+          source: "api",
+          fileName: `Odoo API - project work packages ${result.projectCode}`,
+          sheetName: "project.task",
+          name: result.projectName || (projectDataset && projectDataset.name) || `[${result.projectCode}] Project ${result.projectCode}`,
+          code: result.projectCode,
+          taskCount: result.taskCount || rows.length,
+          workPackageCount: result.workPackageCount || rows.length,
+          rows,
+          warnings: Array.isArray(result.warnings) ? result.warnings : []
+        };
+      }
+
+      function buildProjectMilestoneDatasetFromApi(result, projectDataset = null) {
+        const monthMap = new Map();
+        const milestones = (Array.isArray(result.milestones) ? result.milestones : [])
+          .map((milestone) => {
+            const name = cleanLabel(milestone.name || `Milestone ${milestone.id || ""}`);
+            const date = parseDateValue(milestone.date);
+            if (!name || !date) {
+              return null;
+            }
+            const month = monthObject(date.getFullYear(), date.getMonth());
+            monthMap.set(month.key, month);
+            return {
+              id: milestone.id,
+              name,
+              date,
+              dateText: String(milestone.date || ""),
+              month,
+              isReached: Boolean(milestone.isReached),
+              sourceFields: milestone.sourceFields || {}
+            };
+          })
+          .filter(Boolean)
+          .sort((a, b) => a.date - b.date || a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));
+
+        if (!milestones.length) {
+          return null;
+        }
+
+        return {
+          type: "milestones",
+          source: "api",
+          fileName: `Odoo API - project milestones ${result.projectCode}`,
+          sheetName: "project.milestone",
+          name: result.projectName || (projectDataset && projectDataset.name) || `[${result.projectCode}] Project ${result.projectCode}`,
+          code: result.projectCode,
+          months: Array.from(monthMap.values()).sort((a, b) => a.date - b.date),
+          milestones,
+          warnings: Array.isArray(result.warnings) ? result.warnings : []
+        };
+      }
+
       function upsertProjectDataset(projectDataset) {
         const key = projectSeriesKey(projectDataset);
         const index = state.projects.findIndex((project) => projectSeriesKey(project) === key);
@@ -2682,6 +2843,51 @@
         return 0;
       }
 
+      function normalizeProgressPercent(value) {
+        if (value == null || value === "") {
+          return null;
+        }
+        const number = Number(String(value).replace(",", "."));
+        if (!Number.isFinite(number)) {
+          return null;
+        }
+        return clampNumber(number > 0 && number <= 1 ? number * 100 : number, 0, 100);
+      }
+
+      function calculateLinearProgressPercent(startValue, endValue) {
+        const start = parseDateValue(startValue);
+        const end = parseDateValue(endValue);
+        if (!start || !end) {
+          return null;
+        }
+
+        const todayValue = new Date();
+        const today = new Date(todayValue.getFullYear(), todayValue.getMonth(), todayValue.getDate());
+        if (end <= start) {
+          return today >= end ? 100 : 0;
+        }
+        if (today <= start) {
+          return 0;
+        }
+        if (today >= end) {
+          return 100;
+        }
+        return clampNumber(((today - start) / (end - start)) * 100, 0, 100);
+      }
+
+      function parseDateValue(value) {
+        const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (!match) {
+          return null;
+        }
+        const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+        return Number.isFinite(date.getTime()) ? date : null;
+      }
+
+      function clampNumber(value, min, max) {
+        return Math.min(max, Math.max(min, value));
+      }
+
       function sumMap(values, keys = null) {
         let total = 0;
         const selected = keys || Array.from(values.keys());
@@ -2707,6 +2913,9 @@
         });
         state.taskDeadlines.forEach((deadlineSet) => {
           deadlineSet.months.forEach((month) => years.add(month.year));
+        });
+        state.milestones.forEach((milestoneSet) => {
+          milestoneSet.months.forEach((month) => years.add(month.year));
         });
         state.years = Array.from(years).sort((a, b) => a - b);
         if (resetSelection || !state.selectedYears.size) {
@@ -2735,7 +2944,7 @@
         renderKpis(employeeEntries, projectSummaries);
         renderEmployeePanel(employeeEntries, employeePlanEntries);
         renderProjectPanels(projectSummaries);
-        els.emptyState.hidden = Boolean(state.employee || state.personalPlan || state.projects.length || state.plans.length);
+        els.emptyState.hidden = Boolean(state.employee || state.personalPlan || state.projects.length || state.plans.length || state.workPackages.size || state.milestones.size);
       }
 
       function renderStatus() {
@@ -2751,6 +2960,12 @@
         }
         if (state.plans.length) {
           loaded.push(`${state.plans.length} planned export${state.plans.length === 1 ? "" : "s"}`);
+        }
+        if (state.workPackages.size) {
+          loaded.push(`${state.workPackages.size} work-package view${state.workPackages.size === 1 ? "" : "s"}`);
+        }
+        if (state.milestones.size) {
+          loaded.push(`${state.milestones.size} milestone view${state.milestones.size === 1 ? "" : "s"}`);
         }
         if (state.taskDeadlines.size) {
           loaded.push(`${state.taskDeadlines.size} task deadline file${state.taskDeadlines.size === 1 ? "" : "s"}`);
@@ -3043,6 +3258,8 @@
         projectSummaries.forEach((summary, index) => {
           const total = sumEntries(summary.entries);
           const plan = findPlanForProject(summary.project);
+          const workPackageSet = findWorkPackagesForProject(summary.project);
+          const milestoneSet = findMilestonesForProject(summary.project);
           const deadlineSet = state.taskDeadlines.get(projectSeriesKey(summary.project)) || null;
           const panel = document.createElement("article");
           panel.className = "panel project-panel";
@@ -3051,6 +3268,7 @@
           const canvasLineId = `projectLine${index}`;
           const canvasCumulativeId = `projectCumulative${index}`;
           const canvasPlannedId = `projectPlanned${index}`;
+          const canvasWorkPackageId = `projectWorkPackages${index}`;
           const legendId = `projectLegend${index}`;
           const lineLegendId = `lineLegend${index}`;
           const tableId = `projectTable${index}`;
@@ -3061,8 +3279,15 @@
           const plannedBlock = plan ? `
                 <div class="chart-block">
                   <h3>Planned vs actual</h3>
-                  <p class="line-key">Solid actual / dashed planned</p>
+                  <p class="line-key">Solid actual / dashed planned / milestone markers</p>
                   <canvas id="${canvasPlannedId}" class="chart-canvas" aria-label="Planned versus actual employee contribution line chart"></canvas>
+                </div>
+          ` : "";
+          const workPackageBlock = workPackageSet ? `
+                <div class="chart-block workpackage-block">
+                  <h3>Tasks</h3>
+                  <p class="line-key">Spent vs foreseen hours / expected progress tick</p>
+                  <canvas id="${canvasWorkPackageId}" class="chart-canvas workpackage-canvas" style="height:${workPackageCanvasHeight(workPackageSet.rows.length)}px" aria-label="Work package time consumption and progress chart"></canvas>
                 </div>
           ` : "";
           const trendLegendEntries = plan ? mergeLineLegendEntries(summary.entries, plan) : summary.entries;
@@ -3103,6 +3328,7 @@
                   <canvas id="${canvasCumulativeId}" class="chart-canvas" aria-label="Cumulative employee contribution line chart"></canvas>
                 </div>
                 ${plannedBlock}
+                ${workPackageBlock}
                 <div id="${lineLegendId}" class="legend"></div>
               </div>
             </div>
@@ -3130,7 +3356,10 @@
           renderLineChart(document.getElementById(canvasLineId), summary.project, activeActualEntries, { deadlines: deadlineSet });
           renderLineChart(document.getElementById(canvasCumulativeId), summary.project, activeActualEntries, { cumulative: true, deadlines: deadlineSet });
           if (plan) {
-            renderPlannedActualChart(document.getElementById(canvasPlannedId), summary.project, summary.entries, plan, activeSeriesKeys, deadlineSet);
+            renderPlannedActualChart(document.getElementById(canvasPlannedId), summary.project, summary.entries, plan, activeSeriesKeys, deadlineSet, milestoneSet);
+          }
+          if (workPackageSet) {
+            renderWorkPackageChart(document.getElementById(canvasWorkPackageId), workPackageSet);
           }
           renderLineLegend(document.getElementById(lineLegendId), trendLegendEntries, {
             hiddenSeries,
@@ -3176,6 +3405,54 @@
           const planKey = projectMatchKey(plan.name);
           return projectKey === planKey || projectKey.includes(planKey) || planKey.includes(projectKey);
         }) || null;
+      }
+
+      function findWorkPackagesForProject(project) {
+        const directMatch = state.workPackages.get(projectSeriesKey(project));
+        if (directMatch) {
+          return directMatch;
+        }
+
+        const projectCode = extractProjectCode(project.name);
+        const datasets = Array.from(state.workPackages.values());
+        if (projectCode) {
+          const codeMatch = datasets.find((dataset) => dataset.code === projectCode);
+          if (codeMatch) {
+            return codeMatch;
+          }
+        }
+
+        const projectKey = projectMatchKey(project.name);
+        return datasets.find((dataset) => {
+          const datasetKey = projectMatchKey(dataset.name);
+          return projectKey === datasetKey || projectKey.includes(datasetKey) || datasetKey.includes(projectKey);
+        }) || null;
+      }
+
+      function findMilestonesForProject(project) {
+        const directMatch = state.milestones.get(projectSeriesKey(project));
+        if (directMatch) {
+          return directMatch;
+        }
+
+        const projectCode = extractProjectCode(project.name);
+        const datasets = Array.from(state.milestones.values());
+        if (projectCode) {
+          const codeMatch = datasets.find((dataset) => dataset.code === projectCode);
+          if (codeMatch) {
+            return codeMatch;
+          }
+        }
+
+        const projectKey = projectMatchKey(project.name);
+        return datasets.find((dataset) => {
+          const datasetKey = projectMatchKey(dataset.name);
+          return projectKey === datasetKey || projectKey.includes(datasetKey) || datasetKey.includes(projectKey);
+        }) || null;
+      }
+
+      function workPackageCanvasHeight(rowCount) {
+        return Math.max(280, Math.min(820, 82 + rowCount * 58));
       }
 
       function projectMatchKey(name) {
@@ -3501,10 +3778,10 @@
         });
       }
 
-      function renderPlannedActualChart(canvas, project, actualEntries, plan, visibleSeriesKeys = null, deadlineSet = null) {
+      function renderPlannedActualChart(canvas, project, actualEntries, plan, visibleSeriesKeys = null, deadlineSet = null, milestoneSet = null) {
         drawCanvas(canvas, (ctx, width, height) => {
           const selectedYears = state.selectedYears.size ? state.selectedYears : new Set(state.years);
-          const timeline = buildComparisonTimeline(project, plan, deadlineSet);
+          const timeline = buildComparisonTimeline(project, plan, deadlineSet, milestoneSet);
           const displayIndexes = [];
           const displayMonths = timeline.filter((month, index) => {
             const selected = selectedYears.has(month.year);
@@ -3562,6 +3839,7 @@
 
           drawLineAxes(ctx, width, height, displayMonths, maxValue, left, right, top, bottom, plotWidth, plotHeight);
           drawDeadlineMarkers(ctx, displayMonths, deadlineSet, left, right, top, bottom, plotWidth, plotHeight);
+          drawMilestoneMarkers(ctx, displayMonths, milestoneSet, left, right, top, bottom, plotWidth, plotHeight);
 
           series.forEach((entry) => {
             drawLineSeries(ctx, entry.actual, entry.color, false, displayMonths.length, maxValue, left, top, plotWidth, plotHeight);
@@ -3570,18 +3848,193 @@
         });
       }
 
-      function buildComparisonTimeline(project, plan, deadlineSet = null) {
+      function renderWorkPackageChart(canvas, dataset) {
+        drawCanvas(canvas, (ctx, width, height) => {
+          const rows = Array.isArray(dataset.rows) ? dataset.rows : [];
+          ctx.clearRect(0, 0, width, height);
+          if (!rows.length) {
+            drawEmptyChart(ctx, width, height, "No work-package data");
+            return;
+          }
+
+          const left = Math.min(Math.max(148, width * 0.28), 280);
+          const right = width < 620 ? 20 : 112;
+          const top = 44;
+          const bottom = 24;
+          const plotWidth = Math.max(1, width - left - right);
+          const usableHeight = Math.max(1, height - top - bottom);
+          const rowHeight = Math.max(52, usableHeight / rows.length);
+
+          drawWorkPackageLegend(ctx, left, top - 28);
+
+          rows.forEach((row, index) => {
+            const rowTop = top + index * rowHeight;
+            const labelY = rowTop + 18;
+            const dateY = rowTop + 35;
+            const timeY = rowTop + 13;
+            const plannedHours = row.plannedHours || 0;
+            const spentHours = row.hoursSpent || 0;
+            const rowHourScale = Math.max(1, plannedHours, spentHours);
+            const plannedWidth = plannedHours > 0 ? (plannedHours / rowHourScale) * plotWidth : 0;
+            const spentWidth = spentHours > 0 ? (spentHours / rowHourScale) * plotWidth : 0;
+            const plannedX = left + plannedWidth;
+            const spentX = left + spentWidth;
+
+            ctx.strokeStyle = "#edf3f1";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(left, rowTop + rowHeight - 5);
+            ctx.lineTo(width - right, rowTop + rowHeight - 5);
+            ctx.stroke();
+
+            ctx.textAlign = "right";
+            ctx.textBaseline = "middle";
+            ctx.font = "800 11px system-ui, sans-serif";
+            ctx.fillStyle = "#253330";
+            const badgeWidth = row.isWorkPackage ? 24 : 0;
+            const badgeGap = row.isWorkPackage ? 6 : 0;
+            const labelRight = left - 12 - badgeWidth - badgeGap;
+            ctx.fillText(fitCanvasText(ctx, row.name, labelRight - 8), labelRight, labelY);
+            if (row.isWorkPackage) {
+              drawWorkPackageBadge(ctx, left - 12 - badgeWidth, labelY);
+            }
+
+            const dateLabel = formatWorkPackageDateRange(row);
+            if (dateLabel) {
+              ctx.font = "700 10px system-ui, sans-serif";
+              ctx.fillStyle = "#64726f";
+              ctx.fillText(fitCanvasText(ctx, dateLabel, left - 18), left - 12, dateY);
+            }
+
+            if (row.missingInfo) {
+              ctx.textAlign = "left";
+              ctx.textBaseline = "middle";
+              ctx.font = "800 12px system-ui, sans-serif";
+              ctx.fillStyle = "#92570b";
+              ctx.fillText(
+                fitCanvasText(ctx, "Missing info on that task. Please update in Odoo.", plotWidth),
+                left,
+                timeY + 7
+              );
+              return;
+            }
+
+            ctx.fillStyle = "#eef4f2";
+            fillRoundedRect(ctx, left, timeY, plotWidth, 14, 7);
+            if (plannedWidth > 0) {
+              ctx.fillStyle = "#43d9c0";
+              fillRoundedRect(ctx, left, timeY, plannedWidth, 14, 7);
+            }
+            if (spentWidth > 0) {
+              if (plannedHours > 0 && spentHours > plannedHours) {
+                const plannedSpentWidth = Math.max(0, Math.min(plannedWidth, spentWidth));
+                ctx.fillStyle = "#223656";
+                fillRoundedRect(ctx, left, timeY + 3, plannedSpentWidth, 8, 4);
+                ctx.fillStyle = "#c75f4c";
+                fillRoundedRect(ctx, plannedX, timeY + 3, spentX - plannedX, 8, 4);
+              } else {
+                ctx.fillStyle = plannedHours > 0 ? "#223656" : "#c75f4c";
+                fillRoundedRect(ctx, left, timeY + 3, spentWidth, 8, 4);
+              }
+            }
+
+            if (row.expectedProgressPercent != null) {
+              const expectedBaseWidth = plannedWidth || plotWidth;
+              const expectedX = left + (row.expectedProgressPercent / 100) * expectedBaseWidth;
+              ctx.strokeStyle = "#f08c4a";
+              ctx.lineWidth = 4;
+              ctx.beginPath();
+              ctx.moveTo(expectedX, timeY - 5);
+              ctx.lineTo(expectedX, timeY + 19);
+              ctx.stroke();
+            }
+
+            if (width >= 620) {
+              ctx.textAlign = "left";
+              ctx.textBaseline = "middle";
+              ctx.font = "800 11px system-ui, sans-serif";
+              ctx.fillStyle = "#253330";
+              const hourLabel = plannedHours > 0
+                ? `${formatHours(spentHours)} / ${formatHours(plannedHours)} h`
+                : `${formatHours(spentHours)} h`;
+              ctx.fillText(hourLabel, width - right + 12, timeY + 7);
+            }
+          });
+        });
+      }
+
+      function drawWorkPackageLegend(ctx, x, y) {
+        const entries = [
+          { color: "#223656", label: "spent", type: "bar" },
+          { color: "#f08c4a", label: "expected", type: "tick" }
+        ];
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
+        ctx.font = "800 10px system-ui, sans-serif";
+        let cursor = x;
+        entries.forEach((entry) => {
+          if (entry.type === "tick") {
+            ctx.strokeStyle = entry.color;
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(cursor + 6, y - 7);
+            ctx.lineTo(cursor + 6, y + 7);
+            ctx.stroke();
+          } else {
+            ctx.fillStyle = entry.color;
+            fillRoundedRect(ctx, cursor, y - 5, 12, 10, 3);
+          }
+          ctx.fillStyle = "#64726f";
+          ctx.fillText(entry.label, cursor + 16, y);
+          cursor += ctx.measureText(entry.label).width + 44;
+        });
+      }
+
+      function drawWorkPackageBadge(ctx, x, y) {
+        ctx.fillStyle = "#223656";
+        fillRoundedRect(ctx, x, y - 8, 24, 16, 8);
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "900 9px system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("WP", x + 12, y + 0.5);
+      }
+
+      function formatWorkPackageDateRange(row) {
+        const start = formatShortDate(row.startDate);
+        const end = formatShortDate(row.endDate);
+        if (start && end) {
+          return `${start} - ${end}`;
+        }
+        return start || end || "";
+      }
+
+      function formatShortDate(value) {
+        const date = parseDateValue(value);
+        if (!date) {
+          return "";
+        }
+        return new Intl.DateTimeFormat("en", {
+          month: "short",
+          day: "numeric",
+          year: "2-digit"
+        }).format(date);
+      }
+
+      function buildComparisonTimeline(project, plan, deadlineSet = null, milestoneSet = null) {
         const starts = [
           parseProjectStartMonth(project.name),
           plan.projectStart,
           project.months[0],
           plan.months[0],
-          deadlineSet && deadlineSet.months[0]
+          deadlineSet && deadlineSet.months[0],
+          milestoneSet && milestoneSet.months[0]
         ].filter(Boolean);
         const ends = [
           project.months[project.months.length - 1],
           plan.months[plan.months.length - 1],
-          deadlineSet && deadlineSet.months[deadlineSet.months.length - 1]
+          deadlineSet && deadlineSet.months[deadlineSet.months.length - 1],
+          milestoneSet && milestoneSet.months[milestoneSet.months.length - 1]
         ].filter(Boolean);
         const start = starts.sort((a, b) => a.date - b.date)[0];
         const end = ends.sort((a, b) => b.date - a.date)[0];
@@ -3697,6 +4150,74 @@
         });
 
         ctx.restore();
+      }
+
+      function drawMilestoneMarkers(ctx, months, milestoneSet, left, right, top, bottom, plotWidth, plotHeight) {
+        if (!milestoneSet || !months.length) {
+          return;
+        }
+
+        const monthKeys = new Set(months.map((month) => month.key));
+        const milestones = milestoneSet.milestones.filter((milestone) => monthKeys.has(milestone.month.key));
+        if (!milestones.length) {
+          return;
+        }
+
+        const byMonth = new Map();
+        milestones.forEach((milestone) => {
+          const key = milestone.month.key;
+          if (!byMonth.has(key)) {
+            byMonth.set(key, []);
+          }
+          byMonth.get(key).push(milestone);
+        });
+
+        ctx.save();
+        ctx.strokeStyle = "#7b3f8c";
+        ctx.fillStyle = "#5f2f6d";
+        ctx.lineWidth = 1.8;
+        ctx.setLineDash([3, 5]);
+        ctx.font = "800 10px system-ui, sans-serif";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "top";
+
+        months.forEach((month, index) => {
+          const monthMilestones = byMonth.get(month.key);
+          if (!monthMilestones || !monthMilestones.length) {
+            return;
+          }
+
+          const x = milestoneMonthX(monthMilestones[0], index, months, left, plotWidth);
+          ctx.beginPath();
+          ctx.moveTo(x, top);
+          ctx.lineTo(x, top + plotHeight);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          const label = monthMilestones.length === 1
+            ? monthMilestones[0].name
+            : `${formatCompact(monthMilestones.length)} milestones`;
+          ctx.fillText(fitCanvasText(ctx, label, 92), Math.min(x + 4, left + plotWidth - 92), top + 18);
+          ctx.setLineDash([3, 5]);
+        });
+
+        ctx.restore();
+      }
+
+      function milestoneMonthX(milestone, monthIndex, months, left, plotWidth) {
+        const monthStart = months[monthIndex].date;
+        const monthXPosition = monthX(monthIndex, months.length, left, plotWidth);
+        if (monthIndex >= months.length - 1) {
+          return monthXPosition;
+        }
+
+        const nextMonth = months[monthIndex + 1];
+        const nextXPosition = monthX(monthIndex + 1, months.length, left, plotWidth);
+        const totalMs = nextMonth.date - monthStart;
+        if (totalMs <= 0) {
+          return monthXPosition;
+        }
+        const offset = clampNumber((milestone.date - monthStart) / totalMs, 0, 1);
+        return monthXPosition + (nextXPosition - monthXPosition) * offset;
       }
 
       function drawLineSeries(ctx, points, color, dashed, monthCount, maxValue, left, top, plotWidth, plotHeight) {
@@ -3817,6 +4338,25 @@
           fitted = fitted.slice(0, -1);
         }
         return `${fitted.trim()}${ellipsis}`;
+      }
+
+      function fillRoundedRect(ctx, x, y, width, height, radius) {
+        if (width <= 0 || height <= 0) {
+          return;
+        }
+        const r = Math.min(radius, width / 2, height / 2);
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + width - r, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+        ctx.lineTo(x + width, y + height - r);
+        ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+        ctx.lineTo(x + r, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+        ctx.lineTo(x, y + r);
+        ctx.quadraticCurveTo(x, y, x + r, y);
+        ctx.closePath();
+        ctx.fill();
       }
 
       function renderLineLegend(container, entries, options = {}) {

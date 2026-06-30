@@ -56,6 +56,14 @@ const server = http.createServer(async (request, response) => {
       await handleProjectPlanning(request, response);
       return;
     }
+    if (url.pathname === "/api/odoo/project-workpackages") {
+      await handleProjectWorkPackages(request, response);
+      return;
+    }
+    if (url.pathname === "/api/odoo/project-milestones") {
+      await handleProjectMilestones(request, response);
+      return;
+    }
     await serveStaticFile(url.pathname, response);
   } catch (error) {
     sendJson(response, 500, {
@@ -482,6 +490,204 @@ async function handleProjectPlanning(request, response) {
   });
 }
 
+async function handleProjectWorkPackages(request, response) {
+  if (request.method !== "POST") {
+    sendJson(response, 405, { ok: false, error: "Use POST for this endpoint" });
+    return;
+  }
+
+  let body;
+  let odooUrl;
+  let database;
+  let username;
+  let apiKey;
+  let projectCode;
+  try {
+    body = await readJsonBody(request);
+    ({ odooUrl, database, username, apiKey, projectCode } = getProjectFetchSettings(body));
+  } catch (error) {
+    sendJson(response, 400, {
+      ok: false,
+      error: error.message
+    });
+    return;
+  }
+
+  const uid = await authenticateOdoo(odooUrl, database, username, apiKey);
+  if (!uid) {
+    sendJson(response, 401, {
+      ok: false,
+      error: "Odoo rejected the database, username, or API key."
+    });
+    return;
+  }
+
+  const warnings = [];
+  const projects = await findProjectsByCode(odooUrl, database, uid, apiKey, projectCode, warnings);
+  const projectIds = projects.map((project) => Number(project.id)).filter((id) => Number.isFinite(id));
+  const fieldDefs = await getModelFields(odooUrl, database, uid, apiKey, "project.task");
+  const availableFields = new Set(Object.keys(fieldDefs));
+  const fields = buildWorkPackageTaskFields(fieldDefs);
+  const domains = buildProjectTaskDomains(availableFields, projectCode, projectIds);
+  let tasks = null;
+  let domain = null;
+
+  for (const candidateDomain of domains) {
+    try {
+      const rows = await searchReadAll(odooUrl, database, uid, apiKey, "project.task", candidateDomain, fields, {
+        order: availableFields.has("sequence") ? "sequence asc, id asc" : "id asc"
+      });
+      if (!tasks || rows.length > 0) {
+        tasks = rows;
+        domain = candidateDomain;
+      }
+      if (rows.length > 0) {
+        break;
+      }
+    } catch (error) {
+      warnings.push(`Task search failed for ${JSON.stringify(candidateDomain)}: ${error.message}`);
+    }
+  }
+
+  if (!tasks) {
+    throw new Error(warnings[warnings.length - 1] || "Could not search project tasks");
+  }
+
+  const normalizedTasks = tasks.map((task) => normalizeWorkPackageTask(task, fieldDefs));
+  const workPackageCount = normalizedTasks.filter((task) => task.isWorkPackage).length;
+  normalizedTasks.sort(compareWorkPackages);
+  if (!workPackageCount && normalizedTasks.length) {
+    warnings.push("No workpackage tasks were detected in the fetched project tasks.");
+  }
+
+  const projectName = formatProjectName(
+    projectCode,
+    mostFrequentName(normalizedTasks.map((task) => task.project)) || (projects[0] && projects[0].name)
+  );
+
+  sendJson(response, 200, {
+    ok: true,
+    uid,
+    projectCode,
+    projectName,
+    projectIds,
+    model: "project.task",
+    domain,
+    fields,
+    taskCount: normalizedTasks.length,
+    workPackageCount,
+    workPackages: normalizedTasks,
+    warnings
+  });
+}
+
+async function handleProjectMilestones(request, response) {
+  if (request.method !== "POST") {
+    sendJson(response, 405, { ok: false, error: "Use POST for this endpoint" });
+    return;
+  }
+
+  let body;
+  let odooUrl;
+  let database;
+  let username;
+  let apiKey;
+  let projectCode;
+  try {
+    body = await readJsonBody(request);
+    ({ odooUrl, database, username, apiKey, projectCode } = getProjectFetchSettings(body));
+  } catch (error) {
+    sendJson(response, 400, {
+      ok: false,
+      error: error.message
+    });
+    return;
+  }
+
+  const uid = await authenticateOdoo(odooUrl, database, username, apiKey);
+  if (!uid) {
+    sendJson(response, 401, {
+      ok: false,
+      error: "Odoo rejected the database, username, or API key."
+    });
+    return;
+  }
+
+  const warnings = [];
+  const projects = await findProjectsByCode(odooUrl, database, uid, apiKey, projectCode, warnings);
+  const projectIds = projects.map((project) => Number(project.id)).filter((id) => Number.isFinite(id));
+  let fieldDefs;
+  try {
+    fieldDefs = await getModelFields(odooUrl, database, uid, apiKey, "project.milestone");
+  } catch (error) {
+    warnings.push(`Project milestone lookup failed: ${error.message}`);
+    sendJson(response, 200, {
+      ok: true,
+      uid,
+      projectCode,
+      projectName: formatProjectName(projectCode, projects[0] && projects[0].name),
+      projectIds,
+      model: "project.milestone",
+      domain: null,
+      fields: [],
+      milestoneCount: 0,
+      milestones: [],
+      warnings
+    });
+    return;
+  }
+
+  const availableFields = new Set(Object.keys(fieldDefs));
+  const fields = buildMilestoneFields(fieldDefs);
+  const domains = buildProjectMilestoneDomains(availableFields, projectCode, projectIds);
+  let milestones = null;
+  let domain = null;
+
+  for (const candidateDomain of domains) {
+    try {
+      const rows = await searchReadAll(odooUrl, database, uid, apiKey, "project.milestone", candidateDomain, fields, {
+        order: availableFields.has("deadline") ? "deadline asc, id asc" : "id asc"
+      });
+      if (!milestones || rows.length > 0) {
+        milestones = rows;
+        domain = candidateDomain;
+      }
+      if (rows.length > 0) {
+        break;
+      }
+    } catch (error) {
+      warnings.push(`Milestone search failed for ${JSON.stringify(candidateDomain)}: ${error.message}`);
+    }
+  }
+
+  if (!milestones) {
+    throw new Error(warnings[warnings.length - 1] || "Could not search project milestones");
+  }
+
+  const normalizedMilestones = milestones
+    .map((milestone) => normalizeMilestone(milestone, fieldDefs))
+    .filter((milestone) => milestone.date)
+    .sort((a, b) => a.date.localeCompare(b.date) || String(a.name).localeCompare(String(b.name), undefined, { numeric: true, sensitivity: "base" }));
+  const projectName = formatProjectName(
+    projectCode,
+    mostFrequentName(normalizedMilestones.map((milestone) => milestone.project)) || (projects[0] && projects[0].name)
+  );
+
+  sendJson(response, 200, {
+    ok: true,
+    uid,
+    projectCode,
+    projectName,
+    projectIds,
+    model: "project.milestone",
+    domain,
+    fields,
+    milestoneCount: normalizedMilestones.length,
+    milestones: normalizedMilestones,
+    warnings
+  });
+}
+
 async function handleDashboardConfig(request, response) {
   if (request.method !== "GET") {
     sendJson(response, 405, { ok: false, error: "Use GET for this endpoint" });
@@ -744,6 +950,521 @@ function buildPlanningProjectDomains(availableFields, projectCode, projectIds) {
   return domains;
 }
 
+function buildProjectTaskDomains(availableFields, projectCode, projectIds) {
+  const domains = [];
+  if (availableFields.has("project_id")) {
+    domains.push(projectIds.length
+      ? [["project_id", "in", projectIds]]
+      : [["project_id.name", "ilike", projectCode]]);
+  }
+  if (availableFields.has("display_name")) {
+    domains.push([["display_name", "ilike", projectCode]]);
+  }
+  domains.push([["name", "ilike", projectCode]]);
+  return domains;
+}
+
+function buildProjectMilestoneDomains(availableFields, projectCode, projectIds) {
+  const domains = [];
+  if (availableFields.has("project_id")) {
+    domains.push(projectIds.length
+      ? [["project_id", "in", projectIds]]
+      : [["project_id.name", "ilike", projectCode]]);
+  }
+  if (availableFields.has("project_ids")) {
+    domains.push(projectIds.length
+      ? [["project_ids", "in", projectIds]]
+      : [["project_ids.name", "ilike", projectCode]]);
+  }
+  if (availableFields.has("display_name")) {
+    domains.push([["display_name", "ilike", projectCode]]);
+  }
+  domains.push([["name", "ilike", projectCode]]);
+  return domains;
+}
+
+function buildMilestoneFields(fieldDefs) {
+  const exactFields = new Set([
+    "id",
+    "name",
+    "display_name",
+    "project_id",
+    "project_ids",
+    "deadline",
+    "date_deadline",
+    "date",
+    "target_date",
+    "due_date",
+    "milestone_date",
+    "is_reached",
+    "reached_date"
+  ]);
+  const fields = [];
+  const addField = (field) => {
+    if (fieldDefs[field] && isReadableMilestoneField(fieldDefs[field]) && !fields.includes(field)) {
+      fields.push(field);
+    }
+  };
+
+  exactFields.forEach(addField);
+  Object.entries(fieldDefs).forEach(([field, definition]) => {
+    if (isReadableMilestoneField(definition) && isRelevantMilestoneField(field, definition)) {
+      addField(field);
+    }
+  });
+
+  return fields.length ? fields : ["id", "name"].filter((field) => fieldDefs[field]);
+}
+
+function isReadableMilestoneField(definition = {}) {
+  return [
+    "boolean",
+    "char",
+    "date",
+    "datetime",
+    "integer",
+    "many2many",
+    "many2one",
+    "selection",
+    "text"
+  ].includes(definition.type);
+}
+
+function isRelevantMilestoneField(field, definition = {}) {
+  const text = fieldInfoText(field, definition);
+  return /\b(project|milestone|jalon|deadline|target|due|date|reached|atteint)\b/.test(text);
+}
+
+function normalizeMilestone(milestone, fieldDefs) {
+  const datePick = pickMilestoneDateField(milestone, fieldDefs);
+  return {
+    id: milestone.id,
+    name: String(milestone.display_name || milestone.name || `Milestone ${milestone.id || ""}`).trim(),
+    date: datePick.value,
+    project: relationalName(milestone.project_id) || relationalNames(milestone.project_ids).join(", "),
+    projectId: relationalId(milestone.project_id),
+    isReached: Boolean(milestone.is_reached),
+    reachedDate: normalizeTaskDate(milestone.reached_date),
+    sourceFields: {
+      date: datePick.field,
+      project: milestone.project_id ? "project_id" : milestone.project_ids ? "project_ids" : ""
+    }
+  };
+}
+
+function pickMilestoneDateField(milestone, fieldDefs) {
+  const exactFields = [
+    "deadline",
+    "date_deadline",
+    "target_date",
+    "due_date",
+    "milestone_date",
+    "date"
+  ];
+
+  for (const field of exactFields) {
+    if (!(field in milestone)) {
+      continue;
+    }
+    const value = normalizeTaskDate(milestone[field]);
+    if (value) {
+      return { field, value };
+    }
+  }
+
+  for (const field of Object.keys(milestone)) {
+    const definition = fieldDefs[field] || {};
+    if (exactFields.includes(field) || !isMilestoneDateField(field, definition)) {
+      continue;
+    }
+    const value = normalizeTaskDate(milestone[field]);
+    if (value) {
+      return { field, value };
+    }
+  }
+
+  return { field: "", value: "" };
+}
+
+function isMilestoneDateField(field, definition = {}) {
+  const text = fieldInfoText(field, definition);
+  return ["date", "datetime"].includes(definition.type || "") &&
+    /\b(deadline|target|due|milestone|jalon|date)\b/.test(text) &&
+    !/\b(reached|atteint|done|completed)\b/.test(text);
+}
+
+function buildWorkPackageTaskFields(fieldDefs) {
+  const exactFields = new Set([
+    "id",
+    "name",
+    "display_name",
+    "project_id",
+    "parent_id",
+    "sequence",
+    "date_deadline",
+    "planned_date_begin",
+    "planned_date_end",
+    "date_start",
+    "date_end",
+    "start_date",
+    "end_date",
+    "date_begin",
+    "progress",
+    "progress_percent",
+    "progress_percentage",
+    "percentage",
+    "percent_complete",
+    "completion",
+    "effective_hours",
+    "total_hours_spent",
+    "timesheet_hours",
+    "timesheet_time",
+    "spent_hours",
+    "hours_spent",
+    "worked_hours",
+    "actual_hours",
+    "planned_hours",
+    "allocated_hours",
+    "subtask_planned_hours",
+    "forecast_hours",
+    "foreseen_hours",
+    "estimated_hours",
+    "initially_planned_hours",
+    "remaining_hours",
+    "task_type",
+    "task_type_id",
+    "type_id",
+    "type",
+    "task_kind",
+    "kind",
+    "is_workpackage",
+    "is_work_package",
+    "workpackage",
+    "work_package",
+    "x_is_workpackage",
+    "x_workpackage",
+    "x_type",
+    "x_task_type",
+    "x_progress",
+    "x_progress_percentage",
+    "x_planned_hours",
+    "x_foreseen_hours",
+    "x_estimated_hours",
+    "x_start_date",
+    "x_end_date"
+  ]);
+  const fields = [];
+  const addField = (field) => {
+    if (fieldDefs[field] && isReadableTaskField(fieldDefs[field]) && !fields.includes(field)) {
+      fields.push(field);
+    }
+  };
+
+  exactFields.forEach(addField);
+  Object.entries(fieldDefs).forEach(([field, definition]) => {
+    if (isReadableTaskField(definition) && isRelevantWorkPackageField(field, definition)) {
+      addField(field);
+    }
+  });
+
+  return fields.length ? fields : ["id", "name"].filter((field) => fieldDefs[field]);
+}
+
+function isReadableTaskField(definition = {}) {
+  return [
+    "boolean",
+    "char",
+    "date",
+    "datetime",
+    "float",
+    "integer",
+    "many2one",
+    "monetary",
+    "selection",
+    "text"
+  ].includes(definition.type);
+}
+
+function isRelevantWorkPackageField(field, definition = {}) {
+  const text = fieldInfoText(field, definition);
+  const compact = text.replace(/[^a-z0-9]+/g, "");
+  const type = definition.type || "";
+
+  if (compact.includes("workpackage") || text.includes("work package")) {
+    return true;
+  }
+  if (/\bwp\b/.test(text) && /\b(type|kind|category|categorie)\b/.test(text)) {
+    return true;
+  }
+  if (/\b(type|kind|category|categorie)\b/.test(text) && ["char", "many2one", "selection"].includes(type)) {
+    return true;
+  }
+  if (/\b(progress|percentage|percent|completion|advancement|avancement)\b/.test(text)) {
+    return true;
+  }
+  if (/\b(hour|hours|heure|heures|time)\b/.test(text) &&
+      /\b(planned|allocated|forecast|foreseen|estimated|spent|effective|timesheet|worked|consumed|remaining|prevu|prevue|previsionnel|alloue|allouee|consomme)\b/.test(text)) {
+    return true;
+  }
+  if (["date", "datetime"].includes(type) &&
+      /\b(start|begin|deadline|due|end|finish|planned|debut|fin|echeance|planifie)\b/.test(text)) {
+    return true;
+  }
+  return false;
+}
+
+function normalizeWorkPackageTask(task, fieldDefs) {
+  const progressPick = pickNumericTaskField(task, fieldDefs, [
+    "progress",
+    "progress_percent",
+    "progress_percentage",
+    "percentage",
+    "percent_complete",
+    "completion",
+    "x_progress",
+    "x_progress_percentage",
+    "x_avancement"
+  ], isProgressTaskField);
+  const progressPercent = normalizePercent(progressPick.value);
+  const spentPick = pickNumericTaskField(task, fieldDefs, [
+    "effective_hours",
+    "total_hours_spent",
+    "timesheet_hours",
+    "timesheet_time",
+    "spent_hours",
+    "hours_spent",
+    "worked_hours",
+    "actual_hours",
+    "x_effective_hours",
+    "x_spent_hours",
+    "x_timesheet_hours"
+  ], isSpentHoursTaskField);
+  const remainingPick = pickNumericTaskField(task, fieldDefs, [
+    "remaining_hours",
+    "x_remaining_hours"
+  ], isRemainingHoursTaskField, new Set([spentPick.field, progressPick.field].filter(Boolean)));
+  const plannedPick = pickNumericTaskField(task, fieldDefs, [
+    "planned_hours",
+    "allocated_hours",
+    "subtask_planned_hours",
+    "forecast_hours",
+    "foreseen_hours",
+    "estimated_hours",
+    "initially_planned_hours",
+    "x_planned_hours",
+    "x_foreseen_hours",
+    "x_estimated_hours"
+  ], isPlannedHoursTaskField, new Set([spentPick.field, progressPick.field, remainingPick.field].filter(Boolean)));
+  let plannedHours = plannedPick.value;
+  let plannedHoursField = plannedPick.field;
+
+  if ((plannedHours == null || plannedHours <= 0) && remainingPick.value > 0) {
+    plannedHours = (spentPick.value || 0) + remainingPick.value;
+    plannedHoursField = remainingPick.field ? `${spentPick.field || "spent"} + ${remainingPick.field}` : plannedHoursField;
+  }
+  if ((plannedHours == null || plannedHours <= 0) && spentPick.value > 0 && progressPercent > 0) {
+    plannedHours = spentPick.value / (progressPercent / 100);
+    plannedHoursField = `${spentPick.field || "spent"} / ${progressPick.field || "progress"}`;
+  }
+
+  const startPick = pickDateTaskField(task, fieldDefs, [
+    "planned_date_begin",
+    "date_start",
+    "start_date",
+    "date_begin",
+    "x_start_date",
+    "x_date_start",
+    "x_planned_start_date"
+  ], isStartDateTaskField);
+  const endPick = pickDateTaskField(task, fieldDefs, [
+    "planned_date_end",
+    "date_deadline",
+    "date_end",
+    "end_date",
+    "x_end_date",
+    "x_date_end",
+    "x_planned_end_date"
+  ], isEndDateTaskField);
+  const typePick = pickTaskType(task, fieldDefs);
+  const expectedProgressPercent = calculateExpectedProgressPercent(startPick.value, endPick.value, new Date());
+  const hoursSpent = roundHours(spentPick.value || 0);
+  const normalizedPlannedHours = roundHours(plannedHours || 0);
+
+  return {
+    id: task.id,
+    name: String(task.display_name || task.name || `Task ${task.id || ""}`).trim(),
+    displayName: String(task.display_name || ""),
+    project: relationalName(task.project_id),
+    projectId: relationalId(task.project_id),
+    parent: relationalName(task.parent_id),
+    parentId: relationalId(task.parent_id),
+    taskType: typePick.value,
+    typeField: typePick.field,
+    isWorkPackage: taskContainsWorkPackage(task, fieldDefs),
+    startDate: startPick.value,
+    endDate: endPick.value,
+    progressPercent: progressPercent == null ? null : roundPercent(progressPercent),
+    expectedProgressPercent: expectedProgressPercent == null ? null : roundPercent(expectedProgressPercent),
+    hoursSpent,
+    plannedHours: normalizedPlannedHours,
+    consumptionPercent: normalizedPlannedHours > 0 ? roundPercent((hoursSpent / normalizedPlannedHours) * 100) : null,
+    sourceFields: {
+      startDate: startPick.field,
+      endDate: endPick.field,
+      progressPercent: progressPick.field,
+      hoursSpent: spentPick.field,
+      plannedHours: plannedHoursField,
+      remainingHours: remainingPick.field,
+      taskType: typePick.field
+    }
+  };
+}
+
+function pickNumericTaskField(task, fieldDefs, exactFields, predicate, excludedFields = new Set()) {
+  for (const field of exactFields) {
+    if (excludedFields.has(field) || !(field in task)) {
+      continue;
+    }
+    const value = parseTaskNumber(task[field]);
+    if (value != null) {
+      return { field, value };
+    }
+  }
+
+  for (const field of Object.keys(task)) {
+    if (excludedFields.has(field) || exactFields.includes(field) || !predicate(field, fieldDefs[field])) {
+      continue;
+    }
+    const value = parseTaskNumber(task[field]);
+    if (value != null) {
+      return { field, value };
+    }
+  }
+  return { field: "", value: null };
+}
+
+function pickDateTaskField(task, fieldDefs, exactFields, predicate) {
+  for (const field of exactFields) {
+    if (!(field in task)) {
+      continue;
+    }
+    const value = normalizeTaskDate(task[field]);
+    if (value) {
+      return { field, value };
+    }
+  }
+
+  for (const field of Object.keys(task)) {
+    if (exactFields.includes(field) || !predicate(field, fieldDefs[field])) {
+      continue;
+    }
+    const value = normalizeTaskDate(task[field]);
+    if (value) {
+      return { field, value };
+    }
+  }
+  return { field: "", value: "" };
+}
+
+function pickTaskType(task, fieldDefs) {
+  for (const field of Object.keys(task)) {
+    const definition = fieldDefs[field] || {};
+    if (!isTaskTypeField(field, definition)) {
+      continue;
+    }
+    const value = taskValueText(task[field]);
+    if (value) {
+      return { field, value };
+    }
+  }
+  return { field: "", value: "" };
+}
+
+function isProgressTaskField(field, definition = {}) {
+  return /\b(progress|percentage|percent|completion|advancement|avancement)\b/.test(fieldInfoText(field, definition));
+}
+
+function isSpentHoursTaskField(field, definition = {}) {
+  const text = fieldInfoText(field, definition);
+  return /\b(hour|hours|heure|heures|time)\b/.test(text) &&
+    /\b(spent|effective|timesheet|worked|actual|consumed|consomme)\b/.test(text);
+}
+
+function isRemainingHoursTaskField(field, definition = {}) {
+  const text = fieldInfoText(field, definition);
+  return /\b(hour|hours|heure|heures|time)\b/.test(text) && /\b(remaining|reste|restant)\b/.test(text);
+}
+
+function isPlannedHoursTaskField(field, definition = {}) {
+  const text = fieldInfoText(field, definition);
+  return /\b(hour|hours|heure|heures|time)\b/.test(text) &&
+    /\b(planned|allocated|forecast|foreseen|estimated|prevu|prevue|previsionnel|alloue|allouee)\b/.test(text);
+}
+
+function isStartDateTaskField(field, definition = {}) {
+  const text = fieldInfoText(field, definition);
+  return /\b(start|begin|debut)\b/.test(text) && !/\b(end|deadline|due|fin|echeance)\b/.test(text);
+}
+
+function isEndDateTaskField(field, definition = {}) {
+  return /\b(end|deadline|due|finish|fin|echeance)\b/.test(fieldInfoText(field, definition));
+}
+
+function isTaskTypeField(field, definition = {}) {
+  const text = fieldInfoText(field, definition);
+  return (["char", "many2one", "selection"].includes(definition.type || "") &&
+    /\b(type|kind|category|categorie)\b/.test(text)) ||
+    text.replace(/[^a-z0-9]+/g, "").includes("workpackage");
+}
+
+function taskContainsWorkPackage(task, fieldDefs) {
+  for (const [field, value] of Object.entries(task)) {
+    const definition = fieldDefs[field] || {};
+    const text = fieldInfoText(field, definition);
+    const compact = text.replace(/[^a-z0-9]+/g, "");
+    if (typeof value === "boolean") {
+      if (value && (compact.includes("workpackage") || text.includes("work package"))) {
+        return true;
+      }
+      continue;
+    }
+    if (!isTaskTypeField(field, definition) &&
+        !compact.includes("workpackage") &&
+        !text.includes("work package") &&
+        !/\bwp\b/.test(text)) {
+      continue;
+    }
+    if (looksLikeWorkPackageText(taskValueText(value))) {
+      return true;
+    }
+  }
+
+  return looksLikeWorkPackageText(`${task.display_name || ""} ${task.name || ""}`);
+}
+
+function looksLikeWorkPackageText(value) {
+  const text = normalizeSearchText(value);
+  const compact = text.replace(/[^a-z0-9]+/g, "");
+  return compact.includes("workpackage") ||
+    text.includes("work package") ||
+    /\bwp[\s._-]*[a-z0-9]+\b/.test(text);
+}
+
+function compareWorkPackages(a, b) {
+  const startA = parseOdooDateTime(a.startDate);
+  const startB = parseOdooDateTime(b.startDate);
+  if (startA && startB && startA.getTime() !== startB.getTime()) {
+    return startA - startB;
+  }
+  if (startA && !startB) {
+    return -1;
+  }
+  if (!startA && startB) {
+    return 1;
+  }
+  return String(a.name || "").localeCompare(String(b.name || ""), undefined, { numeric: true, sensitivity: "base" });
+}
+
 function normalizeTimesheetLine(line) {
   return {
     id: line.id,
@@ -989,6 +1710,92 @@ function relationalName(value) {
   return Array.isArray(value) && value.length > 1 ? String(value[1] || "") : "";
 }
 
+function relationalNames(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  if (value.length && Array.isArray(value[0])) {
+    return value.map(relationalName).filter(Boolean);
+  }
+  return value
+    .filter((entry) => typeof entry === "string")
+    .map((entry) => String(entry || "").trim())
+    .filter(Boolean);
+}
+
+function taskValueText(value) {
+  if (Array.isArray(value)) {
+    return value.length > 1 ? String(value[1] || "") : String(value[0] || "");
+  }
+  if (value === false || value == null) {
+    return "";
+  }
+  return String(value);
+}
+
+function parseTaskNumber(value) {
+  if (value === false || value == null || value === "" || Array.isArray(value)) {
+    return null;
+  }
+  const number = Number(String(value).trim().replace(",", "."));
+  return Number.isFinite(number) ? number : null;
+}
+
+function normalizeTaskDate(value) {
+  const text = taskValueText(value).trim();
+  if (!parseOdooDateTime(text)) {
+    return "";
+  }
+  return text.slice(0, 10);
+}
+
+function normalizePercent(value) {
+  if (value == null) {
+    return null;
+  }
+  const number = Number(value);
+  if (!Number.isFinite(number)) {
+    return null;
+  }
+  const percent = number > 0 && number <= 1 ? number * 100 : number;
+  return clamp(percent, 0, 100);
+}
+
+function calculateExpectedProgressPercent(startValue, endValue, referenceDate) {
+  const start = parseOdooDateTime(startValue);
+  const end = parseOdooDateTime(endValue);
+  if (!start || !end) {
+    return null;
+  }
+
+  const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+  const today = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate());
+  if (endDay <= startDay) {
+    return today >= endDay ? 100 : 0;
+  }
+  if (today <= startDay) {
+    return 0;
+  }
+  if (today >= endDay) {
+    return 100;
+  }
+  return clamp(((today - startDay) / (endDay - startDay)) * 100, 0, 100);
+}
+
+function fieldInfoText(field, definition = {}) {
+  return normalizeSearchText(`${field} ${definition.string || ""}`);
+}
+
+function normalizeSearchText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .trim();
+}
+
 function planningProjectName(slot) {
   return relationalName(slot.project_id) ||
     relationalName(slot.task_id) ||
@@ -1029,6 +1836,14 @@ function firstFiniteNumber(...values) {
 
 function roundHours(value) {
   return Math.round((Number(value) || 0) * 100) / 100;
+}
+
+function roundPercent(value) {
+  return Math.round((Number(value) || 0) * 10) / 10;
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
 }
 
 async function xmlRpcCall(endpoint, methodName, params) {
