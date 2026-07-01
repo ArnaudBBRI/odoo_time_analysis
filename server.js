@@ -11,6 +11,7 @@ const DEFAULT_CONFIG = {
   database: "buildwiseprd"
 };
 const CONFIG_FILE_NAME = "config.local.json";
+const DICO_RESPONSIBLE_UNIT = "RESEARCH AND DEVELOPMENT / DIGITAL CONSTRUCTION UNIT";
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -62,6 +63,10 @@ const server = http.createServer(async (request, response) => {
     }
     if (url.pathname === "/api/odoo/project-milestones") {
       await handleProjectMilestones(request, response);
+      return;
+    }
+    if (url.pathname === "/api/odoo/dico-projects") {
+      await handleDicoProjects(request, response);
       return;
     }
     await serveStaticFile(url.pathname, response);
@@ -688,6 +693,175 @@ async function handleProjectMilestones(request, response) {
   });
 }
 
+async function handleDicoProjects(request, response) {
+  if (request.method !== "POST") {
+    sendJson(response, 405, { ok: false, error: "Use POST for this endpoint" });
+    return;
+  }
+
+  let body;
+  let odooUrl;
+  let database;
+  let username;
+  let apiKey;
+  try {
+    body = await readJsonBody(request);
+    ({ odooUrl, database, username, apiKey } = getAuthSettings(body));
+  } catch (error) {
+    sendJson(response, 400, {
+      ok: false,
+      error: error.message
+    });
+    return;
+  }
+
+  const uid = await authenticateOdoo(odooUrl, database, username, apiKey);
+  if (!uid) {
+    sendJson(response, 401, {
+      ok: false,
+      error: "Odoo rejected the database, username, or API key."
+    });
+    return;
+  }
+
+  const warnings = [];
+  const fieldDefs = await getModelFields(odooUrl, database, uid, apiKey, "project.project");
+  const candidates = findResponsibleUnitProjectFields(fieldDefs);
+  if (!candidates.length) {
+    warnings.push("No likely project responsible-unit field was found.");
+    sendJson(response, 200, {
+      ok: true,
+      uid,
+      responsibleUnit: DICO_RESPONSIBLE_UNIT,
+      model: "project.project",
+      domain: null,
+      fields: [],
+      matchedField: "",
+      projectCount: 0,
+      projects: [],
+      warnings
+    });
+    return;
+  }
+
+  const fields = buildDicoProjectFields(fieldDefs, candidates);
+  let rows = [];
+  let domain = null;
+  let matchedField = "";
+
+  for (const candidate of candidates) {
+    for (const searchValue of dicoResponsibleUnitSearchValues()) {
+      const candidateDomain = buildResponsibleUnitDomain(candidate, searchValue);
+      try {
+        const candidateRows = await searchReadAll(odooUrl, database, uid, apiKey, "project.project", candidateDomain, fields, {
+          order: "name asc"
+        });
+        if (candidateRows.length) {
+          rows = candidateRows;
+          domain = candidateDomain;
+          matchedField = candidate.field;
+          break;
+        }
+      } catch (error) {
+        warnings.push(`Dico project search failed for ${candidate.field}: ${error.message}`);
+      }
+    }
+    if (rows.length) {
+      break;
+    }
+  }
+
+  if (!rows.length) {
+    warnings.push(`No projects found with responsible unit "${DICO_RESPONSIBLE_UNIT}" using ${candidates.map((candidate) => candidate.field).join(", ")}.`);
+  }
+
+  const projects = rows.map((project) => normalizeDicoProject(project, matchedField)).filter((project) => project.name);
+  const projectIds = projects.map((project) => Number(project.id)).filter((id) => Number.isFinite(id));
+  let actualMonthly = [];
+  let actualLineCount = 0;
+  let actualTotalHours = 0;
+  let plannedMonthly = [];
+  let plannedSlotCount = 0;
+  let plannedTotalHours = 0;
+
+  if (projectIds.length) {
+    try {
+      const lineFields = ["id", "date", "unit_amount", "name", "employee_id", "project_id", "task_id"];
+      const lines = await searchReadAll(odooUrl, database, uid, apiKey, "account.analytic.line", [["project_id", "in", projectIds]], lineFields, {
+        order: "date asc, id asc"
+      });
+      const normalizedLines = lines.map(normalizeTimesheetLine).filter((line) => line.date);
+      actualMonthly = buildMonthlyTimesheetSummary(normalizedLines);
+      actualLineCount = normalizedLines.length;
+      actualTotalHours = roundHours(normalizedLines.reduce((total, line) => total + line.hours, 0));
+    } catch (error) {
+      warnings.push(`Dico project timesheet fetch failed: ${error.message}`);
+    }
+
+    try {
+      const planningFieldDefs = await getModelFields(odooUrl, database, uid, apiKey, "planning.slot");
+      const availablePlanningFields = new Set(Object.keys(planningFieldDefs));
+      const planningFields = [
+        "id",
+        "name",
+        "start_datetime",
+        "end_datetime",
+        "allocated_hours",
+        "allocated_percentage",
+        "employee_id",
+        "resource_id",
+        "project_id",
+        "task_id",
+        "sale_line_id",
+        "role_id"
+      ].filter((field) => availablePlanningFields.has(field));
+      const planningDomains = buildPlanningProjectIdDomains(availablePlanningFields, projectIds);
+      let slots = [];
+      let planningDomain = null;
+      for (const candidateDomain of planningDomains) {
+        const candidateSlots = await searchReadAll(odooUrl, database, uid, apiKey, "planning.slot", candidateDomain, planningFields, {
+          order: availablePlanningFields.has("start_datetime") ? "start_datetime asc, id asc" : "id asc"
+        });
+        if (!slots.length || candidateSlots.length > 0) {
+          slots = candidateSlots;
+          planningDomain = candidateDomain;
+        }
+        if (candidateSlots.length > 0) {
+          break;
+        }
+      }
+      const normalizedSlots = slots.map(normalizePlanningSlot).filter((slot) => slot.start || slot.end || slot.hours > 0);
+      plannedMonthly = buildMonthlyPlanningSummary(normalizedSlots);
+      plannedSlotCount = normalizedSlots.length;
+      plannedTotalHours = roundHours(normalizedSlots.reduce((total, slot) => total + slot.hours, 0));
+      if (!planningDomain) {
+        warnings.push("No project planning domain was available for Dico projects.");
+      }
+    } catch (error) {
+      warnings.push(`Dico project planning fetch failed: ${error.message}`);
+    }
+  }
+
+  sendJson(response, 200, {
+    ok: true,
+    uid,
+    responsibleUnit: DICO_RESPONSIBLE_UNIT,
+    model: "project.project",
+    domain,
+    fields,
+    matchedField,
+    projectCount: projects.length,
+    projects,
+    actualMonthly,
+    actualLineCount,
+    actualTotalHours,
+    plannedMonthly,
+    plannedSlotCount,
+    plannedTotalHours,
+    warnings
+  });
+}
+
 async function handleDashboardConfig(request, response) {
   if (request.method !== "GET") {
     sendJson(response, 405, { ok: false, error: "Use GET for this endpoint" });
@@ -950,6 +1124,20 @@ function buildPlanningProjectDomains(availableFields, projectCode, projectIds) {
   return domains;
 }
 
+function buildPlanningProjectIdDomains(availableFields, projectIds) {
+  const domains = [];
+  if (!projectIds.length) {
+    return domains;
+  }
+  if (availableFields.has("project_id")) {
+    domains.push([["project_id", "in", projectIds]]);
+  }
+  if (availableFields.has("task_id")) {
+    domains.push([["task_id.project_id", "in", projectIds]]);
+  }
+  return domains;
+}
+
 function buildProjectTaskDomains(availableFields, projectCode, projectIds) {
   const domains = [];
   if (availableFields.has("project_id")) {
@@ -981,6 +1169,89 @@ function buildProjectMilestoneDomains(availableFields, projectCode, projectIds) 
   }
   domains.push([["name", "ilike", projectCode]]);
   return domains;
+}
+
+function findResponsibleUnitProjectFields(fieldDefs) {
+  return Object.entries(fieldDefs)
+    .map(([field, definition]) => ({
+      field,
+      definition,
+      score: responsibleUnitFieldScore(field, definition)
+    }))
+    .filter((candidate) => candidate.score > 0)
+    .sort((a, b) => b.score - a.score || a.field.localeCompare(b.field));
+}
+
+function responsibleUnitFieldScore(field, definition = {}) {
+  const text = fieldInfoText(field, definition);
+  const compact = text.replace(/[^a-z0-9]+/g, "");
+  const type = definition.type || "";
+  if (!["char", "many2many", "many2one", "selection", "text"].includes(type)) {
+    return 0;
+  }
+  if (compact.includes("responsibleunit") || text.includes("responsible unit") || text.includes("unite responsable")) {
+    return 100;
+  }
+  if (text.includes("responsible") && /\b(unit|department|service|division|pole|entity)\b/.test(text)) {
+    return 85;
+  }
+  if (/\b(unit|department|service|division|pole|entity|unite|departement)\b/.test(text) && /\b(responsible|owner|lead|manager|responsable)\b/.test(text)) {
+    return 75;
+  }
+  if (/\b(unit|department|service|division|pole|entity|unite|departement)\b/.test(text)) {
+    return 35;
+  }
+  return 0;
+}
+
+function buildDicoProjectFields(fieldDefs, candidates) {
+  const fields = [];
+  const addField = (field) => {
+    if (fieldDefs[field] && !fields.includes(field)) {
+      fields.push(field);
+    }
+  };
+  ["id", "name", "display_name"].forEach(addField);
+  candidates.slice(0, 12).forEach((candidate) => addField(candidate.field));
+  return fields;
+}
+
+function dicoResponsibleUnitSearchValues() {
+  return [
+    DICO_RESPONSIBLE_UNIT,
+    "DIGITAL CONSTRUCTION UNIT",
+    "Dico"
+  ];
+}
+
+function buildResponsibleUnitDomain(candidate, searchValue) {
+  const type = candidate.definition.type || "";
+  if (type === "many2one" || type === "many2many") {
+    return [[`${candidate.field}.name`, "ilike", searchValue]];
+  }
+  return [[candidate.field, "ilike", searchValue]];
+}
+
+function normalizeDicoProject(project, responsibleField) {
+  return {
+    id: project.id,
+    name: String(project.display_name || project.name || `Project ${project.id || ""}`).trim(),
+    responsibleUnit: projectFieldDisplayValue(project[responsibleField]),
+    responsibleField
+  };
+}
+
+function projectFieldDisplayValue(value) {
+  if (Array.isArray(value) && value.length && Array.isArray(value[0])) {
+    return relationalNames(value).join(", ");
+  }
+  if (Array.isArray(value)) {
+    return relationalName(value) || relationalNames(value).join(", ") || String(value[0] || "");
+  }
+  if (value === false || value == null) {
+    return "";
+  }
+  return String(value);
 }
 
 function buildMilestoneFields(fieldDefs) {

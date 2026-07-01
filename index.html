@@ -450,48 +450,6 @@
       white-space: nowrap;
     }
 
-    .project-tools {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-
-    .task-upload-button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 34px;
-      padding: 7px 12px;
-      border: 1px solid var(--line);
-      border-radius: 6px;
-      background: #fbfdfc;
-      color: var(--ink);
-      font-weight: 800;
-      cursor: pointer;
-    }
-
-    .task-upload-button:hover {
-      border-color: var(--teal);
-      color: var(--teal-dark);
-    }
-
-    .task-upload-button input {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      overflow: hidden;
-      clip: rect(0, 0, 0, 0);
-      white-space: nowrap;
-    }
-
-    .deadline-meta {
-      color: var(--muted);
-      font-size: 0.88rem;
-      font-weight: 700;
-    }
-
     .employee-chart {
       display: grid;
       gap: 18px;
@@ -537,6 +495,15 @@
       display: none;
     }
 
+    .remaining-filter-bar {
+      box-shadow: none;
+      margin-bottom: 2px;
+    }
+
+    .remaining-filter-bar.visible {
+      display: flex;
+    }
+
     .remaining-head {
       display: flex;
       align-items: baseline;
@@ -562,6 +529,26 @@
       color: var(--muted);
       font-weight: 700;
       line-height: 1.45;
+    }
+
+    .dico-project-prompt {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      color: #f08c4a;
+      font-style: italic;
+      font-weight: 700;
+      line-height: 1.45;
+    }
+
+    .dico-project-prompt .secondary-button {
+      background: #43d9c0;
+      border-color: #43d9c0;
+      color: #162422;
+      font-style: normal;
+      min-height: 30px;
+      padding: 5px 12px;
     }
 
     .remaining-table-wrap {
@@ -1066,15 +1053,26 @@
           </div>
         </div>
         <div id="employeeRemainingBlock" class="remaining-block" hidden>
+          <div id="remainingFilterBar" class="filter-bar remaining-filter-bar" aria-label="Remaining-hours year filters">
+            <div class="filter-title">
+              <strong>Year scope</strong>
+              <span id="remainingScopeText">All available months</span>
+            </div>
+            <div id="remainingYearChips" class="year-chips"></div>
+          </div>
           <div class="remaining-head">
             <h3>Remaining hours by project</h3>
             <span id="employeeRemainingMeta" class="panel-meta"></span>
           </div>
           <p class="remaining-help">Click on a project name to get more info about it.</p>
+          <div class="dico-project-prompt">
+            <span>Want to see all projects with Dico as responsible Unit?</span>
+            <button id="fetchDicoProjects" class="secondary-button" type="button">Yes</button>
+          </div>
           <div id="employeeRemainingEmpty" class="remaining-empty" hidden></div>
           <div id="employeeRemainingTableWrap" class="remaining-table-wrap">
             <table class="remaining-table">
-              <thead>
+              <thead id="employeeRemainingTableHead">
                 <tr>
                   <th>Project</th>
                   <th class="number">Actual</th>
@@ -1133,6 +1131,7 @@
         plans: [],
         workPackages: new Map(),
         milestones: new Map(),
+        dicoProjects: null,
         hiddenSeries: new Map(),
         taskDeadlines: new Map(),
         errors: [],
@@ -1183,9 +1182,14 @@
         employeePlanPie: document.getElementById("employeePlanPie"),
         employeePlanLegend: document.getElementById("employeePlanLegend"),
         employeeRemainingBlock: document.getElementById("employeeRemainingBlock"),
+        remainingFilterBar: document.getElementById("remainingFilterBar"),
+        remainingScopeText: document.getElementById("remainingScopeText"),
+        remainingYearChips: document.getElementById("remainingYearChips"),
         employeeRemainingMeta: document.getElementById("employeeRemainingMeta"),
+        fetchDicoProjects: document.getElementById("fetchDicoProjects"),
         employeeRemainingEmpty: document.getElementById("employeeRemainingEmpty"),
         employeeRemainingTableWrap: document.getElementById("employeeRemainingTableWrap"),
+        employeeRemainingTableHead: document.getElementById("employeeRemainingTableHead"),
         employeeRemainingTable: document.getElementById("employeeRemainingTable"),
         projectList: document.getElementById("projectList"),
         emptyState: document.getElementById("emptyState")
@@ -1263,6 +1267,12 @@
         }
         fetchProjectDrilldown(button.dataset.projectName || "");
       });
+
+      if (els.fetchDicoProjects) {
+        els.fetchDicoProjects.addEventListener("click", () => {
+          fetchDicoProjects();
+        });
+      }
 
       window.addEventListener("resize", debounce(renderChartsOnly, 160));
 
@@ -1343,6 +1353,7 @@
           state.plans = [];
           state.workPackages.clear();
           state.milestones.clear();
+          state.dicoProjects = null;
           state.hiddenSeries.clear();
           state.activeProjectKey = "";
           let planningResult = null;
@@ -1425,6 +1436,48 @@
         }
         const projectReference = extractProjectCode(cleanProjectName) || cleanProjectName;
         await fetchProjectDetails(projectReference, cleanProjectName);
+      }
+
+      async function fetchDicoProjects() {
+        const payload = {
+          url: els.odooUrl.value.trim(),
+          database: els.odooDatabase.value.trim(),
+          username: els.odooUsername.value.trim(),
+          apiKey: els.odooApiKey.value.trim()
+        };
+        const wasAllYears = state.years.length > 0 && state.selectedYears.size === state.years.length;
+
+        setTimesheetDebugStatus("Fetching Dico projects...", "warn");
+        setOdooButtonsDisabled(true);
+
+        try {
+          const result = await postOdooJson("/api/odoo/dico-projects", payload, "Dico project fetch");
+          state.dicoProjects = buildDicoProjectListFromApi(result);
+          refreshYears(false);
+          if (wasAllYears || !state.selectedYears.size) {
+            state.selectedYears = new Set(state.years);
+          }
+          render();
+          setTimesheetDebugStatus(
+            `${result.projectCount} Dico project${result.projectCount === 1 ? "" : "s"} fetched; ${formatHours(result.actualTotalHours || 0)} h actual, ${formatHours(result.plannedTotalHours || 0)} h planned.`,
+            result.projectCount ? "ok" : "warn"
+          );
+          setDebugOutput({
+            dicoProjects: result
+          });
+        } catch (error) {
+          const unavailable = error instanceof TypeError;
+          const message = unavailable
+            ? "Connector unavailable. Run node server.js, then open the local URL."
+            : error.message;
+          setTimesheetDebugStatus(message, "warn");
+          setDebugOutput({
+            ok: false,
+            error: message
+          });
+        } finally {
+          setOdooButtonsDisabled(false);
+        }
       }
 
       async function fetchProjectDetails(projectReference, displayName) {
@@ -1671,6 +1724,9 @@
         if (els.fetchProjectData) {
           els.fetchProjectData.disabled = disabled;
         }
+        if (els.fetchDicoProjects) {
+          els.fetchDicoProjects.disabled = disabled;
+        }
       }
 
       function setOdooConnectionStatus(message, tone) {
@@ -1697,6 +1753,7 @@
         try {
           const parsed = await parseOdooWorkbook(file);
           state.employee = buildEmployeeDataset(file.name, parsed);
+          state.dicoProjects = null;
         } catch (error) {
           state.employee = null;
           state.errors.push(`${file.name}: ${error.message}`);
@@ -1722,6 +1779,7 @@
         state.projects = [];
         state.workPackages.clear();
         state.milestones.clear();
+        state.dicoProjects = null;
         state.errors = [];
         if (!files.length) {
           refreshYears();
@@ -2458,10 +2516,6 @@
           }))
           .filter((row) => sumMap(row.values) > 0);
 
-        if (!months.length || !rows.length) {
-          throw new Error("No employee rows found in API project timesheets");
-        }
-
         return {
           type: "project",
           source: "api",
@@ -2546,7 +2600,8 @@
             const consumptionPercent = plannedHours > 0 ? (hoursSpent / plannedHours) * 100 : null;
             const startDate = String(workPackage.startDate || "");
             const endDate = String(workPackage.endDate || "");
-            const missingInfo = !startDate || !endDate || plannedHours <= 0;
+            const hasDateRange = Boolean(startDate && endDate);
+            const missingInfo = plannedHours <= 0;
 
             return {
               id: workPackage.id,
@@ -2555,6 +2610,7 @@
               isWorkPackage: Boolean(workPackage.isWorkPackage),
               startDate,
               endDate,
+              hasDateRange,
               hoursSpent,
               plannedHours,
               missingInfo,
@@ -2565,10 +2621,6 @@
             };
           })
           .filter((workPackage) => workPackage.name);
-
-        if (!rows.length) {
-          return null;
-        }
 
         rows.sort((a, b) => {
           const startA = parseDateValue(a.startDate);
@@ -2638,6 +2690,87 @@
           milestones,
           warnings: Array.isArray(result.warnings) ? result.warnings : []
         };
+      }
+
+      function buildDicoProjectListFromApi(result) {
+        const projects = (Array.isArray(result.projects) ? result.projects : [])
+          .map((project) => ({
+            id: project.id,
+            name: cleanLabel(project.name || `Project ${project.id || ""}`),
+            responsibleUnit: cleanLabel(project.responsibleUnit),
+            responsibleField: cleanLabel(project.responsibleField)
+          }))
+          .filter((project) => project.name)
+          .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));
+        const actualDataset = buildProjectRowsFromMonthlyProjects(result.actualMonthly, projects);
+        const plannedDataset = buildProjectRowsFromMonthlyProjects(result.plannedMonthly, projects);
+
+        return {
+          source: "api",
+          responsibleUnit: result.responsibleUnit || "RESEARCH AND DEVELOPMENT / DIGITAL CONSTRUCTION UNIT",
+          matchedField: result.matchedField || "",
+          projects,
+          months: mergeTimelineMonths(actualDataset.months, plannedDataset.months),
+          actualRows: actualDataset.rows,
+          plannedRows: plannedDataset.rows,
+          actualTotalHours: toHours(result.actualTotalHours),
+          plannedTotalHours: toHours(result.plannedTotalHours),
+          warnings: Array.isArray(result.warnings) ? result.warnings : []
+        };
+      }
+
+      function buildProjectRowsFromMonthlyProjects(monthly, projectList = []) {
+        const monthMap = new Map();
+        const projectRows = new Map();
+
+        projectList.forEach((project) => {
+          const name = cleanLabel(project.name);
+          if (!name) {
+            return;
+          }
+          projectRows.set(projectColorKey(name), {
+            name,
+            values: new Map()
+          });
+        });
+
+        (Array.isArray(monthly) ? monthly : []).forEach((monthEntry) => {
+          const month = monthFromKey(monthEntry.month);
+          if (!month || !Number.isFinite(month.date.getTime())) {
+            return;
+          }
+          monthMap.set(month.key, month);
+
+          const projects = Array.isArray(monthEntry.projects) ? monthEntry.projects : [];
+          projects.forEach((project) => {
+            const name = cleanLabel(project.name);
+            if (!name || isInternal(name)) {
+              return;
+            }
+            const hours = toHours(project.hours);
+            if (hours <= 0) {
+              return;
+            }
+            const key = projectColorKey(name);
+            if (!projectRows.has(key)) {
+              projectRows.set(key, {
+                name,
+                values: new Map()
+              });
+            }
+            const row = projectRows.get(key);
+            row.values.set(month.key, (row.values.get(month.key) || 0) + hours);
+          });
+        });
+
+        const months = Array.from(monthMap.values()).sort((a, b) => a.date - b.date);
+        const monthKeys = months.map((month) => month.key);
+        const rows = Array.from(projectRows.values()).map((row) => ({
+          name: row.name,
+          values: new Map(monthKeys.map((key) => [key, row.values.get(key) || 0]))
+        }));
+
+        return { months, rows };
       }
 
       function upsertProjectDataset(projectDataset) {
@@ -2917,6 +3050,9 @@
         state.milestones.forEach((milestoneSet) => {
           milestoneSet.months.forEach((month) => years.add(month.year));
         });
+        if (state.dicoProjects) {
+          state.dicoProjects.months.forEach((month) => years.add(month.year));
+        }
         state.years = Array.from(years).sort((a, b) => a - b);
         if (resetSelection || !state.selectedYears.size) {
           state.selectedYears = state.personalPlan && years.has(CURRENT_YEAR)
@@ -2942,9 +3078,9 @@
         }));
 
         renderKpis(employeeEntries, projectSummaries);
-        renderEmployeePanel(employeeEntries, employeePlanEntries);
+        renderEmployeePanel(employeeEntries, employeePlanEntries, selectedKeys);
         renderProjectPanels(projectSummaries);
-        els.emptyState.hidden = Boolean(state.employee || state.personalPlan || state.projects.length || state.plans.length || state.workPackages.size || state.milestones.size);
+        els.emptyState.hidden = Boolean(state.employee || state.personalPlan || state.projects.length || state.plans.length || state.workPackages.size || state.milestones.size || state.dicoProjects);
       }
 
       function renderStatus() {
@@ -2967,6 +3103,9 @@
         if (state.milestones.size) {
           loaded.push(`${state.milestones.size} milestone view${state.milestones.size === 1 ? "" : "s"}`);
         }
+        if (state.dicoProjects) {
+          loaded.push(`${state.dicoProjects.projects.length} Dico project${state.dicoProjects.projects.length === 1 ? "" : "s"}`);
+        }
         if (state.taskDeadlines.size) {
           loaded.push(`${state.taskDeadlines.size} task deadline file${state.taskDeadlines.size === 1 ? "" : "s"}`);
         }
@@ -2987,38 +3126,48 @@
       }
 
       function renderYearFilters() {
-        els.filterBar.classList.toggle("visible", state.years.length > 0);
-        els.yearChips.innerHTML = "";
+        renderYearFilterControl(els.filterBar, els.scopeText, els.yearChips);
+        renderYearFilterControl(els.remainingFilterBar, els.remainingScopeText, els.remainingYearChips);
+      }
+
+      function renderYearFilterControl(container, scopeText, chips) {
+        if (!container || !scopeText || !chips) {
+          return;
+        }
+
+        container.classList.toggle("visible", state.years.length > 0);
+        chips.innerHTML = "";
         if (!state.years.length) {
-          els.scopeText.textContent = "All available months";
+          scopeText.textContent = "All available months";
           return;
         }
 
         const allActive = state.selectedYears.size === state.years.length;
-        els.scopeText.textContent = allActive
+        scopeText.textContent = allActive
           ? "All available months"
           : Array.from(state.selectedYears).sort((a, b) => a - b).join(", ");
 
-        const allButton = makeYearButton("All", allActive, () => {
-          state.selectedYears = new Set(state.years);
-          render();
-        });
-        els.yearChips.appendChild(allButton);
-
+        chips.appendChild(makeYearButton("All", allActive, () => selectAllYears()));
         state.years.forEach((year) => {
-          const button = makeYearButton(String(year), state.selectedYears.has(year), () => {
-            const currentlyAll = state.selectedYears.size === state.years.length;
-            if (currentlyAll) {
-              state.selectedYears = new Set([year]);
-            } else if (state.selectedYears.has(year) && state.selectedYears.size > 1) {
-              state.selectedYears.delete(year);
-            } else {
-              state.selectedYears.add(year);
-            }
-            render();
-          });
-          els.yearChips.appendChild(button);
+          chips.appendChild(makeYearButton(String(year), state.selectedYears.has(year), () => toggleSelectedYear(year)));
         });
+      }
+
+      function selectAllYears() {
+        state.selectedYears = new Set(state.years);
+        render();
+      }
+
+      function toggleSelectedYear(year) {
+        const currentlyAll = state.selectedYears.size === state.years.length;
+        if (currentlyAll) {
+          state.selectedYears = new Set([year]);
+        } else if (state.selectedYears.has(year) && state.selectedYears.size > 1) {
+          state.selectedYears.delete(year);
+        } else {
+          state.selectedYears.add(year);
+        }
+        render();
       }
 
       function makeYearButton(label, active, onClick) {
@@ -3053,6 +3202,13 @@
             }
           });
         });
+        if (state.dicoProjects) {
+          state.dicoProjects.months.forEach((month) => {
+            if (selected.has(month.year)) {
+              keys.add(month.key);
+            }
+          });
+        }
         return Array.from(keys).sort();
       }
 
@@ -3066,6 +3222,16 @@
           }))
           .filter((entry) => entry.value > 0)
           .sort((a, b) => b.value - a.value);
+      }
+
+      function aggregateNamedRowsIncludingZero(rows, selectedKeys) {
+        return rows
+          .map((row, index) => ({
+            name: row.name,
+            value: sumMap(row.values, selectedKeys),
+            values: row.values,
+            color: CHART_COLORS[index % CHART_COLORS.length]
+          }));
       }
 
       function applySharedProjectColors(actualEntries, plannedEntries) {
@@ -3113,7 +3279,7 @@
         els.employeeCount.textContent = String(employees.size);
       }
 
-      function renderEmployeePanel(entries, plannedEntries) {
+      function renderEmployeePanel(entries, plannedEntries, selectedKeys) {
         if (!state.employee && !state.personalPlan) {
           els.employeePanel.hidden = true;
           return;
@@ -3141,11 +3307,18 @@
           renderPieChart(els.employeePlanPie, plannedEntries);
           renderLegend(els.employeePlanLegend, plannedEntries);
         }
-        renderEmployeeRemainingTable(entries, plannedEntries);
+        renderEmployeeRemainingTable(entries, plannedEntries, selectedKeys);
       }
 
-      function renderEmployeeRemainingTable(actualEntries, plannedEntries) {
-        els.employeeRemainingBlock.hidden = !state.employee && !state.personalPlan;
+      function renderEmployeeRemainingTable(actualEntries, plannedEntries, selectedKeys) {
+        els.employeeRemainingBlock.hidden = !state.employee && !state.personalPlan && !state.dicoProjects;
+
+        if (state.dicoProjects) {
+          renderDicoProjectTable(selectedKeys);
+          return;
+        }
+
+        renderRemainingTableHead();
 
         if (!state.personalPlan) {
           els.employeeRemainingMeta.textContent = "";
@@ -3169,6 +3342,44 @@
         const totalRemaining = rows.reduce((total, row) => total + row.remaining, 0);
         const maxAbsRemaining = Math.max(...rows.map((row) => Math.abs(row.remaining)), 0);
         els.employeeRemainingMeta.textContent = `${rows.length} project${rows.length === 1 ? "" : "s"} / ${formatSignedHours(totalRemaining)} h net`;
+        els.employeeRemainingEmpty.hidden = true;
+        els.employeeRemainingTableWrap.hidden = false;
+        els.employeeRemainingTable.innerHTML = rows.map((row) => renderRemainingRow(row, maxAbsRemaining)).join("");
+      }
+
+      function renderRemainingTableHead() {
+        els.employeeRemainingTableHead.innerHTML = `
+          <tr>
+            <th>Project</th>
+            <th class="number">Actual</th>
+            <th class="number">Planned</th>
+            <th class="number">Remaining</th>
+            <th>Balance</th>
+          </tr>
+        `;
+      }
+
+      function renderDicoProjectTable(selectedKeys) {
+        const projects = state.dicoProjects ? state.dicoProjects.projects : [];
+        renderRemainingTableHead();
+
+        if (!projects.length) {
+          els.employeeRemainingMeta.textContent = "";
+          els.employeeRemainingEmpty.hidden = false;
+          els.employeeRemainingEmpty.textContent = "No projects found for the Dico responsible unit.";
+          els.employeeRemainingTableWrap.hidden = true;
+          els.employeeRemainingTable.innerHTML = "";
+          return;
+        }
+
+        const actualEntries = aggregateNamedRowsIncludingZero(state.dicoProjects.actualRows, selectedKeys);
+        const plannedEntries = aggregateNamedRowsIncludingZero(state.dicoProjects.plannedRows, selectedKeys);
+        applySharedProjectColors(actualEntries, plannedEntries);
+        const rows = buildEmployeeRemainingRows(actualEntries, plannedEntries);
+        const totalRemaining = rows.reduce((total, row) => total + row.remaining, 0);
+        const maxAbsRemaining = Math.max(...rows.map((row) => Math.abs(row.remaining)), 0);
+
+        els.employeeRemainingMeta.textContent = `${rows.length} Dico project${rows.length === 1 ? "" : "s"} / ${formatSignedHours(totalRemaining)} h net`;
         els.employeeRemainingEmpty.hidden = true;
         els.employeeRemainingTableWrap.hidden = false;
         els.employeeRemainingTable.innerHTML = rows.map((row) => renderRemainingRow(row, maxAbsRemaining)).join("");
@@ -3272,10 +3483,6 @@
           const legendId = `projectLegend${index}`;
           const lineLegendId = `lineLegend${index}`;
           const tableId = `projectTable${index}`;
-          const taskInputId = `projectTaskDeadlines${index}`;
-          const deadlineMeta = deadlineSet
-            ? `${deadlineSet.deadlines.length} deadline month${deadlineSet.deadlines.length === 1 ? "" : "s"} loaded`
-            : "Optional task deadline overlay";
           const plannedBlock = plan ? `
                 <div class="chart-block">
                   <h3>Planned vs actual</h3>
@@ -3305,13 +3512,6 @@
                 <h2>${escapeHtml(summary.project.name)}</h2>
               </div>
               <div class="panel-meta">${formatHours(total)} h across ${summary.entries.length} employee${summary.entries.length === 1 ? "" : "s"}</div>
-            </div>
-            <div class="project-tools">
-              <label class="task-upload-button">
-                Upload task deadlines
-                <input id="${taskInputId}" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
-              </label>
-              <span class="deadline-meta">${escapeHtml(deadlineMeta)}</span>
             </div>
             <div class="project-chart-grid">
               <div class="pie-wrap">
@@ -3345,12 +3545,6 @@
           `;
 
           els.projectList.appendChild(panel);
-          document.getElementById(taskInputId).addEventListener("change", (event) => {
-            const file = event.target.files[0];
-            if (file) {
-              loadProjectTaskDeadlines(summary.project, file);
-            }
-          });
           renderPieChart(document.getElementById(canvasPieId), summary.entries);
           renderLegend(document.getElementById(legendId), summary.entries);
           renderLineChart(document.getElementById(canvasLineId), summary.project, activeActualEntries, { deadlines: deadlineSet });
@@ -3853,7 +4047,7 @@
           const rows = Array.isArray(dataset.rows) ? dataset.rows : [];
           ctx.clearRect(0, 0, width, height);
           if (!rows.length) {
-            drawEmptyChart(ctx, width, height, "No work-package data");
+            drawEmptyChart(ctx, width, height, "No task data");
             return;
           }
 
@@ -3899,7 +4093,7 @@
               drawWorkPackageBadge(ctx, left - 12 - badgeWidth, labelY);
             }
 
-            const dateLabel = formatWorkPackageDateRange(row);
+            const dateLabel = row.hasDateRange ? formatWorkPackageDateRange(row) : "";
             if (dateLabel) {
               ctx.font = "700 10px system-ui, sans-serif";
               ctx.fillStyle = "#64726f";
