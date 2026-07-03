@@ -667,6 +667,143 @@
       align-items: start;
     }
 
+    .project-macro {
+      display: grid;
+      gap: 12px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfdfc;
+    }
+
+    .project-macro h3 {
+      color: var(--muted);
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-weight: 800;
+    }
+
+    .project-macro-meta {
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 700;
+      margin-top: -8px;
+    }
+
+    .project-macro-stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .project-macro-stat {
+      display: grid;
+      gap: 2px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      min-width: 0;
+    }
+
+    .project-macro-stat span {
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .project-macro-stat strong {
+      color: var(--ink);
+      font-size: 1rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .project-macro-gauge {
+      position: relative;
+      height: 20px;
+      border-radius: 999px;
+      border: 1px solid #d8e5e1;
+      background: #eef4f2;
+      overflow: visible;
+    }
+
+    .project-macro-gauge-fill {
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: #43d9c0;
+    }
+
+    .project-macro-tick {
+      position: absolute;
+      top: -7px;
+      width: 5px;
+      height: 34px;
+      transform: translateX(-50%);
+      border-radius: 999px;
+      box-shadow: 0 0 0 2px #fbfdfc;
+    }
+
+    .project-macro-tick.expected {
+      background: #f08c4a;
+    }
+
+    .project-macro-tick.actual {
+      background: #223656;
+    }
+
+    .project-macro-legend {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 800;
+    }
+
+    .project-macro-legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .project-macro-key {
+      width: 12px;
+      height: 10px;
+      border-radius: 3px;
+      background: #43d9c0;
+    }
+
+    .project-macro-key.expected {
+      width: 5px;
+      height: 14px;
+      border-radius: 999px;
+      background: #f08c4a;
+    }
+
+    .project-macro-key.actual {
+      width: 5px;
+      height: 14px;
+      border-radius: 999px;
+      background: #223656;
+    }
+
+    .project-macro-note {
+      color: var(--ink);
+      font-weight: 800;
+      line-height: 1.45;
+    }
+
+    .project-macro-empty {
+      color: var(--muted);
+      font-weight: 700;
+      line-height: 1.45;
+    }
+
     .pie-wrap,
     .trend-stack,
     .chart-block {
@@ -846,6 +983,10 @@
 
       .employee-chart .chart-canvas {
         height: 380px;
+      }
+
+      .project-macro-stats {
+        grid-template-columns: 1fr;
       }
 
       .header-inner {
@@ -1045,7 +1186,7 @@
             </div>
           </div>
           <div id="employeePlanBlock" class="employee-pie-block" hidden>
-            <h3>Planned time (by the end of the year)</h3>
+            <h3>Planned time (selected year scope)</h3>
             <div class="pie-wrap">
               <canvas id="employeePlanPie" class="chart-canvas" aria-label="My planned project time pie chart"></canvas>
               <div id="employeePlanLegend" class="legend"></div>
@@ -1106,6 +1247,8 @@
         "#9f1239", "#4c51bf", "#2c7a7b", "#805ad5", "#b45309", "#047857"
       ];
       const CURRENT_YEAR = new Date().getFullYear();
+      const MS_PER_DAY = 24 * 60 * 60 * 1000;
+      const MS_PER_WEEK = 7 * MS_PER_DAY;
       const ODOO_DEFAULT_URL = "https://odoo.buildwise.be/";
       const ODOO_DEFAULT_DATABASE = "buildwiseprd";
 
@@ -1376,10 +1519,15 @@
 
           state.errors = [];
           refreshYears(true);
+          if (state.personalPlan) {
+            const scopedPlanEntries = aggregateNamedRows(state.personalPlan.rows, getSelectedMonthKeys());
+            planChartRows = scopedPlanEntries.length;
+            planChartHours = sumEntries(scopedPlanEntries);
+          }
           render();
           const planningStatus = planningError
             ? `planning failed: ${planningError}`
-            : `${planningResult.slotCount} planning slots, ${formatHours(planningResult.totalHours)} h fetched, ${formatHours(planChartHours)} h charted`;
+            : `${planningResult.slotCount} planning slots, ${formatHours(planningResult.totalHours)} h fetched, ${formatHours(planChartHours)} h in selected year scope`;
           setTimesheetDebugStatus(
             `${result.lineCount} timesheet lines, ${formatHours(result.totalHours)} h fetched, ${formatHours(chartHours)} h charted; ${planningStatus}`,
             planningError ? "warn" : "ok"
@@ -1569,6 +1717,10 @@
 
           state.errors = [];
           refreshYears(false);
+          if (planDataset) {
+            const scopedPlanKeys = getSelectedMonthKeys();
+            planChartHours = planDataset.rows.reduce((total, row) => total + sumMap(row.values, scopedPlanKeys), 0);
+          }
           render();
           if (els.projectList && !els.projectList.hidden) {
             els.projectList.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1577,7 +1729,7 @@
           const actualChartHours = projectDataset.rows.reduce((total, row) => total + sumMap(row.values), 0);
           const planningStatus = planningError
             ? `planning failed: ${planningError}`
-            : `${planningResult.slotCount} planning slots, ${formatHours(planningResult.totalHours)} h fetched, ${formatHours(planChartHours)} h charted`;
+            : `${planningResult.slotCount} planning slots, ${formatHours(planningResult.totalHours)} h fetched, ${formatHours(planChartHours)} h in selected year scope`;
           const workPackageStatus = workPackageError
             ? `work packages failed: ${workPackageError}`
             : workPackageResult
@@ -2515,6 +2667,16 @@
             values: new Map(months.map((month) => [month.key, row.values.get(month.key) || 0]))
           }))
           .filter((row) => sumMap(row.values) > 0);
+        const lines = (Array.isArray(result.lines) ? result.lines : [])
+          .map((line) => ({
+            id: line.id,
+            date: String(line.date || ""),
+            hours: Math.max(0, toHours(line.hours)),
+            employee: cleanLabel(line.employee),
+            employeeId: line.employeeId,
+            task: cleanLabel(line.task)
+          }))
+          .filter((line) => line.date && line.hours > 0 && line.employee);
 
         return {
           type: "project",
@@ -2524,7 +2686,8 @@
           name: result.projectName || `[${result.projectCode}] Project ${result.projectCode}`,
           code: result.projectCode,
           months,
-          rows
+          rows,
+          lines
         };
       }
 
@@ -2569,6 +2732,19 @@
             values: new Map(months.map((month) => [month.key, row.values.get(month.key) || 0]))
           }))
           .filter((row) => sumMap(row.values) > 0);
+        const slots = (Array.isArray(result.slots) ? result.slots : [])
+          .map((slot) => ({
+            id: slot.id,
+            start: String(slot.start || ""),
+            end: String(slot.end || ""),
+            startMonth: String(slot.startMonth || ""),
+            endMonth: String(slot.endMonth || ""),
+            hours: Math.max(0, toHours(slot.hours)),
+            employee: cleanLabel(slot.employee),
+            employeeId: slot.employeeId,
+            task: cleanLabel(slot.task)
+          }))
+          .filter((slot) => slot.hours > 0 && slot.employee);
 
         if (!months.length || !rows.length) {
           return null;
@@ -2585,7 +2761,8 @@
           projectStart: months[0],
           months,
           timelineMonths: months,
-          rows
+          rows,
+          slots
         };
       }
 
@@ -3017,6 +3194,42 @@
         return Number.isFinite(date.getTime()) ? date : null;
       }
 
+      function parseDateTimeValue(value) {
+        const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/);
+        if (!match) {
+          return null;
+        }
+        const date = new Date(
+          Number(match[1]),
+          Number(match[2]) - 1,
+          Number(match[3]),
+          Number(match[4] || 0),
+          Number(match[5] || 0),
+          Number(match[6] || 0)
+        );
+        return Number.isFinite(date.getTime()) ? date : null;
+      }
+
+      function startOfLocalDay(value) {
+        return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+      }
+
+      function addDays(value, days) {
+        return new Date(value.getFullYear(), value.getMonth(), value.getDate() + days);
+      }
+
+      function maxDate(...dates) {
+        return dates.filter(Boolean).sort((a, b) => b - a)[0] || null;
+      }
+
+      function minDate(...dates) {
+        return dates.filter(Boolean).sort((a, b) => a - b)[0] || null;
+      }
+
+      function hasPositiveOverlap(start, end) {
+        return start && end && Number.isFinite(start.getTime()) && Number.isFinite(end.getTime()) && end > start;
+      }
+
       function clampNumber(value, min, max) {
         return Math.min(max, Math.max(min, value));
       }
@@ -3348,15 +3561,35 @@
       }
 
       function renderRemainingTableHead() {
+        const balanceScope = formatRemainingBalanceScope();
         els.employeeRemainingTableHead.innerHTML = `
           <tr>
             <th>Project</th>
             <th class="number">Actual</th>
             <th class="number">Planned</th>
             <th class="number">Remaining</th>
-            <th>Balance</th>
+            <th>Balance for ${escapeHtml(balanceScope)}</th>
           </tr>
         `;
+      }
+
+      function formatRemainingBalanceScope() {
+        const years = Array.from(state.selectedYears.size ? state.selectedYears : state.years)
+          .filter((year) => Number.isFinite(Number(year)))
+          .map((year) => Number(year))
+          .sort((a, b) => a - b);
+
+        if (!years.length) {
+          return "selected years";
+        }
+        if (years.length === 1) {
+          return String(years[0]);
+        }
+
+        const isContiguous = years.every((year, index) => index === 0 || year === years[index - 1] + 1);
+        return isContiguous
+          ? `${years[0]}-${years[years.length - 1]}`
+          : years.join(", ");
       }
 
       function renderDicoProjectTable(selectedKeys) {
@@ -3497,6 +3730,10 @@
                   <canvas id="${canvasWorkPackageId}" class="chart-canvas workpackage-canvas" style="height:${workPackageCanvasHeight(workPackageSet.rows.length)}px" aria-label="Work package time consumption and progress chart"></canvas>
                 </div>
           ` : "";
+          const macroBlock = [
+            renderProjectMacroBlock(buildProjectMacroInfo(summary.project, plan, workPackageSet)),
+            renderProjectMacroBlock(buildWholeProjectMacroInfo(summary.project, plan, workPackageSet))
+          ].join("");
           const trendLegendEntries = plan ? mergeLineLegendEntries(summary.entries, plan) : summary.entries;
           const hiddenSeries = getHiddenSeries(summary.project);
           const activeActualEntries = summary.entries.filter((entry) => !hiddenSeries.has(personKey(entry.name)));
@@ -3519,6 +3756,7 @@
                 <div id="${legendId}" class="legend"></div>
               </div>
               <div class="trend-stack">
+                ${macroBlock}
                 <div class="chart-block">
                   <h3>Monthly hours</h3>
                   <canvas id="${canvasLineId}" class="chart-canvas" aria-label="Monthly employee contribution line chart"></canvas>
@@ -3561,6 +3799,302 @@
           });
           renderTable(document.getElementById(tableId), summary.entries);
         });
+      }
+
+      function buildProjectMacroInfo(project, plan, workPackageSet) {
+        const employeeName = cleanLabel(els.timesheetEmployeeName.value);
+        if (!employeeName) {
+          return null;
+        }
+
+        const employeeKey = personKey(employeeName);
+        const year = getProjectMacroYear();
+        const scopeStart = new Date(year, 0, 1);
+        const scopeEnd = new Date(year + 1, 0, 1);
+        const todayStart = startOfLocalDay(new Date());
+        const elapsedEnd = minDate(maxDate(addDays(todayStart, 1), scopeStart), scopeEnd);
+        const plannedTotal = sumPlannedHoursForEmployee(plan, employeeKey, scopeStart, scopeEnd);
+        const expectedToDate = sumPlannedHoursForEmployee(plan, employeeKey, scopeStart, elapsedEnd);
+        const actualToDate = sumActualHoursForEmployee(project, employeeKey, scopeStart, elapsedEnd);
+        const target = getProjectMacroTargetEnd(plan, workPackageSet, year, scopeEnd);
+        const remainingToPlan = plannedTotal - actualToDate;
+        const weeksRemaining = Math.max(0, (target.end - todayStart) / MS_PER_WEEK);
+        const weeklyHours = weeksRemaining > 0
+          ? Math.max(0, remainingToPlan) / weeksRemaining
+          : Math.max(0, remainingToPlan);
+
+        return {
+          title: "Current employee project plan",
+          scopeLabel: `${employeeName} / ${year}`,
+          emptyMessage: `No planned hours were found for this employee on this project in ${year}.`,
+          noteSubject: "you",
+          year,
+          plannedTotal,
+          expectedToDate,
+          actualToDate,
+          remainingToPlan,
+          weeklyHours,
+          targetLabel: target.label
+        };
+      }
+
+      function buildWholeProjectMacroInfo(project, plan, workPackageSet) {
+        const year = getProjectMacroYear();
+        const scopeStart = new Date(year, 0, 1);
+        const scopeEnd = new Date(year + 1, 0, 1);
+        const todayStart = startOfLocalDay(new Date());
+        const elapsedEnd = minDate(maxDate(addDays(todayStart, 1), scopeStart), scopeEnd);
+        const plannedTotal = sumPlannedHoursForProject(plan, scopeStart, scopeEnd);
+        const expectedToDate = sumPlannedHoursForProject(plan, scopeStart, elapsedEnd);
+        const actualToDate = sumActualHoursForProject(project, scopeStart, elapsedEnd);
+        const target = getProjectMacroTargetEnd(plan, workPackageSet, year, scopeEnd);
+        const remainingToPlan = plannedTotal - actualToDate;
+        const weeksRemaining = Math.max(0, (target.end - todayStart) / MS_PER_WEEK);
+        const weeklyHours = weeksRemaining > 0
+          ? Math.max(0, remainingToPlan) / weeksRemaining
+          : Math.max(0, remainingToPlan);
+
+        return {
+          title: "Whole project plan",
+          scopeLabel: `All employees / ${year}`,
+          emptyMessage: `No planned hours were found for this project in ${year}.`,
+          noteSubject: "the project team",
+          year,
+          plannedTotal,
+          expectedToDate,
+          actualToDate,
+          remainingToPlan,
+          weeklyHours,
+          targetLabel: target.label
+        };
+      }
+
+      function renderProjectMacroBlock(info) {
+        if (!info) {
+          return "";
+        }
+
+        if (info.plannedTotal <= 0.01) {
+          return `
+            <div class="project-macro">
+              <h3>${escapeHtml(info.title)}</h3>
+              <p class="project-macro-meta">${escapeHtml(info.scopeLabel)}</p>
+              <p class="project-macro-empty">${escapeHtml(info.emptyMessage)}</p>
+            </div>
+          `;
+        }
+
+        const expectedPercent = clampNumber((info.expectedToDate / info.plannedTotal) * 100, 0, 100);
+        const actualPercent = clampNumber((info.actualToDate / info.plannedTotal) * 100, 0, 100);
+        const weeklyHours = Math.max(0, info.weeklyHours);
+
+        return `
+          <div class="project-macro">
+            <h3>${escapeHtml(info.title)}</h3>
+            <p class="project-macro-meta">${escapeHtml(info.scopeLabel)}</p>
+            <div class="project-macro-stats">
+              <div class="project-macro-stat">
+                <span>Planned this year</span>
+                <strong>${formatHours(info.plannedTotal)} h</strong>
+              </div>
+              <div class="project-macro-stat">
+                <span>Should have been spent</span>
+                <strong>${formatHours(info.expectedToDate)} h</strong>
+              </div>
+              <div class="project-macro-stat">
+                <span>Actual by today</span>
+                <strong>${formatHours(info.actualToDate)} h</strong>
+              </div>
+            </div>
+            <div class="project-macro-gauge" aria-label="${escapeHtml(`Planned ${formatHours(info.plannedTotal)} hours, should have spent ${formatHours(info.expectedToDate)} hours, actual ${formatHours(info.actualToDate)} hours`)}">
+              <span class="project-macro-gauge-fill"></span>
+              <span class="project-macro-tick expected" style="left:${expectedPercent.toFixed(2)}%" title="${escapeHtml(`Should have been spent: ${formatHours(info.expectedToDate)} h`)}"></span>
+              <span class="project-macro-tick actual" style="left:${actualPercent.toFixed(2)}%" title="${escapeHtml(`Actual by today: ${formatHours(info.actualToDate)} h`)}"></span>
+            </div>
+            <div class="project-macro-legend">
+              <span><i class="project-macro-key"></i>planned</span>
+              <span><i class="project-macro-key expected"></i>should have been spent</span>
+              <span><i class="project-macro-key actual"></i>actual by today</span>
+            </div>
+            <p class="project-macro-note">To be aligned with the planned hours ${info.noteSubject === "you" ? "you have" : "allocated"} on this project, ${info.noteSubject} should now work ${formatHours(weeklyHours)} hours per week on it until the end of ${info.targetLabel}.</p>
+          </div>
+        `;
+      }
+
+      function getProjectMacroYear() {
+        const years = Array.from(state.selectedYears.size ? state.selectedYears : state.years)
+          .map((year) => Number(year))
+          .filter((year) => Number.isFinite(year))
+          .sort((a, b) => a - b);
+        if (years.includes(CURRENT_YEAR)) {
+          return CURRENT_YEAR;
+        }
+        return years[0] || CURRENT_YEAR;
+      }
+
+      function sumPlannedHoursForEmployee(plan, employeeKey, periodStart, periodEnd) {
+        if (!plan || !hasPositiveOverlap(periodStart, periodEnd)) {
+          return 0;
+        }
+
+        const slots = (Array.isArray(plan.slots) ? plan.slots : [])
+          .filter((slot) => personKey(slot.employee) === employeeKey);
+        if (slots.length) {
+          return slots.reduce((total, slot) => total + plannedSlotHoursInPeriod(slot, periodStart, periodEnd), 0);
+        }
+
+        const row = findPersonRow(plan.rows, employeeKey);
+        return row ? sumMonthlyRowInPeriod(row, plan.months || [], periodStart, periodEnd) : 0;
+      }
+
+      function sumActualHoursForEmployee(project, employeeKey, periodStart, periodEnd) {
+        if (!project || !hasPositiveOverlap(periodStart, periodEnd)) {
+          return 0;
+        }
+
+        const lines = (Array.isArray(project.lines) ? project.lines : [])
+          .filter((line) => personKey(line.employee) === employeeKey);
+        if (lines.length) {
+          return lines.reduce((total, line) => {
+            const date = parseDateValue(line.date);
+            return date && date >= periodStart && date < periodEnd
+              ? total + line.hours
+              : total;
+          }, 0);
+        }
+
+        const row = findPersonRow(project.rows, employeeKey);
+        return row ? sumMonthlyRowInPeriod(row, project.months || [], periodStart, periodEnd) : 0;
+      }
+
+      function sumPlannedHoursForProject(plan, periodStart, periodEnd) {
+        if (!plan || !hasPositiveOverlap(periodStart, periodEnd)) {
+          return 0;
+        }
+
+        const slots = Array.isArray(plan.slots) ? plan.slots : [];
+        if (slots.length) {
+          return slots.reduce((total, slot) => total + plannedSlotHoursInPeriod(slot, periodStart, periodEnd), 0);
+        }
+
+        return (Array.isArray(plan.rows) ? plan.rows : []).reduce((total, row) => {
+          return total + sumMonthlyRowInPeriod(row, plan.months || [], periodStart, periodEnd);
+        }, 0);
+      }
+
+      function sumActualHoursForProject(project, periodStart, periodEnd) {
+        if (!project || !hasPositiveOverlap(periodStart, periodEnd)) {
+          return 0;
+        }
+
+        const lines = Array.isArray(project.lines) ? project.lines : [];
+        if (lines.length) {
+          return lines.reduce((total, line) => {
+            const date = parseDateValue(line.date);
+            return date && date >= periodStart && date < periodEnd
+              ? total + line.hours
+              : total;
+          }, 0);
+        }
+
+        return (Array.isArray(project.rows) ? project.rows : []).reduce((total, row) => {
+          return total + sumMonthlyRowInPeriod(row, project.months || [], periodStart, periodEnd);
+        }, 0);
+      }
+
+      function plannedSlotHoursInPeriod(slot, periodStart, periodEnd) {
+        const hours = Math.max(0, toHours(slot.hours));
+        if (!hours || !hasPositiveOverlap(periodStart, periodEnd)) {
+          return 0;
+        }
+
+        const slotStart = parseDateTimeValue(slot.start);
+        const slotEnd = parseDateTimeValue(slot.end);
+        if (hasPositiveOverlap(slotStart, slotEnd)) {
+          const overlapStart = maxDate(slotStart, periodStart);
+          const overlapEnd = minDate(slotEnd, periodEnd);
+          return hasPositiveOverlap(overlapStart, overlapEnd)
+            ? hours * ((overlapEnd - overlapStart) / (slotEnd - slotStart))
+            : 0;
+        }
+
+        const months = slotMonths(slot);
+        if (!months.length) {
+          return 0;
+        }
+        const monthlyHours = hours / months.length;
+        return months.reduce((total, month) => {
+          return total + monthlyHours * monthOverlapFraction(month, periodStart, periodEnd);
+        }, 0);
+      }
+
+      function sumMonthlyRowInPeriod(row, months, periodStart, periodEnd) {
+        return months.reduce((total, month) => {
+          const value = row.values.get(month.key) || 0;
+          return value > 0
+            ? total + value * monthOverlapFraction(month, periodStart, periodEnd)
+            : total;
+        }, 0);
+      }
+
+      function monthOverlapFraction(month, periodStart, periodEnd) {
+        const monthStart = month.date;
+        const monthEnd = addMonths(month, 1).date;
+        const overlapStart = maxDate(monthStart, periodStart);
+        const overlapEnd = minDate(monthEnd, periodEnd);
+        return hasPositiveOverlap(overlapStart, overlapEnd)
+          ? clampNumber((overlapEnd - overlapStart) / (monthEnd - monthStart), 0, 1)
+          : 0;
+      }
+
+      function slotMonths(slot) {
+        const startMonth = safeMonthFromKey(slot.startMonth || slot.endMonth);
+        const endMonth = safeMonthFromKey(slot.endMonth || slot.startMonth);
+        if (!startMonth || !endMonth) {
+          return [];
+        }
+        return generateMonthRange(startMonth, endMonth);
+      }
+
+      function safeMonthFromKey(key) {
+        if (!/^\d{4}-\d{2}$/.test(String(key || ""))) {
+          return null;
+        }
+        const month = monthFromKey(key);
+        return Number.isFinite(month.date.getTime()) ? month : null;
+      }
+
+      function findPersonRow(rows = [], employeeKey) {
+        return rows.find((row) => personKey(row.name) === employeeKey) ||
+          rows.find((row) => {
+            const rowKey = personKey(row.name);
+            return rowKey && employeeKey && (rowKey.includes(employeeKey) || employeeKey.includes(rowKey));
+          }) ||
+          null;
+      }
+
+      function getProjectMacroTargetEnd(plan, workPackageSet, year, yearEnd) {
+        const projectEnd = inferProjectEndDate(plan, workPackageSet);
+        if (projectEnd && projectEnd.getFullYear() === year) {
+          return {
+            end: addDays(startOfLocalDay(projectEnd), 1),
+            label: "project"
+          };
+        }
+        return {
+          end: yearEnd,
+          label: "year"
+        };
+      }
+
+      function inferProjectEndDate(plan, workPackageSet) {
+        const rows = workPackageSet && Array.isArray(workPackageSet.rows) ? workPackageSet.rows : [];
+        const datedRows = rows.filter((row) => parseDateValue(row.endDate));
+        const sourceRows = datedRows.some((row) => row.isWorkPackage)
+          ? datedRows.filter((row) => row.isWorkPackage)
+          : datedRows;
+        const dates = sourceRows.map((row) => parseDateValue(row.endDate)).filter(Boolean);
+        return dates.sort((a, b) => b - a)[0] || null;
       }
 
       function getHiddenSeries(project) {
