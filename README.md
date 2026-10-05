@@ -4,7 +4,7 @@
 
 ## Local Server Quick Start
 
-To use the Odoo API features, start the local server from this repository folder:
+Use Node.js 22 to match the Docker runtime. No npm installation or build step is required. To use the Odoo API features, start the local server from this repository folder:
 
 ```bash
 node server.js
@@ -47,7 +47,11 @@ Stop it with `Ctrl+C`, or run it in the background:
 docker compose up --build -d
 ```
 
-If you want the container to use your private `config.local.json`, create that file first, then uncomment the `volumes` section in `docker-compose.yml`.
+To use private configuration, enable the read-only `volumes` section in `docker-compose.yml`. Keep the private file outside the build context and adjust the mount source accordingly: the current `.dockerignore` does not exclude `config.local.json`, so a file present in the repository during a build can be copied into the image.
+
+Stop background containers with `docker compose down`; inspect logs with `docker compose logs -f`. If host port `8765` is occupied, change the host side of the Compose port mapping, for example `8766:8765`.
+
+Compose publishes the port without a loopback-only binding. The dashboard has no authentication layer, and the static server can serve repository files other than `config.local.json`. See [Configuration](docs/wiki/CONFIGURATION.md) for the current hosting boundaries.
 
 ## Optional Local Config
 
@@ -238,3 +242,16 @@ Used for:
 - The `All` chip includes all available months from uploaded actual and planning files.
 - Individual year chips filter every graph.
 - `Interne` / `Internal` rows are excluded before totals and percentages are calculated.
+
+## Data Interpretation And Runtime Limits
+
+- The personal chart label `Actual time (as of today)` reflects loaded data within the selected year scope. There is no separate cutoff excluding future-dated records.
+- Personal remaining hours equal planned minus actual for the selected years; negative values indicate actual hours exceeding that plan.
+- API planning slots are distributed across months in proportion to elapsed time. This is not a working-day or holiday-calendar calculation.
+- XLSX imports run in browser memory and are not uploaded to the server. Reloading requires importing or fetching again.
+- The embedded XLSX reader requires a browser with `DecompressionStream` support. No external workbook or chart library is loaded.
+- Live API results depend on Odoo permissions and available planning fields. Employee-name searches use partial matching and may return multiple matching employees.
+
+## Technical Documentation
+
+See the [technical wiki](docs/wiki/INDEX.md) for architecture, API routes, configuration, data flow and verification commands. [Current State](docs/ai-context/CURRENT_STATE.md) records completed work and verification limits; [Known Issues](docs/ai-context/KNOWN_ISSUES.md) records observed follow-up items.
