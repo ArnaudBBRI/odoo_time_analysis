@@ -1,6 +1,6 @@
 # Odoo Time Dashboard
 
-`index.html` is a self-contained browser dashboard for Odoo timesheet and planning exports. Open it in a browser and upload the XLSX files through the inputs at the top of the page.
+The dashboard compares Odoo timesheets and planning. Run the server, open the Buildwise welcome page, and sign in with your Odoo email and password. The underlying XLSX readers remain available in index.html; the top-level workbook upload controls are currently commented out.
 
 ## Local Server Quick Start
 
@@ -47,47 +47,44 @@ Stop it with `Ctrl+C`, or run it in the background:
 docker compose up --build -d
 ```
 
-To use private configuration, enable the read-only `volumes` section in `docker-compose.yml`. Keep the private file outside the build context and adjust the mount source accordingly: the current `.dockerignore` does not exclude `config.local.json`, so a file present in the repository during a build can be copied into the image.
+To use private configuration, create `config.local.json` and enable the read-only `volumes` section in `docker-compose.yml`. The file is excluded from the Docker build context.
 
 Stop background containers with `docker compose down`; inspect logs with `docker compose logs -f`. If host port `8765` is occupied, change the host side of the Compose port mapping, for example `8766:8765`.
 
-Compose publishes the port without a loopback-only binding. The dashboard has no authentication layer, and the static server can serve repository files other than `config.local.json`. See [Configuration](docs/wiki/CONFIGURATION.md) for the current hosting boundaries.
+Compose publishes the port without a loopback-only binding. The dashboard and its APIs require sign-in, and only application pages and the logo are served. Use HTTPS when exposing the application beyond localhost. See [Configuration](docs/wiki/CONFIGURATION.md).
+
+## Sign In With Odoo
+
+The home page uses the Buildwise visual style and asks for your Odoo email and password. A successful login opens `/dashboard`; use **Se déconnecter** to end the session. The server authenticates against the configured Odoo instance, defaulting to `https://odoo.buildwise.be/` and database `buildwiseprd`.
+
+All dashboard API requests use the signed-in user's Odoo credentials and permissions. Request fields and private-config API keys cannot replace that identity. No local dashboard account database is created.
+
+Sessions expire after eight hours by default and are stored in server memory. Restarting the server signs everyone out. The browser receives a random session cookie with `HttpOnly` and `SameSite=Lax`; the password remains in server memory for authenticated XML-RPC calls and is not persisted to disk or browser storage.
+
+For an HTTPS deployment, set `SESSION_COOKIE_SECURE=true` on the server/container. TLS must be provided by the deployment or reverse proxy. If a proxy is used, preserve the public `Host` header so POST origin checks match the browser origin. Set `SESSION_TTL_SECONDS` to change the fixed session lifetime (default `28800`). Invalid/nonpositive lifetimes stop startup.
+
+Ten login attempts per client IP within 15 minutes trigger a temporary block; successful login resets that address's counter. Behind a reverse proxy, users may share its address. Sessions and rate limits are local to one Node process, not shared across replicas.
+
+This flow requires an Odoo password accepted by XML-RPC. SSO-only and two-factor authentication flows are not implemented; compatibility with the actual Buildwise Odoo authentication settings must be checked with a real account. See [Odoo's external API documentation](https://www.odoo.com/documentation/18.0/developer/reference/external_api.html).
 
 ## Optional Local Config
 
-To avoid re-entering the same Odoo values every time, copy `config.example.json` to `config.local.json` and fill in your own values:
+To select an Odoo instance, copy `config.example.json` to `config.local.json`:
 
 ```json
 {
   "odooUrl": "https://odoo.buildwise.be/",
-  "database": "buildwiseprd",
-  "username": "your.odoo.login@example.com",
-  "apiKey": "paste-your-api-key-here",
-  "employeeName": "First Last"
+  "database": "buildwiseprd"
 }
 ```
 
-`config.local.json` is ignored by Git and is not served as a static file by `server.js`. The browser only receives the non-secret fields and whether an API key exists; the API key stays on the local server side.
+The server reads the instance URL and database for sign-in. Existing username, API key and employee defaults do not override the signed-in user. Employee and project queries are entered in the dashboard.
 
-When `apiKey` is present in `config.local.json`, you can leave the dashboard's API key field empty. Typing a value in the field still overrides the config value for that request.
+`config.local.json` is ignored by Git, excluded from new Docker build contexts and inaccessible through the HTTP server. If older images were built with private configuration, rebuild them using the updated exclusions; the change does not remove files from existing images.
 
-## Running With The Odoo API Connector
+## Running With The Odoo Connector
 
-The XLSX workflow still works by opening `index.html` directly. The Odoo API connection test needs the local proxy server in `server.js`, because browsers usually cannot call Odoo XML-RPC directly from a local page.
-
-The connection test asks for:
-
-- **Odoo URL**: the base URL of your Odoo instance, for example `https://example.odoo.com`. A copied `/web` URL is also accepted.
-- **Database**: the Odoo database name.
-- **Username**: your Odoo login email or username.
-- **API key**: the key generated from your Odoo account security settings.
-
-When typed in the browser, the API key is not saved by the dashboard. It is only sent to the local server for the current API request, and the local server forwards it to Odoo as the XML-RPC password. If you choose to store it in `config.local.json`, keep that file private.
-
-The Buildwise connector fields are prefilled with:
-
-- **Odoo URL**: `https://odoo.buildwise.be/`
-- **Database**: `buildwiseprd`
+Start the server and sign in before fetching data. No separate API key entry is needed. The connection test and fetch actions reuse the Odoo session credentials. The API retains Odoo's permissions; a dashboard login does not grant additional access.
 
 Use **Timesheet Debug** to enter an employee name and fetch matching API data. One click fetches:
 

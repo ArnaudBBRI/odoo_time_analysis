@@ -1,6 +1,8 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
+const { AsyncLocalStorage } = require("async_hooks");
 
 const HOST = process.env.HOST || "127.0.0.1";
 const PORT = Number(process.env.PORT || 8765);
@@ -11,62 +13,208 @@ const DEFAULT_CONFIG = {
   database: "buildwiseprd"
 };
 const CONFIG_FILE_NAME = "config.local.json";
+const authContext = new AsyncLocalStorage();
+const sessions = new Map();
+const loginAttempts = new Map();
+const SESSION_COOKIE = "bw_session";
+const SESSION_TTL_MS = Number(process.env.SESSION_TTL_SECONDS || 28800) * 1000;
+const SECURE_COOKIE = process.env.SESSION_COOKIE_SECURE === "true";
+if (!Number.isFinite(SESSION_TTL_MS) || SESSION_TTL_MS <= 0) {
+  throw new Error("SESSION_TTL_SECONDS must be a positive number");
+}
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
   ".css": "text/css; charset=utf-8",
   ".json": "application/json; charset=utf-8",
-  ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ".svg": "image/svg+xml"
 };
 
-const server = http.createServer(async (request, response) => {
-  try {
-    const url = new URL(request.url, `http://${HOST}:${PORT}`);
-    if (url.pathname === "/favicon.ico") {
-      response.writeHead(204);
-      response.end();
-      return;
+const server = http.createServer((request, response) => {
+  const session = getSession(request);
+  authContext.run(session, async () => {
+    try {
+      const url = new URL(request.url, `http://${HOST}:${PORT}`);
+      response.setHeader("Cache-Control", "no-store");
+      response.setHeader("X-Content-Type-Options", "nosniff");
+      response.setHeader("Referrer-Policy", "same-origin");
+      response.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'");
+      if (request.method === "POST" && !isSameOrigin(request)) {
+        sendJson(response, 403, { ok: false, error: "Cross-origin requests are not allowed" });
+        return;
+      }
+      if (url.pathname === "/api/auth/login") {
+        await handleLogin(request, response);
+        return;
+      }
+      if (url.pathname === "/api/auth/logout") {
+        if (request.method !== "POST") {
+          sendJson(response, 405, { ok: false, error: "Use POST for this endpoint" });
+          return;
+        }
+        if (session) sessions.delete(session.token);
+        response.setHeader("Set-Cookie", sessionCookie("", 0));
+        sendJson(response, 200, { ok: true });
+        return;
+      }
+      if (url.pathname === "/" || url.pathname === "/login" || url.pathname === "/login.html") {
+        if (session) redirect(response, "/dashboard");
+        else await serveStaticFile("/login.html", response);
+        return;
+      }
+      if (url.pathname === "/assets/buildwise-logo.svg") {
+        await serveStaticFile(url.pathname, response);
+        return;
+      }
+      if (url.pathname === "/favicon.ico") {
+        response.writeHead(204);
+        response.end();
+        return;
+      }
+      if (!session) {
+        if (url.pathname.startsWith("/api/")) {
+          sendJson(response, 401, { ok: false, error: "Please sign in to continue", authenticationRequired: true });
+        } else redirect(response, "/login");
+        return;
+      }
+      if (url.pathname === "/api/auth/session") {
+        if (request.method !== "GET") {
+          sendJson(response, 405, { ok: false, error: "Use GET for this endpoint" });
+        } else sendJson(response, 200, { ok: true, email: session.username, expiresAt: session.expiresAt });
+        return;
+      }
+      if (url.pathname === "/api/config") {
+        await handleDashboardConfig(request, response);
+        return;
+      }
+      if (url.pathname === "/api/odoo/test-connection") {
+        await handleOdooConnectionTest(request, response);
+        return;
+      }
+      if (url.pathname === "/api/odoo/list-databases") {
+        await handleOdooDatabaseList(request, response);
+        return;
+      }
+      if (url.pathname === "/api/odoo/employee-timesheets") {
+        await handleEmployeeTimesheets(request, response);
+        return;
+      }
+      if (url.pathname === "/api/odoo/employee-planning") {
+        await handleEmployeePlanning(request, response);
+        return;
+      }
+      if (url.pathname === "/api/odoo/project-timesheets") {
+        await handleProjectTimesheets(request, response);
+        return;
+      }
+      if (url.pathname === "/api/odoo/project-planning") {
+        await handleProjectPlanning(request, response);
+        return;
+      }
+      if (url.pathname === "/dashboard" || url.pathname === "/index.html") {
+        await serveStaticFile("/index.html", response);
+      } else sendJson(response, 404, { ok: false, error: "Not found" });
+    } catch (error) {
+      sendJson(response, 500, {
+        ok: false,
+        error: error.message || "Unexpected server error"
+      });
     }
-    if (url.pathname === "/api/config") {
-      await handleDashboardConfig(request, response);
-      return;
-    }
-    if (url.pathname === "/api/odoo/test-connection") {
-      await handleOdooConnectionTest(request, response);
-      return;
-    }
-    if (url.pathname === "/api/odoo/list-databases") {
-      await handleOdooDatabaseList(request, response);
-      return;
-    }
-    if (url.pathname === "/api/odoo/employee-timesheets") {
-      await handleEmployeeTimesheets(request, response);
-      return;
-    }
-    if (url.pathname === "/api/odoo/employee-planning") {
-      await handleEmployeePlanning(request, response);
-      return;
-    }
-    if (url.pathname === "/api/odoo/project-timesheets") {
-      await handleProjectTimesheets(request, response);
-      return;
-    }
-    if (url.pathname === "/api/odoo/project-planning") {
-      await handleProjectPlanning(request, response);
-      return;
-    }
-    await serveStaticFile(url.pathname, response);
-  } catch (error) {
-    sendJson(response, 500, {
-      ok: false,
-      error: error.message || "Unexpected server error"
-    });
-  }
+  });
 });
 
+function redirect(response, location) {
+  response.writeHead(303, { Location: location });
+  response.end();
+}
+
+function sessionCookie(token, maxAge) {
+  return `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${SECURE_COOKIE ? "; Secure" : ""}`;
+}
+
+function getSession(request) {
+  const now = Date.now();
+  for (const [token, session] of sessions) {
+    if (session.expiresAt <= now) sessions.delete(token);
+  }
+  const cookie = String(request.headers.cookie || "").split(";")
+    .map((value) => value.trim()).find((value) => value.startsWith(`${SESSION_COOKIE}=`));
+  return cookie ? sessions.get(cookie.slice(SESSION_COOKIE.length + 1)) || null : null;
+}
+
+function isSameOrigin(request) {
+  if (request.headers["sec-fetch-site"] === "cross-site") return false;
+  if (!request.headers.origin) return true;
+  try {
+    const origin = new URL(request.headers.origin);
+    return origin.host === request.headers.host && origin.protocol === (SECURE_COOKIE ? "https:" : "http:");
+  } catch (_) { return false; }
+}
+
+async function handleLogin(request, response) {
+  if (request.method !== "POST") {
+    sendJson(response, 405, { ok: false, error: "Use POST for this endpoint" });
+    return;
+  }
+  const now = Date.now();
+  for (const [address, attempt] of loginAttempts) {
+    if (attempt.until <= now) loginAttempts.delete(address);
+  }
+  const address = request.socket.remoteAddress;
+  const attempt = loginAttempts.get(address) || { count: 0, until: now + 15 * 60 * 1000 };
+  if (attempt.count >= 10 || loginAttempts.size >= 10000 && !loginAttempts.has(address)) {
+    response.setHeader("Retry-After", String(Math.max(1, Math.ceil((attempt.until - now) / 1000))));
+    sendJson(response, 429, { ok: false, error: "Too many attempts. Please try again later." });
+    return;
+  }
+  attempt.count += 1;
+  loginAttempts.set(address, attempt);
+  let body;
+  try { body = await readJsonBody(request); }
+  catch (_) {
+    sendJson(response, 400, { ok: false, error: "Please provide a valid email and password" });
+    return;
+  }
+  const email = typeof body?.email === "string" ? body.email.trim() : "";
+  const password = typeof body?.password === "string" ? body.password : "";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254 || !password || password.length > 4096) {
+    sendJson(response, 400, { ok: false, error: "Please provide a valid email and password" });
+    return;
+  }
+  let odooUrl, database, uid;
+  try {
+    const config = readDashboardConfigInfo().values;
+    odooUrl = normalizeOdooUrl(firstNonBlank(config.odooUrl, config.url, DEFAULT_CONFIG.odooUrl));
+    database = cleanRequired(firstNonBlank(config.database, DEFAULT_CONFIG.database), "Database");
+    uid = await authenticateOdoo(odooUrl, database, email, password);
+  } catch (error) {
+    if (/access.?denied|invalid credentials/i.test(error.message || "")) {
+      sendJson(response, 401, { ok: false, error: "Email or password not recognized by Odoo" });
+    } else sendJson(response, 502, { ok: false, error: "Odoo sign-in is unavailable. Please try again later." });
+    return;
+  }
+  if (!uid) {
+    sendJson(response, 401, { ok: false, error: "Email or password not recognized by Odoo" });
+    return;
+  }
+  if (sessions.size >= 1000) {
+    sendJson(response, 503, { ok: false, error: "Sign-in is temporarily unavailable. Please try again later." });
+    return;
+  }
+  loginAttempts.delete(address);
+  const previous = authContext.getStore();
+  if (previous) sessions.delete(previous.token);
+  const token = crypto.randomBytes(32).toString("hex");
+  const expiresAt = Date.now() + SESSION_TTL_MS;
+  sessions.set(token, { token, expiresAt, username: email, apiKey: password, odooUrl, database, uid });
+  response.setHeader("Set-Cookie", sessionCookie(token, Math.ceil(SESSION_TTL_MS / 1000)));
+  sendJson(response, 200, { ok: true, email, expiresAt });
+}
+
 server.listen(PORT, HOST, () => {
-  console.log(`Odoo Time Dashboard running at http://${HOST}:${PORT}/`);
+  console.log(`Odoo Time Dashboard running at http://${HOST}:${server.address().port}/`);
 });
 
 server.on("error", (error) => {
@@ -490,7 +638,6 @@ async function handleDashboardConfig(request, response) {
 
   try {
     const configInfo = readDashboardConfigInfo();
-    const config = configInfo.values;
     const settings = getMergedConnectorSettings({});
 
     sendJson(response, 200, {
@@ -501,7 +648,8 @@ async function handleDashboardConfig(request, response) {
       username: settings.username,
       employeeName: settings.employeeName,
       projectCode: settings.projectCode,
-      hasApiKey: Boolean(firstNonBlank(config.apiKey, config.api_key))
+      hasApiKey: false,
+      authenticated: true
     });
   } catch (error) {
     sendJson(response, 500, {
@@ -559,6 +707,17 @@ function getProjectFetchSettings(body) {
 }
 
 function getMergedConnectorSettings(body = {}) {
+  const session = authContext.getStore();
+  if (session) {
+    return {
+      odooUrl: session.odooUrl,
+      database: session.database,
+      username: session.username,
+      apiKey: session.apiKey,
+      employeeName: firstNonBlank(body.employeeName),
+      projectCode: firstNonBlank(body.projectCode, body.projectName, body.projectQuery)
+    };
+  }
   const config = readDashboardConfigInfo().values;
   return {
     odooUrl: firstNonBlank(body.url, body.odooUrl, config.odooUrl, config.url, DEFAULT_CONFIG.odooUrl),

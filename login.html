@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Connexion | Buildwise Time Dashboard</title>
+  <style>
+    :root { color-scheme: light; font-family: "neue-haas-unica", "Helvetica Neue", Arial, sans-serif; color: #1b1b1b; background: #fff; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 320px; }
+    header { border-bottom: 1px solid #e6e6e6; }
+    .header-inner { max-width: 1280px; margin: auto; padding: 28px 40px; display: flex; justify-content: space-between; align-items: center; gap: 24px; }
+    .logo { width: 235px; max-width: 100%; height: auto; }
+    .app-name { color: #464646; font-size: 14px; }
+    main { max-width: 1280px; margin: 72px auto; padding: 0 40px; display: grid; grid-template-columns: 1.15fr 1fr; gap: 80px; align-items: center; }
+    .intro { position: relative; padding: 48px 0; }
+    .eyebrow { display: flex; align-items: center; gap: 12px; text-transform: uppercase; letter-spacing: .12em; font-size: 12px; font-weight: 700; color: #007fae; }
+    .eyebrow::before { content: ""; width: 32px; height: 4px; background: #00bfb6; }
+    h1 { font-size: clamp(38px, 4.5vw, 62px); font-weight: 500; line-height: 1.08; letter-spacing: -.035em; margin: 24px 0; max-width: 560px; }
+    h1 span { color: #007fae; }
+    .intro > p { font-size: 19px; line-height: 1.65; color: #464646; max-width: 470px; }
+    .features { padding: 0; margin: 36px 0 0; list-style: none; display: grid; gap: 18px; color: #464646; }
+    .features li { display: flex; align-items: center; gap: 12px; }
+    .features li::before { content: "✓"; color: #007fae; background: #eaf8f7; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; flex-shrink: 0; }
+    .card { padding: 42px; border: 1px solid #e6e6e6; border-top: 4px solid #00bfb6; border-radius: 4px; box-shadow: 0 14px 45px #1b1b1b09; }
+    h2 { font-weight: 500; font-size: 30px; margin: 0 0 12px; }
+    .card > p { color: #464646; line-height: 1.5; margin: 0 0 32px; }
+    label { display: block; font-size: 15px; font-weight: 600; margin-bottom: 10px; }
+    .field { margin-bottom: 24px; }
+    input { font: inherit; width: 100%; padding: 14px 16px; border: 1px solid #a3a3a3; border-radius: 3px; color: #1b1b1b; background: #fff; }
+    input:focus { outline: 3px solid #00bfb640; border-color: #007fae; }
+    .password-wrap { position: relative; }
+    .password-wrap input { padding-right: 88px; }
+    .toggle { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); color: #007fae; padding: 8px; border: 0; background: transparent; font: inherit; font-size: 13px; cursor: pointer; }
+    .submit { width: 100%; padding: 15px 20px; border: 1px solid #007fae; background: #007fae; color: #fff; font: inherit; font-weight: 600; border-radius: 3px; cursor: pointer; }
+    .submit:hover { background: #006e97; }
+    button:focus-visible, a:focus-visible { outline: 3px solid #00bfb6; outline-offset: 4px; }
+    .submit:disabled { opacity: .65; cursor: wait; }
+    #status { margin: 18px 0 0; line-height: 1.5; font-size: 14px; color: #a32929; }
+    #status:empty { display: none; }
+    .help { margin-top: 26px; padding-top: 22px; border-top: 1px solid #e6e6e6; color: #7d7d7d; font-size: 13px; line-height: 1.6; }
+    footer { max-width: 1200px; margin: 0 auto; padding: 28px 0; border-top: 1px solid #e6e6e6; color: #7d7d7d; display: flex; justify-content: space-between; font-size: 13px; }
+    footer a { color: #007fae; text-decoration: none; }
+    @media (max-width: 850px) { main { grid-template-columns: 1fr; gap: 32px; margin: 32px auto; max-width: 620px; padding: 0 24px; } .intro { padding: 0; } .features { display: none; } .header-inner { padding: 24px; } .app-name { display: none; } .card { padding: 28px; } footer { margin: 0 24px; gap: 16px; flex-wrap: wrap; } }
+  </style>
+</head>
+<body>
+  <header><div class="header-inner"><a href="https://www.buildwise.be/fr/" aria-label="Buildwise"><img class="logo" src="/assets/buildwise-logo.svg" alt="Buildwise" width="357" height="41"></a><span class="app-name">Time Dashboard</span></div></header>
+  <main>
+    <section class="intro" aria-labelledby="welcome-title">
+      <div class="eyebrow">Votre espace projets</div>
+      <h1 id="welcome-title">Une vue claire sur <span>votre temps.</span></h1>
+      <p>Retrouvez vos heures prestées, votre planning et les contributions de votre équipe, au même endroit.</p>
+      <ul class="features"><li>Suivez le temps consacré à vos projets</li><li>Comparez le planning et les heures prestées</li><li>Explorez les contributions de votre équipe</li></ul>
+    </section>
+    <section class="card" aria-labelledby="login-title">
+      <h2 id="login-title">Bienvenue</h2><p>Connectez-vous avec votre compte Odoo Buildwise.</p>
+      <form id="loginForm">
+        <div class="field"><label for="email">Adresse email</label><input id="email" name="email" type="email" autocomplete="username" placeholder="prenom.nom@buildwise.be" maxlength="254" required></div>
+        <div class="field"><label for="password">Mot de passe</label><div class="password-wrap"><input id="password" name="password" type="password" autocomplete="current-password" maxlength="4096" required><button class="toggle" id="togglePassword" type="button" aria-controls="password" aria-pressed="false">Afficher</button></div></div>
+        <button class="submit" id="submitButton" type="submit">Se connecter <span aria-hidden="true">→</span></button>
+        <p id="status" role="alert" aria-live="polite"></p>
+      </form>
+      <div class="help">Utilisez vos identifiants Odoo habituels. Pour toute difficulté de connexion, contactez votre support interne.</div>
+    </section>
+  </main>
+  <footer><span>Buildwise · Time Dashboard</span><a href="https://www.buildwise.be/fr/">Découvrir Buildwise ↗</a></footer>
+  <script>
+    const form = document.getElementById("loginForm");
+    const password = document.getElementById("password");
+    const toggle = document.getElementById("togglePassword");
+    const status = document.getElementById("status");
+    const button = document.getElementById("submitButton");
+    toggle.addEventListener("click", () => {
+      const visible = password.type === "password";
+      password.type = visible ? "text" : "password";
+      toggle.textContent = visible ? "Masquer" : "Afficher";
+      toggle.setAttribute("aria-pressed", String(visible));
+    });
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      status.textContent = "";
+      button.disabled = true;
+      button.textContent = "Connexion en cours…";
+      try {
+        const response = await fetch("/api/auth/login", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: document.getElementById("email").value.trim(), password: password.value })
+        });
+        const result = await response.json();
+        if (!response.ok || !result.ok) {
+          const messages = { 400: "Saisissez une adresse email et un mot de passe valides.", 401: "Email ou mot de passe incorrect.", 429: "Trop de tentatives. Réessayez dans quelques minutes." };
+          throw new Error(messages[response.status] || "La connexion à Odoo est indisponible. Réessayez plus tard.");
+        }
+        password.value = "";
+        window.location.replace("/dashboard");
+      } catch (error) { status.textContent = error.message || "Connexion impossible. Vérifiez votre connexion réseau."; }
+      finally { button.disabled = false; button.textContent = "Se connecter →"; }
+    });
+  </script>
+</body>
+</html>

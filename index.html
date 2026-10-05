@@ -6,20 +6,20 @@
   <title>Odoo Time Dashboard</title>
   <style>
     :root {
-      --bg: #f5f7f6;
+      --bg: #f7f7f7;
       --panel: #ffffff;
-      --panel-soft: #eef4f2;
-      --ink: #182322;
-      --muted: #64726f;
-      --line: #d7dfdc;
-      --teal: #0f766e;
-      --teal-dark: #0b5f59;
+      --panel-soft: #eaf8f7;
+      --ink: #1b1b1b;
+      --muted: #7d7d7d;
+      --line: #e6e6e6;
+      --teal: #007fae;
+      --teal-dark: #006e97;
       --coral: #c75f4c;
       --gold: #a87618;
       --indigo: #4556b2;
       --shadow: 0 18px 38px rgba(24, 35, 34, 0.08);
       color-scheme: light;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: "neue-haas-unica", "Helvetica Neue", Arial, sans-serif;
     }
 
     * {
@@ -39,9 +39,9 @@
     }
 
     .app-header {
-      background: #162422;
-      color: #f8fbfa;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+      background: #ffffff;
+      color: #1b1b1b;
+      border-bottom: 4px solid #00bfb6;
     }
 
     .header-inner {
@@ -69,7 +69,7 @@
 
     .subtitle {
       margin-top: 10px;
-      color: #bed1cd;
+      color: #464646;
       max-width: 58ch;
       line-height: 1.5;
     }
@@ -917,11 +917,16 @@
         height: 260px;
       }
     }
+    .connector-form > .field { display: none; }
   </style>
 </head>
 <body>
   <header class="app-header">
     <div class="header-inner">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap">
+        <a href="https://www.buildwise.be/fr/"><img src="/assets/buildwise-logo.svg" alt="Buildwise" width="235" height="27"></a>
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap"><span id="signedInEmail"></span><button id="logoutButton" class="secondary-button" type="button">Se déconnecter</button></div>
+      </div>
       <div>
         <h1>Odoo Time Dashboard</h1>
         <p class="subtitle">Timesheet and project contribution exports, excluding Internal holiday rows from every percentage.</p>
@@ -951,14 +956,14 @@
 
   <main>
     <section class="status-bar" aria-live="polite">
-      <p id="statusText">Use the Odoo API fields below to fetch employee and project data.</p>
+      <p id="statusText">Fetch employee and project data using your signed-in Odoo account.</p>
       <span id="statusPill" class="status-pill warn">Waiting</span>
     </section>
 
     <section class="panel connector-panel" aria-label="Odoo API connection">
       <div class="panel-head">
         <div>
-          <h2>Odoo API</h2>
+          <h2>Odoo connection</h2>
         </div>
         <div id="odooConnectionStatus" class="panel-meta connector-status">Not tested</div>
       </div>
@@ -978,7 +983,7 @@
         </label>
         <label class="field">
           <span>API key</span>
-          <input id="odooApiKey" type="password" autocomplete="current-password" placeholder="Paste key or use config.local.json">
+          <input id="odooApiKey" type="password" autocomplete="off" placeholder="Using your signed-in Odoo session" disabled>
         </label>
         <div class="connector-actions">
           <!--
@@ -1191,7 +1196,23 @@
 
       els.odooUrl.value = ODOO_DEFAULT_URL;
       els.odooDatabase.value = ODOO_DEFAULT_DATABASE;
+      const originalFetch = window.fetch.bind(window);
+      window.fetch = async (...args) => {
+        const response = await originalFetch(...args);
+        if (response.status === 401) {
+          const result = await response.clone().json().catch(() => ({}));
+          if (result.authenticationRequired) window.location.replace("/login");
+        }
+        return response;
+      };
       loadConnectorConfig();
+      document.getElementById("logoutButton").addEventListener("click", async () => {
+        try {
+          const response = await fetch("/api/auth/logout", { method: "POST" });
+          if (!response.ok) throw new Error("Sign-out failed. Please try again.");
+          window.location.replace("/login");
+        } catch (error) { setOdooConnectionStatus(error.message, "warn"); }
+      });
 
       if (els.employeeFile) {
         els.employeeFile.addEventListener("change", () => {
@@ -1286,6 +1307,7 @@
           }
           if (config.username) {
             els.odooUsername.value = config.username;
+            document.getElementById("signedInEmail").textContent = config.username;
           }
           if (config.employeeName) {
             els.timesheetEmployeeName.value = config.employeeName;
@@ -1296,8 +1318,9 @@
           if (config.hasApiKey) {
             els.odooApiKey.placeholder = "Loaded from config.local.json";
           }
-          if (config.hasConfig) {
-            setOdooConnectionStatus("Config loaded, not tested", "warn");
+          if (config.authenticated) {
+            [els.odooUrl, els.odooDatabase, els.odooUsername].forEach((input) => { input.readOnly = true; });
+            setOdooConnectionStatus("Signed in to Odoo", "ok");
           }
         } catch (_) {
           // Opening index.html directly keeps the XLSX-only workflow working.

@@ -1,30 +1,39 @@
 # Testing
 
-No automated test files, test runner, package scripts or CI checks are defined in the inspected repository. No dedicated lint or typecheck configuration is present.
+## Authentication integration suite
 
-## Lightweight checks
+```powershell
+node --test tests/auth.test.js
+```
+
+The Node built-in test runner launches a copy of the application in an isolated temporary directory and a local simulated XML-RPC server. It does not use real credentials or the repository's private configuration.
+
+Ten tests cover public/protected routes, invalid login and XML-RPC faults, identity overrides, secret non-disclosure, restricted static files, separate users, logout/CSRF, forged cookies, upstream failure, session rotation/expiry, Secure cookies and login rate limiting.
+
+## Syntax and configuration
 
 ```powershell
 node --check server.js
 docker compose config --quiet
 ```
 
-These validate server syntax and Compose configuration. They do not verify Odoo authentication, workbook parsing, data correctness or rendering.
+Inline JavaScript in index.html and login.html can be parsed with Node vm.Script. Syntax checks do not validate rendering or data calculations.
 
-## Manual functional checks
+## Manual checks
 
-- Open index.html and import personal timesheets and planning; inspect project totals and year filters.
-- Load project actual/planning exports and deadline files; inspect charts and shared legend toggles.
-- Run node server.js; check /, /api/config, blocked private configuration and invalid API methods.
-- With authorized credentials, test the connection, fetch personal data and drill down into a project. Confirm Odoo permissions and warnings.
+- Verify welcome-page layout at desktop and mobile widths, field labels, keyboard focus and password visibility toggle.
+- With a real Odoo account, sign in, test the connection, fetch employee/project data and sign out. Confirm Odoo permissions and authentication settings.
+- Check session-cookie behavior behind the actual HTTPS reverse proxy.
 - Build and run Docker separately when container behavior needs validation.
 
-## Coverage gaps
+## Current coverage and gaps
 
-The embedded XLSX and XML-RPC parsers, planning allocation, schema fallbacks, project matching and charts have no repository-defined regression suite. Example XLSX files exist, but are not wired into automated tests.
+The welcome page was visually inspected at desktop/mobile widths, including the visibility toggle; mobile horizontal overflow was checked. The ten simulated-Odoo tests passed on 2026-10-05 using Node v24.10.0.
+
+There is no dedicated lint/typecheck setup or CI workflow. XLSX/XML-RPC parsers, planning allocation and charts do not have a comprehensive regression suite. Live Odoo, real-account browser login, data imports and Docker build/runtime were not validated by this suite.
 
 ## Refresh
 
 - Last refreshed: 2026-10-05
-- Source basis: repository file inventory, server.js, index.html and Docker configuration.
-- Limitations: manual functional checks above are suggested checks, not claims that they were performed.
+- Source basis: tests/auth.test.js, server.js, index.html, login.html and Docker configuration.
+- Limitations: simulated authentication is not proof of compatibility with real Buildwise accounts.

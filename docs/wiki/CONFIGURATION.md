@@ -1,39 +1,39 @@
 # Configuration
 
-## Files and precedence
+## Odoo instance
 
-Copy [config.example.json](../../config.example.json) to config.local.json for private server-side settings. The latter must contain a JSON object and is read when connector settings are requested. Malformed configuration produces an error rather than silently falling back.
+Copy [config.example.json](../../config.example.json) to private config.local.json if the defaults need changing. The file must contain a JSON object.
 
-For each field, the first nonblank request value wins over local configuration and built-in defaults.
+- odooUrl (alias url): HTTP/HTTPS base URL, default https://odoo.buildwise.be/. A trailing /web is normalized to the origin.
+- database: Odoo database, default buildwiseprd.
 
-| Setting | Accepted values and defaults |
-| --- | --- |
-| Odoo URL | Request url or odooUrl; config odooUrl or url; default https://odoo.buildwise.be/. Only http/https are accepted; a trailing /web is normalized to the origin. |
-| Database | database; default buildwiseprd. |
-| Username | username; no default. |
-| API key | Request apiKey; config apiKey or api_key; no default. |
-| Employee | employeeName; no default. |
-| Project reference | Request projectCode, projectName or projectQuery; config projectId, projectID or projectCode. Numeric characters are extracted when present. |
+Login accepts email and password only; the client cannot select another instance. The session stores the chosen URL/database and the authenticated credentials. Existing config username/apiKey/employeeName values do not override session identity or prefill another employee's data.
 
-/api/config returns non-secret fields and hasApiKey. Static requests for config.local.json are blocked, and .gitignore excludes that file.
+Authenticated queries accept employeeName or projectCode (aliases projectName/projectQuery). Request URL, database, username and apiKey values are ignored in favor of the session. /api/config returns the session's public connector fields, authenticated: true and hasApiKey: false, never its password.
 
 ## Environment
 
-| Variable | Local default | Container value |
+| Variable | Default | Purpose |
 | --- | --- | --- |
-| HOST | 127.0.0.1 | 0.0.0.0 |
-| PORT | 8765 | 8765 |
+| HOST | 127.0.0.1 | HTTP listener; Docker/Compose uses 0.0.0.0. |
+| PORT | 8765 | HTTP port. |
+| SESSION_TTL_SECONDS | 28800 | Fixed positive session lifetime; invalid values prevent startup. |
+| SESSION_COOKIE_SECURE | false | Set to true for HTTPS deployment; adds Secure and checks HTTPS POST origins. |
 
-The JSON body limit is 64 KiB and each XML-RPC fetch has a 15-second abort timer. These values are constants, not environment settings.
+TLS is handled externally. A reverse proxy must preserve the public Host header for origin checks. Forwarded headers are not trusted for client-IP rate limiting; users behind a proxy may share its login counter.
 
-## Docker configuration boundary
+Sessions and login counters live in one Node process. Logout, replacement login and expiry invalidate sessions; process restart clears them. Expired entries are pruned on incoming requests. Passwords are held in server memory for XML-RPC calls, without disk/browser persistence. Deployment across replicas needs a separate shared-session design.
 
-The optional Compose volume mounts ./config.local.json at /app/config.local.json read-only. However, .dockerignore does not exclude config.local.json, and Dockerfile uses COPY . .. If the file exists during a build, it can be copied into the image even when a bind mount is later enabled. Keep private configuration outside the build context when using the current Docker setup.
+The server accepts at most 1,000 live sessions and stores at most 10,000 active login-counter addresses. Ten attempts per address in 15 minutes trigger 429 with Retry-After; successful login clears the address's counter. JSON bodies are limited to 64 KiB; each XML-RPC fetch has a 15-second abort timer.
 
-The Compose port mapping publishes 8765 without a loopback-only host binding. The server has no dashboard authentication, and its static handler can serve repository files other than the blocked private configuration. Account for this when choosing the host or container network exposure.
+## Files and Docker
+
+config.local.json is excluded by .gitignore and .dockerignore. The optional Compose volume mounts it read-only at /app/config.local.json. Rebuild old images to apply the new build-context exclusion; existing images are unaffected.
+
+Only login.html, index.html and assets/buildwise-logo.svg are served by the application routes. Repository sources, documentation, workbooks and config files are not exposed, even after login. Compose still publishes port 8765 without a loopback-only binding.
 
 ## Refresh
 
 - Last refreshed: 2026-10-05
-- Source basis: server.js settings and static handler, config.example.json, .gitignore, .dockerignore, Dockerfile and docker-compose.yml.
-- Limitations: private configuration was not read; network exposure was not tested.
+- Source basis: server.js, config.example.json, Docker/config files and tests/auth.test.js.
+- Limitations: real Buildwise credentials, proxy/TLS deployment and Docker runtime were not verified.
