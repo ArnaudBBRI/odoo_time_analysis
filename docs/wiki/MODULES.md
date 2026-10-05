@@ -4,6 +4,7 @@
 | --- | --- |
 | [login.html](../../login.html) | Buildwise welcome page, email/password form, visibility toggle and authentication error messages. |
 | [assets/buildwise-logo.svg](../../assets/buildwise-logo.svg) | Official Buildwise logo extracted from its public SVG sprite. |
+| [tests/portfolio-ui.test.js](../../tests/portfolio-ui.test.js) | Frontend tests for zero-hour portfolio rows and unknown planning values. |
 | [tests/auth.test.js](../../tests/auth.test.js) | Isolated HTTP/XML-RPC authentication integration tests using the Node test runner. |
 | [index.html](../../index.html) | Inline CSS and JavaScript, connector UI, ZIP/XML workbook parsing, dataset conversion, year filters, canvas charts, tables and deadline overlays. |
 | [server.js](../../server.js) | HTTP routing, restricted application files, in-memory sessions, login rate limiting, origin checks, private configuration, input validation, Odoo authentication, paginated queries, XML-RPC encoding/decoding and monthly summaries. |
@@ -14,6 +15,10 @@
 | docs/wiki/ | Technical descriptions grounded in repository files. |
 | docs/ai-context/ | Project status, decisions and operational limitations. |
 | docs/ai-governance/ | Framework-managed assistant workflow. |
+
+## DiCo steering
+
+The DiCo steering extension separates shared calculations (`steering.js`), read orchestration (`steering-service.js`) and browser rendering (`steering-client.js` / `steering-client.css`). [Pilotage](PILOTAGE.md) documents its API, configuration, source restrictions and test harnesses.
 
 ## Refresh
 

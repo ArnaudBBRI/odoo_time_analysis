@@ -1,0 +1,62 @@
+// Optional rendered verification: PLAYWRIGHT_MODULE points to an existing installation.
+const assert = require("node:assert/strict");
+const path = require("node:path");
+const { startRuntime } = require("./steering-runtime");
+async function run() {
+  const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
+  const runtime = await startRuntime(); let browser;
+  try {
+    browser = await chromium.launch({ headless: true, ...(process.env.BROWSER_EXECUTABLE ? { executablePath: process.env.BROWSER_EXECUTABLE } : {}) });
+    const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+    const errors = []; page.on("pageerror", error => errors.push(error.message));
+    await page.goto(runtime.base + "/login");
+    const response = await page.request.post(runtime.base + "/api/auth/login", { data: { email: "person@example.com", password: "correct password" } }); assert.equal(response.status(), 200);
+    await page.goto(runtime.base + "/dashboard");
+    await page.locator('[data-view="unit"]').waitFor();
+    await page.waitForFunction(() => !document.querySelector('[data-view="unit"]').disabled);
+    await page.locator('[data-view="unit"]').click();
+    await page.getByText("Portefeuille de l’unité", { exact: true }).waitFor();
+    assert.equal(await page.locator('#pilotage-content button[data-project="12"]').count() > 0, true);
+    if (process.env.SCREENSHOT_DIR) await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR, "pilotage-unit-desktop.png"), fullPage: true });
+    await page.locator('[data-programme="digital"]').click();
+    assert.match(await page.locator("#pilotage-title").innerText(), /Programmes/);
+    await page.locator('#pilotage-content button[data-project="11"]').first().click();
+    await page.locator("#pilotage-detail-title").waitFor();
+    await page.locator('[data-tab="resources"]').click();
+    assert.match(await page.locator("#pilotage-tab-panel").innerText(), /WP 40/);
+    await page.locator('[data-tab="budgets"]').click(); assert.match(await page.locator("#pilotage-tab-panel").innerText(), /Matériel/);
+    await page.locator('[data-tab="quality"]').click(); assert.match(await page.locator("#pilotage-tab-panel").innerText(), /25 %/);
+    await page.locator('[data-tab="quality"]').press('ArrowLeft');
+    assert.equal(await page.locator('[data-tab="budgets"]').getAttribute('aria-selected'), 'true');
+    await page.locator("#pilotage-my-projects").click();
+    assert.equal(await page.locator("#pilotage-leader").isChecked(), true);
+    assert.equal(await page.locator('#pilotage-content button[data-project="12"]').count(), 0);
+    await page.locator("#pilotage-period").selectOption("2027");
+    assert.match(await page.locator("#pilotage-content").innerText(), /Aucun projet accessible/);
+    await page.locator("#pilotage-period").selectOption("");
+    await page.locator("#pilotage-leader").uncheck();
+    await page.locator('[data-view="unit"]').click();
+    await page.locator("#pilotage-refresh").click();
+    await page.waitForFunction(() => !document.getElementById("pilotage-refresh").disabled);
+    await page.setViewportSize({ width: 390, height: 844 });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    if (process.env.SCREENSHOT_DIR) await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR, "pilotage-unit-mobile.png"), fullPage: true });
+    await page.locator('#pilotage-content button[data-project="11"]').first().click();
+    await page.locator("#pilotage-detail-title").waitFor();
+    await page.locator('[data-tab="resources"]').click();
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    if (process.env.SCREENSHOT_DIR) await page.locator('#pilotage-detail').screenshot({ path: path.join(process.env.SCREENSHOT_DIR, "pilotage-project-mobile.png") });
+    await page.route('**/api/odoo/pilotage/portfolio', route => route.fulfill({ status: 502, contentType: 'application/json', body: JSON.stringify({ ok: false, error: 'Erreur simulée de lecture' }) }));
+    await page.locator('#pilotage-refresh').click();
+    await page.waitForFunction(() => !document.getElementById('pilotage-refresh').disabled);
+    assert.match(await page.locator('#pilotage-status').innerText(), /Erreur simulée/);
+    assert.equal(await page.locator('#pilotage-content').innerText(), '');
+    await page.unroute('**/api/odoo/pilotage/portfolio');
+    await page.locator('#pilotage-refresh').click();
+    await page.waitForFunction(() => !document.getElementById('pilotage-refresh').disabled);
+    assert.match(await page.locator('#pilotage-content').innerText(), /Projet Alpha/);
+    assert.deepEqual(errors, []);
+    console.log("Rendered pilotage checks passed: unit → programme → project, four tabs, leader focus, filters, refresh, 390px overflow, no JavaScript errors.");
+  } finally { if (browser) await browser.close(); await runtime.close(); }
+}
+run().catch(error => { console.error(error); process.exitCode = 1; });

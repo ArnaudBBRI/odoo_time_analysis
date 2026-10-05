@@ -1,4 +1,10 @@
 {
   "odooUrl": "https://odoo.buildwise.be/",
-  "database": "buildwiseprd"
+  "database": "buildwiseprd",
+  "pilotage": {
+    "unitConfirmed": false,
+    "unitDomain": [],
+    "projectLeaderField": "user_id",
+    "programmes": []
+  }
 }

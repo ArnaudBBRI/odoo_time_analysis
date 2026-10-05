@@ -11,7 +11,11 @@ Login accepts email and password only; the client cannot select another instance
 
 Authenticated queries accept employeeName or projectCode (aliases projectName/projectQuery). Request URL, database, username and apiKey values are ignored in favor of the session. /api/config returns the session's public connector fields, authenticated: true and hasApiKey: false, never its password.
 
-## Environment
+## DiCo steering
+
+The optional `pilotage` object controls a confirmed `unitDomain`, the `projectLeaderField` user relation and a non-secret programme/project-ID reference. Defaults are disabled with an empty reference. See [steering configuration](PILOTAGE.md#configuration-and-activation) for validation and an illustrative example. The connected-person Lead Unit flow is separate.
+
+## Environment variables
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
@@ -37,3 +41,5 @@ Only login.html, index.html and assets/buildwise-logo.svg are served by the appl
 - Last refreshed: 2026-10-05
 - Source basis: server.js, config.example.json, Docker/config files and tests/auth.test.js.
 - Limitations: real Buildwise credentials, proxy/TLS deployment and Docker runtime were not verified.
+
+The portfolio ownership field is fixed to project.project.lead_unit_id. User-unit resolution is server-side and does not use projectOwnerField or client-selected team values.

@@ -13,6 +13,7 @@ Repository-derived documentation; start with [Overview](OVERVIEW.md) or the [REA
 - [Build and Run](BUILD.md)
 - [Testing](TESTING.md)
 - [Configuration](CONFIGURATION.md)
+- [DiCo Steering: Projects, Programmes and Unit](PILOTAGE.md)
 - [Buildwise Visual Reference](BRANDING.md)
 
 Project status and follow-up work belong in [Current State](../ai-context/CURRENT_STATE.md) and [Known Issues](../ai-context/KNOWN_ISSUES.md). Assistant governance is maintained separately under docs/ai-governance/.

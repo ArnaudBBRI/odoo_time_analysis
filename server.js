@@ -3,6 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const { AsyncLocalStorage } = require("async_hooks");
+const steeringService = require("./steering-service");
 
 const HOST = process.env.HOST || "127.0.0.1";
 const PORT = Number(process.env.PORT || 8765);
@@ -87,6 +88,18 @@ const server = http.createServer((request, response) => {
       }
       if (url.pathname === "/api/config") {
         await handleDashboardConfig(request, response);
+        return;
+      }
+      if (["/api/odoo/pilotage/metadata", "/api/odoo/pilotage/portfolio", "/api/odoo/pilotage/project"].includes(url.pathname)) {
+        await handleSteering(request, response, url.pathname);
+        return;
+      }
+      if (["/steering.js", "/steering-client.js", "/steering-client.css"].includes(url.pathname)) {
+        await serveStaticFile(url.pathname, response);
+        return;
+      }
+      if (["/api/odoo/my-lead-unit", "/api/odoo/team-projects"].includes(url.pathname)) {
+        await handleTeamPortfolio(request, response, url.pathname);
         return;
       }
       if (url.pathname === "/api/odoo/test-connection") {
@@ -850,7 +863,8 @@ async function searchReadAll(odooUrl, database, uid, apiKey, model, domain, fiel
       fields,
       offset,
       limit: pageSize,
-      order: options.order || "id asc"
+      order: options.order || "id asc",
+      ...(options.context ? { context: options.context } : {})
     });
     if (!Array.isArray(rows)) {
       throw new Error(`${model}.search_read returned an unexpected response`);
@@ -1409,4 +1423,183 @@ function unescapeXml(value) {
 function sendJson(response, status, payload) {
   response.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
   response.end(JSON.stringify(payload));
+}
+
+async function handleSteering(request, response, route) {
+  if (request.method !== "POST") { sendJson(response, 405, { ok: false, error: "Use POST for this endpoint" }); return; }
+  let body;
+  try { body = await readJsonBody(request); }
+  catch (error) { sendJson(response, 400, { ok: false, error: error.message }); return; }
+  try {
+  const settings = getAuthSettings({});
+  const uid = await authenticateOdoo(settings.odooUrl, settings.database, settings.username, settings.apiKey);
+  if (!uid) { sendJson(response, 401, { ok: false, error: "Odoo rejected your credentials", authenticationRequired: true }); return; }
+  const args = [settings.odooUrl, settings.database, uid, settings.apiKey];
+  const rpc = {
+    fields: model => getModelFields(...args, model),
+    read: (model, domain, fields) => searchReadAll(...args, model, domain, fields, { context: { active_test: false }, order: "id asc" }),
+    group: (model, domain, kwargs) => executeKw(...args, model, "read_group", [domain], kwargs)
+  };
+  const config = readDashboardConfigInfo().values.pilotage || {};
+    if (route.endsWith("/metadata")) {
+      sendJson(response, 200, { ok: true, ...steeringService.publicMetadata(await steeringService.metadata(config, rpc)) });
+      return;
+    }
+    let projectId = null;
+    if (route.endsWith("/project")) {
+      projectId = body?.projectId;
+      if (!Number.isSafeInteger(projectId) || projectId <= 0) { sendJson(response, 400, { ok: false, error: "projectId must be a positive integer" }); return; }
+    }
+    const result = await steeringService.load(config, rpc, uid, projectId);
+    sendJson(response, result.notFound ? 404 : 200, result);
+  } catch (_) {
+    // Upstream fault strings can contain record details or secrets; never expose them here.
+    sendJson(response, 502, { ok: false, error: "Lecture du pilotage indisponible. Vérifier le filtre DiCo, le référentiel programmes et les accès Odoo." });
+  }
+}
+
+function leadUnitRelations(definitions, relation) {
+  const rank = (name, field) => {
+    const label = String(field.string || "").toLowerCase().replace(/[^a-z]/g, "");
+    if (name === "lead_unit_id" || label === "leadunit") return 1;
+    if (name === "unit_id" || label === "unit") return 2;
+    if (name === "department_id") return 3;
+    return 0;
+  };
+  return Object.entries(definitions).filter(([name, field]) =>
+    field.type === "many2one" && field.relation === relation && rank(name, field)
+  ).map(([name, field]) => ({ name, rank: rank(name, field) })).sort((a, b) => a.rank - b.rank);
+}
+
+async function ownLeadUnit(settings, uid) {
+  const args = [settings.odooUrl, settings.database, uid, settings.apiKey];
+  const projectFields = await getModelFields(...args, "project.project");
+  const field = projectFields.lead_unit_id;
+  if (!field || field.type !== "many2one" || !field.relation) throw new Error("Odoo project Lead Unit (lead_unit_id) is unavailable");
+  const userFields = await getModelFields(...args, "res.users");
+  const userLinks = leadUnitRelations(userFields, field.relation);
+  let identities = [];
+  if (userLinks.length) {
+    const users = await searchReadAll(...args, "res.users", [["id", "=", uid]], userLinks.map(link => link.name));
+    identities = users.map(user => ({ record: user, links: userLinks }));
+  }
+  if (!identities.some(({ record, links }) => links.some(link => relationalId(record[link.name])))) {
+    let lookupError;
+    for (const model of ["hr.employee", "hr.employee.public"]) {
+      try {
+        const employeeFields = await getModelFields(...args, model);
+        const links = leadUnitRelations(employeeFields, field.relation);
+        if (employeeFields.user_id?.relation !== "res.users" || !links.length) continue;
+        const employees = await searchReadAll(...args, model, [["user_id", "=", uid]], links.map(link => link.name));
+        if (employees.length) { identities = employees.map(record => ({ record, links })); break; }
+      } catch (error) { lookupError = error; }
+    }
+    if (!identities.length && lookupError) throw new Error("Your employee Lead Unit cannot be read with your Odoo permissions");
+  }
+  const relatedFields = await getModelFields(...args, field.relation);
+  const directLinks = leadUnitRelations(relatedFields, field.relation).filter(link => link.rank < 3);
+  const unitFields = ["id", "name", ...directLinks.map(link => link.name),
+    ...(relatedFields.parent_id?.relation === field.relation ? ["parent_id"] : []),
+    ...(relatedFields.is_unit?.type === "boolean" ? ["is_unit"] : [])];
+  const units = [];
+  for (const { record, links } of identities) {
+    const link = links.find(entry => relationalId(record[entry.name]));
+    if (!link) continue;
+    let id = Number(relationalId(record[link.name]));
+    const seen = new Set();
+    while (id && !seen.has(id) && seen.size < 32) {
+      seen.add(id);
+      const nodes = await searchReadAll(...args, field.relation, [["id", "=", id]], unitFields);
+      const node = nodes[0];
+      if (!node) break;
+      if (link.rank < 3 || node.is_unit === true || /\bunit\s*$/i.test(String(node.name))) {
+        units.push({ id: Number(node.id), name: node.name }); break;
+      }
+      const direct = directLinks.find(entry => relationalId(node[entry.name]) && Number(relationalId(node[entry.name])) !== id);
+      if (direct) {
+        const target = await searchReadAll(...args, field.relation, [["id", "=", Number(relationalId(node[direct.name]))]], ["id", "name"]);
+        if (target[0]) units.push({ id: Number(target[0].id), name: target[0].name });
+        break;
+      }
+      id = Number(relationalId(node.parent_id));
+    }
+  }
+  const unique = [...new Map(units.map(unit => [unit.id, unit])).values()];
+  if (unique.length !== 1) throw new Error(unique.length ? "Your Odoo account has multiple Lead Units; contact your administrator" : "No Lead Unit is linked to your Odoo account");
+  return { field: { name: "lead_unit_id", relation: field.relation }, team: unique[0] };
+}
+
+async function handleTeamPortfolio(request, response, route) {
+  if (request.method !== "POST") {
+    sendJson(response, 405, { ok: false, error: "Use POST for this endpoint" });
+    return;
+  }
+  let body;
+  try { body = await readJsonBody(request); }
+  catch (error) { sendJson(response, 400, { ok: false, error: error.message }); return; }
+  const settings = getAuthSettings({});
+  const uid = await authenticateOdoo(settings.odooUrl, settings.database, settings.username, settings.apiKey);
+  if (!uid) { sendJson(response, 401, { ok: false, error: "Odoo rejected your credentials" }); return; }
+  let resolved;
+  try { resolved = await ownLeadUnit(settings, uid); }
+  catch (error) { sendJson(response, 422, { ok: false, error: error.message }); return; }
+  const { field, team } = resolved;
+  const teamId = team.id;
+  if (route === "/api/odoo/my-lead-unit") {
+    sendJson(response, 200, { ok: true, leadUnit: team }); return;
+  }
+  const args = [settings.odooUrl, settings.database, uid, settings.apiKey];
+  const domain = [[field.name, "in", [teamId]]];
+  const projects = await searchReadAll(...args, "project.project", domain, ["id", "name", field.name], {
+    order: "name asc", context: { active_test: false }
+  });
+  const counts = new Map();
+  projects.forEach(project => counts.set(String(project.name), (counts.get(String(project.name)) || 0) + 1));
+  projects.forEach(project => { if (counts.get(String(project.name)) > 1) project.name = `${project.name} (ID ${project.id})`; });
+  const projectIds = projects.map(project => Number(project.id));
+  const names = new Map(projects.map(project => [Number(project.id), String(project.name)]));
+  let lines = [], slots = [], planningError = null;
+  if (projectIds.length) {
+    const actualRows = await searchReadAll(...args, "account.analytic.line", [["project_id", "in", projectIds]],
+      ["id", "date", "unit_amount", "name", "employee_id", "project_id", "task_id"], { order: "date asc, id asc" });
+    lines = actualRows.map(normalizeTimesheetLine).filter(line => line.date && names.has(Number(line.projectId)));
+    lines.forEach(line => { line.project = names.get(Number(line.projectId)); });
+    try {
+      const definitions = await getModelFields(...args, "planning.slot");
+      const available = new Set(Object.keys(definitions));
+      const slotFields = ["id", "name", "start_datetime", "end_datetime", "allocated_hours", "allocated_percentage",
+        "employee_id", "resource_id", "project_id", "task_id", "sale_line_id", "role_id"].filter(name => available.has(name));
+      let planningDomain;
+      if (definitions.project_id?.relation === "project.project") {
+        planningDomain = [["project_id", "in", projectIds]];
+      } else if (definitions.task_id?.relation) {
+        const taskDefinitions = await getModelFields(...args, definitions.task_id.relation);
+        if (taskDefinitions.project_id?.relation === "project.project") planningDomain = [["task_id.project_id", "in", projectIds]];
+      }
+      if (!planningDomain) throw new Error("Planning has no supported project relation; no unfiltered query was made");
+      const rawSlots = await searchReadAll(...args, "planning.slot", planningDomain, slotFields, { order: "id asc" });
+      if (!available.has("project_id")) {
+        const taskIds = [...new Set(rawSlots.map(slot => relationalId(slot.task_id)).filter(Boolean))];
+        const tasks = taskIds.length ? await searchReadAll(...args, definitions.task_id.relation, [["id", "in", taskIds]], ["id", "project_id"]) : [];
+        const taskProjects = new Map(tasks.map(task => [Number(task.id), task.project_id]));
+        rawSlots.forEach(slot => { slot.project_id = taskProjects.get(Number(relationalId(slot.task_id))) || false; });
+      }
+      slots = rawSlots.map(normalizePlanningSlot).filter(slot => names.has(Number(slot.projectId)));
+      slots.forEach(slot => { slot.project = names.get(Number(slot.projectId)); });
+    } catch (error) { planningError = error.message; }
+  }
+  sendJson(response, 200, {
+    ok: true, team: { id: teamId, name: team.name }, ownerField: field.name, domain,
+    projects: projects.map(project => ({ id: project.id, name: project.name,
+      timesheets: { projectName: project.name, projectCode: String(project.id),
+        monthly: buildMonthlyTimesheetEmployeeSummary(lines.filter(line => Number(line.projectId) === Number(project.id))) },
+      planning: planningError ? null : { projectName: project.name, projectCode: String(project.id),
+        monthly: buildMonthlyPlanningEmployeeSummary(slots.filter(slot => Number(slot.projectId) === Number(project.id))) }
+    })),
+    timesheets: { ok: true, lineCount: lines.length, totalHours: roundHours(lines.reduce((sum, line) => sum + line.hours, 0)),
+      monthly: buildMonthlyTimesheetSummary(lines), lines },
+    planning: planningError ? null : { ok: true, slotCount: slots.length, totalHours: roundHours(slots.reduce((sum, slot) => sum + slot.hours, 0)),
+      monthly: buildMonthlyPlanningSummary(slots), slots },
+    planningError
+  });
 }

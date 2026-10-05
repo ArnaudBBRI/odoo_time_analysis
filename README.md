@@ -4,6 +4,8 @@ The dashboard compares Odoo timesheets and planning. Run the server, open the Bu
 
 ## Local Server Quick Start
 
+The dashboard also includes French DiCo project/programme/unit steering views with coverage diagnostics, separate convention/annual budgets and a connected-project-leader shortcut. They require a confirmed responsible-unit filter in private configuration. See [DiCo steering setup and measures](docs/wiki/PILOTAGE.md); the existing time dashboard remains available when steering is disabled.
+
 Use Node.js 22 to match the Docker runtime. No npm installation or build step is required. To use the Odoo API features, start the local server from this repository folder:
 
 ```bash
@@ -84,21 +86,17 @@ The server reads the instance URL and database for sign-in. Existing username, A
 
 ## Running With The Odoo Connector
 
-Start the server and sign in before fetching data. No separate API key entry is needed. The connection test and fetch actions reuse the Odoo session credentials. The API retains Odoo's permissions; a dashboard login does not grant additional access.
+Start the server and sign in before fetching data. No separate API key entry is needed. Fetch actions reuse the Odoo session credentials. The API retains Odoo's permissions; a dashboard login does not grant additional access.
 
-Use **Timesheet Debug** to enter an employee name and fetch matching API data. One click fetches:
+## My Lead Unit Portfolio
 
-- `account.analytic.line` timesheet records for actual hours.
-- `planning.slot` planning records for planned hours.
+Projects load automatically for the signed-in person's **Lead Unit**. There is no field or team selector. Use **Refresh** to reload the portfolio. The time view shows only the connected Lead Unit and useful loading/error messages, without a connection-test panel or a Ready banner.
 
-The fetched actual hours feed the `Actual time` personal pie. The fetched planning slots feed the `Planned time` personal pie and the remaining-hours table.
+The project ownership field is `project.project.lead_unit_id`. The server reads the authenticated user by exact UID, using its Lead Unit/Unit relation when available, or an employee record linked through `user_id`. If only department membership is available, it follows the department's explicit unit relation, unit flag or parent hierarchy to a department named as a Unit. It does not look up people by name or accept client overrides of the unit.
 
-Click a project name in the remaining-hours table to fetch detailed project data for that project. One click fetches:
+All accessible projects whose lead_unit_id matches that unit are listed, including archived and zero-hour projects. Hours cover all contributors on those projects. Clicking a project displays its already loaded ID-scoped detail. Year filters affect hour totals without removing zero-hour owned projects.
 
-- `account.analytic.line` timesheet records for everyone who encoded hours on that project.
-- `planning.slot` planning records for everyone planned on that project.
-
-The fetched project timesheets feed the per-project contribution pie, monthly line chart, and cumulative line chart. The fetched project planning feeds the per-project `Planned vs actual` chart. Only one project detail section is shown at a time; clicking another project replaces the previous one.
+If no unique Lead Unit can be resolved, the application reports it and makes no project query. Unsupported planning relations leave planned/remaining values unknown while retaining the projects. Odoo record permissions still apply.
 
 ## Files To Provide
 
@@ -242,8 +240,8 @@ Used for:
 
 ## Data Interpretation And Runtime Limits
 
-- The personal chart label `Actual time (as of today)` reflects loaded data within the selected year scope. There is no separate cutoff excluding future-dated records.
-- Personal remaining hours equal planned minus actual for the selected years; negative values indicate actual hours exceeding that plan.
+- Portfolio actual/planned charts reflect loaded records within the selected year scope; there is no separate cutoff excluding future-dated records.
+- Portfolio remaining hours equal planned minus actual for the selected years; negative values indicate actual hours exceeding that plan.
 - API planning slots are distributed across months in proportion to elapsed time. This is not a working-day or holiday-calendar calculation.
 - XLSX imports run in browser memory and are not uploaded to the server. Reloading requires importing or fetching again.
 - The embedded XLSX reader requires a browser with `DecompressionStream` support. No external workbook or chart library is loaded.

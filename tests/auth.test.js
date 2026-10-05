@@ -1,3 +1,11 @@
+function mockValue(value) {
+  const escape = value => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  if (Array.isArray(value)) return `<array><data>${value.map(item => `<value>${mockValue(item)}</value>`).join('')}</data></array>`;
+  if (value && typeof value === 'object') return `<struct>${Object.entries(value).map(([name, item]) => `<member><name>${escape(name)}</name><value>${mockValue(item)}</value></member>`).join('')}</struct>`;
+  if (typeof value === 'boolean') return `<boolean>${value ? 1 : 0}</boolean>`;
+  if (typeof value === 'number') return Number.isInteger(value) ? `<int>${value}</int>` : `<double>${value}</double>`;
+  return `<string>${escape(value)}</string>`;
+}
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const http = require("node:http");
@@ -18,6 +26,34 @@ async function fixture(options = {}) {
       return;
     }
     let value = '<array><data></data></array>';
+    if (options.TEAM_FIXTURE && xml.includes('<methodName>execute_kw</methodName>')) {
+      const defs = { lead_unit_id: { string: 'Lead Unit', type: 'many2one', relation: 'hr.department' } };
+      let result = [];
+      if (xml.includes('<string>fields_get</string>')) {
+        if (xml.includes('<string>res.users</string>')) result = options.TEAM_FIXTURE === 'direct-unit' ? { lead_unit_id: defs.lead_unit_id } : {};
+        else if (xml.includes('<string>hr.employee</string>') || xml.includes('<string>hr.employee.public</string>')) result = { user_id: { type: 'many2one', relation: 'res.users' }, department_id: { type: 'many2one', relation: 'hr.department' } };
+        else if (xml.includes('<string>hr.department</string>')) result = { id: { type: 'integer' }, name: { type: 'char' }, parent_id: { type: 'many2one', relation: 'hr.department' } };
+        else if (xml.includes('<string>project.project</string>')) result = defs;
+        else if (xml.includes('<string>planning.slot</string>')) result = options.TEAM_FIXTURE === 'no-planning-relation' ? { id: { type: 'integer' } } : {
+          id: { type: 'integer' }, name: { type: 'char' }, start_datetime: { type: 'datetime' }, end_datetime: { type: 'datetime' },
+          allocated_hours: { type: 'float' }, employee_id: { type: 'many2one', relation: 'hr.employee' },
+          ...(options.TEAM_FIXTURE === 'task-planning' ? { task_id: { type: 'many2one', relation: 'project.task' } } : { project_id: { type: 'many2one', relation: 'project.project' } })
+        };
+        else if (xml.includes('<string>project.task</string>')) result = { project_id: { type: 'many2one', relation: 'project.project' } };
+      } else if (xml.includes('<string>res.users</string>')) result = [{ id: 7, lead_unit_id: [4, 'Team A UNIT'] }];
+      else if (xml.includes('<string>hr.employee</string>') || xml.includes('<string>hr.employee.public</string>')) result = options.TEAM_FIXTURE === 'no-unit' ? [] : options.TEAM_FIXTURE === 'multiple-units' ? [{ id: 20, department_id: [4, 'Team A UNIT'] }, { id: 21, department_id: [6, 'Team B UNIT'] }] : [{ id: 20, department_id: [13, 'AI TEAM'] }];
+      else if (xml.includes('<string>hr.department</string>')) result = xml.includes('<int>13</int>') ? [{ id: 13, name: 'AI TEAM', parent_id: [4, 'Team A UNIT'] }] : xml.includes('<int>6</int>') ? [{ id: 6, name: 'Team B UNIT' }] : [{ id: 4, name: 'Team A UNIT' }];
+      else if (xml.includes('<string>project.project</string>')) result = options.TEAM_FIXTURE === 'empty' ? [] : [{ id: 11, name: 'Owned project', lead_unit_id: [4, 'Team A UNIT'] }, { id: 12, name: 'No hours yet', lead_unit_id: [4, 'Team A UNIT'] }];
+      else if (xml.includes('<string>account.analytic.line</string>')) result = [
+        { id: 1, date: '2026-01-01', unit_amount: 3, employee_id: [20, 'Employee A'], project_id: [11, 'Owned project'] },
+        { id: 2, date: '2026-01-02', unit_amount: 5, employee_id: [21, 'Employee B'], project_id: [11, 'Owned project'] },
+        { id: 3, date: '2026-01-02', unit_amount: 99, employee_id: [21, 'Employee B'], project_id: [99, 'Other team project'] }
+      ];
+      else if (xml.includes('<string>planning.slot</string>')) result = [{ id: 6, name: 'Slot', start_datetime: '2026-01-01 00:00:00', end_datetime: '2026-02-01 00:00:00', allocated_hours: 10,
+        employee_id: [20, 'Employee A'], ...(options.TEAM_FIXTURE === 'task-planning' ? { task_id: [30, 'Task'] } : { project_id: [11, 'Owned project'] }) }];
+      else if (xml.includes('<string>project.task</string>')) result = [{ id: 30, project_id: [11, 'Owned project'] }];
+      value = mockValue(result);
+    }
     if (xml.includes('<methodName>authenticate</methodName>')) {
       value = xml.includes('<string>correct password</string>')
         ? (xml.includes('second@example.com') ? '<int>8</int>' : '<int>7</int>')
@@ -31,7 +67,7 @@ async function fixture(options = {}) {
   mock.listen(0, '127.0.0.1');
   await once(mock, 'listening');
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'bw-auth-test-'));
-  for (const file of ['server.js', 'index.html', 'login.html']) fs.copyFileSync(path.join(__dirname, '..', file), path.join(directory, file));
+  for (const file of ['server.js', 'index.html', 'login.html', 'steering.js', 'steering-service.js', 'steering-client.js', 'steering-client.css']) fs.copyFileSync(path.join(__dirname, '..', file), path.join(directory, file));
   fs.mkdirSync(path.join(directory, 'assets'));
   fs.copyFileSync(path.join(__dirname, '..', 'assets', 'buildwise-logo.svg'), path.join(directory, 'assets', 'buildwise-logo.svg'));
   fs.writeFileSync(path.join(directory, 'config.local.json'), JSON.stringify({
@@ -190,3 +226,66 @@ test('repeated unsuccessful logins are rate limited', async t => {
   assert.equal(response.status, 429);
   assert.ok(Number(response.headers.get('retry-after')) > 0);
 });
+
+test('connected employee Lead Unit determines the portfolio; caller overrides are ignored', async t => {
+  const f = await fixture({ TEAM_FIXTURE: 'standard' });
+  t.after(() => f.close());
+  const auth = cookie(await f.login());
+  const post = (route, body) => f.request(`/api/odoo/${route}`, { method: 'POST', headers: { Cookie: auth, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const identity = await (await post('my-lead-unit', {})).json();
+  assert.equal(identity.leadUnit.id, 4);
+  assert.equal(identity.leadUnit.name, 'Team A UNIT');
+  const portfolio = await (await post('team-projects', { ownerField: 'user_id', teamId: 6, employeeName: 'ignored' })).json();
+  assert.deepEqual(portfolio.domain, [['lead_unit_id', 'in', [4]]]);
+  assert.equal(portfolio.projects.length, 2);
+  assert.equal(portfolio.projects[1].timesheets.monthly.length, 0);
+  assert.equal(portfolio.timesheets.totalHours, 8);
+  assert.equal(portfolio.planning.totalHours, 10);
+  assert.equal(portfolio.projects[0].timesheets.monthly[0].employees.length, 2);
+  const queries = f.calls.filter(xml => xml.includes('<string>search_read</string>'));
+  const employeeQueries = queries.filter(xml => xml.includes('<string>hr.employee</string>'));
+  assert.ok(employeeQueries.length);
+  for (const xml of employeeQueries) {
+    assert.match(xml, /<string>user_id<\/string>/);
+    assert.match(xml, /<int>7<\/int>/);
+  }
+  for (const xml of queries.filter(xml => xml.includes('<string>account.analytic.line</string>') || xml.includes('<string>planning.slot</string>'))) {
+    assert.match(xml, /<string>project_id<\/string>/);
+    assert.match(xml, /<int>11<\/int>/);
+    assert.match(xml, /<int>12<\/int>/);
+    assert.doesNotMatch(xml, /employee_id.name|<string>ignored<\/string>/);
+  }
+  assert.equal((await f.request('/api/odoo/team-projects', { method: 'POST', body: '{}' })).status, 401);
+  assert.equal((await post('project-owner-fields', {})).status, 404);
+  assert.equal((await post('owner-teams', {})).status, 404);
+});
+
+for (const scenario of ['direct-unit', 'no-unit', 'multiple-units', 'empty', 'task-planning', 'no-planning-relation']) {
+  test(`connected Lead Unit: ${scenario}`, async t => {
+    const f = await fixture({ TEAM_FIXTURE: scenario });
+    t.after(() => f.close());
+    const auth = cookie(await f.login());
+    const response = await f.request('/api/odoo/team-projects', { method: 'POST', headers: { Cookie: auth }, body: '{}' });
+    const result = await response.json();
+    if (scenario === 'no-unit' || scenario === 'multiple-units') {
+      assert.equal(response.status, 422);
+      assert.match(result.error, /Lead Unit/);
+      assert.ok(!f.calls.some(xml => xml.includes('<string>project.project</string>') && xml.includes('<string>search_read</string>')));
+    } else {
+      assert.equal(response.status, 200);
+      assert.equal(result.team.id, 4);
+      if (scenario === 'empty') {
+        assert.deepEqual(result.projects, []);
+        assert.ok(!f.calls.some(xml => /<string>(account.analytic.line|planning.slot)<\/string>/.test(xml)));
+      } else if (scenario === 'no-planning-relation') {
+        assert.equal(result.planning, null);
+        assert.match(result.planningError, /no supported project relation/);
+        assert.ok(!f.calls.some(xml => xml.includes('<string>planning.slot</string>') && xml.includes('<string>search_read</string>')));
+      } else {
+        assert.equal(result.planning.totalHours, 10);
+        if (scenario === 'task-planning') assert.ok(f.calls.some(xml => xml.includes('<string>task_id.project_id</string>')));
+        if (scenario === 'direct-unit') assert.ok(!f.calls.some(xml => xml.includes('<string>hr.employee</string>')));
+      }
+    }
+  });
+}

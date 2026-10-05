@@ -1,5 +1,7 @@
 # Overview
 
+The main dashboard now automatically selects all projects owned by the connected person's Lead Unit and compares actual/planned hours across their contributors. Projects with no hours remain listed.
+
 The Odoo Time Dashboard compares actual and planned hours from Odoo pivot XLSX exports or read-only XML-RPC queries. It provides personal project distributions, remaining hours, employee contributions, monthly and cumulative project charts, and uploaded task deadline markers.
 
 ## Entry points

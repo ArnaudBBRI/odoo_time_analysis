@@ -12,6 +12,16 @@ The local server returns JSON. All dashboard and Odoo routes require a valid bw_
 
 Login returns 400 for invalid input, 401 for rejected credentials, 429 for rate limiting, 502 for upstream/configuration failure and 503 when session capacity is reached. Origin checks reject cross-site POSTs with 403. Incorrect endpoint methods return 405. See [Configuration](CONFIGURATION.md) for HTTPS, lifetime and limits.
 
+## Connected Lead Unit portfolio
+
+- POST /api/odoo/my-lead-unit: resolves the session user's unit and returns leadUnit id/name.
+- POST /api/odoo/team-projects: automatically uses the same connected unit and project.project.lead_unit_id, returning its projects and actual/planned summaries. No query inputs are required; caller teamId/ownerField values are ignored.
+- Previous project-owner-fields and owner-teams discovery/list endpoints are removed.
+
+The user is read by exact UID, or through hr.employee/hr.employee.public user_id. Direct Lead Unit/Unit relations take priority; department membership can resolve through a unit relation, is_unit flag or parent department named as a Unit. Failure or multiple distinct units returns 422 before any project query. Projects include accessible archived and zero-hour entries, and no-project results make no timesheet/planning query. Queries scope all contributor records by exact project IDs.
+
+Direct planning project relations and task.project_id are supported. Unsupported planning returns null with planningError and no unfiltered fallback. Existing employee/project connector endpoints remain available for compatibility.
+
 ## Dashboard connector
 
 | Method | Route | Query inputs and successful response |
@@ -28,7 +38,11 @@ Session URL, database, username and password override any caller-supplied authen
 
 Odoo calls use /xmlrpc/2/common, /xmlrpc/2/db and /xmlrpc/2/object. Read operations use fields_get and search_read, with default 1,000-record pages. No Odoo write operations are implemented.
 
-## Pages and files
+## DiCo steering API
+
+Three authenticated POST routes are available under `/api/odoo/pilotage/`: `metadata`, `portfolio`, and `project` (positive integer `projectId`). Reads are scoped to the server-confirmed DiCo domain and session permissions, with per-source availability and reconciliation states. See [route contracts and measures](PILOTAGE.md). Authenticated browser assets `/steering.js`, `/steering-client.js`, and `/steering-client.css` are served; `/steering-service.js` is not.
+
+## Application pages and files
 
 - /, /login and /login.html serve the public welcome page, or redirect signed-in users to /dashboard.
 - /dashboard and /index.html serve the protected dashboard.
