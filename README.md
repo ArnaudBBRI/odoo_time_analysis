@@ -27,6 +27,28 @@ node server.js
 
 Then open `http://127.0.0.1:8766/`.
 
+## Docker Quick Start
+
+Build and run the dashboard with Docker Compose:
+
+```bash
+docker compose up --build
+```
+
+Then open:
+
+```text
+http://127.0.0.1:8765/
+```
+
+Stop it with `Ctrl+C`, or run it in the background:
+
+```bash
+docker compose up --build -d
+```
+
+If you want the container to use your private `config.local.json`, create that file first, then uncomment the `volumes` section in `docker-compose.yml`.
+
 ## Optional Local Config
 
 To avoid re-entering the same Odoo values every time, copy `config.example.json` to `config.local.json` and fill in your own values:
