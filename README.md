@@ -2,7 +2,19 @@
 
 `index.html` is a self-contained browser dashboard for Odoo timesheet and planning exports. Open it in a browser and upload the XLSX files through the inputs at the top of the page.
 
+**Odoo access is strictly read-only. This app must never, never ever write
+anything to Odoo.** Any necessary write requires explicit advance approval from
+the user for that specific operation, environment, and affected records. General
+development approval is insufficient. See the mandatory
+[project rules](docs/ai-context/PROJECT_RULES.md); no Odoo write is currently
+approved. The backend rejects RPC operations outside its read-only allowlist
+before sending them to Odoo, with no runtime bypass flag.
+
 ## Local Server Quick Start
+
+An existing Node.js runtime with global `fetch` support is required. Starting
+this local server works as a standard Windows user; administrator rights are
+not needed.
 
 To use the Odoo API features, start the local server from this repository folder:
 
@@ -68,7 +80,83 @@ Use **Timesheet Debug** to enter an employee name and fetch matching API data. O
 - `account.analytic.line` timesheet records for actual hours.
 - `planning.slot` planning records for planned hours.
 
-The fetched actual hours feed the `Actual time` personal pie. The fetched planning slots feed the `Planned time` personal pie and the remaining-hours table.
+The fetched actual hours feed the `Actual time` pie. The fetched planning slots
+feed the `Planned time` pie and the remaining-hours table.
+
+The menu at the top stays visible while scrolling. It contains **Include
+Ormitters hours**, the selected **year scope**, and a **Me / Whole Project**
+toggle. **Me** is selected initially and uses the employee data you fetched.
+**Whole Project** shows every employee's actual and planned hours on the listed
+projects. The toggle applies to the overview pies, Remaining table, hour
+summaries, project contribution/monthly/cumulative/planned-versus-actual charts,
+and project planning progress. Expanded pies and their PNG exports follow the
+same scope. Shared tasks, milestones, deadlines, and financial budgets keep
+their project baseline in either mode.
+
+The first Whole Project selection reads timesheets and planning for missing
+listed projects, then caches those responses in browser memory. A loading or
+unavailable message appears until the complete overview is available; select
+Whole Project again to retry failed reads. Subsequent scope and Ormitters
+changes reuse loaded data. The selected years and project detail are preserved.
+Me matches employee IDs from fetched personal records, using exact employee
+names only when IDs are unavailable. Where identity or export data cannot
+support a personal breakdown, the dashboard labels the shared baseline.
+Actual and planning fall back together when either cannot support Me. Signed
+timesheet credits and hours without an employee name remain in whole-project
+totals. The personal `(No project)` bucket remains visible in Me; Whole Project
+shows assigned projects and labels the omitted unassigned hours.
+
+**Include Ormitters hours** is unchecked by default. Employees whose function
+is exactly **AI Consultant** or **AI Consultant Ormit** are treated as
+subcontractors: their actual and planned hours are excluded from hour totals,
+pies, monthly/cumulative charts, remaining-hours comparisons, and project
+progress calculations. Check the option to include their hours. It recalculates
+the loaded data locally and keeps the selected years and project.
+
+The connector reads the current employee job title/job position, including
+archived employees, with a public employee fallback when needed. It resolves
+planning resources to employee IDs; a planning role is a disclosed fallback
+when employee function is unavailable. Matching ignores case and repeated
+whitespace. Historical employee functions are not available in these reads.
+Unknown functions remain included with a visible notice. Workbook exports lack
+function metadata and also remain included, with a notice.
+
+Task consumption uses filtered task-linked timesheets. If subcontractor hours
+cannot be assigned to tasks, task actual hours show as unavailable instead of
+using an inclusive precomputed total. Task foreseen budgets and monetary budget
+charts retain their source amounts. Local hour overrides are kept separately
+for each checkbox setting. After updating the application, restart the local
+Node server, reload the page, and fetch the data again for employee metadata.
+
+The Remaining table initially shows **personal hours** for the employee you
+fetched. Select **Whole Project** to include other employees' contributions,
+subject to the Ormitters setting. Click **Yes** beside “Want to see all projects
+with Dico as responsible Unit?” to use the Dico project list in the overview
+pies and Remaining table; the Me / Whole Project setting still applies. Opening
+a project detail preserves that setting. The table labels its scope and shows
+identified consultant hours included or excluded in the selected years. Zero
+consultant hours means the checkbox has no effect on that table's current
+population.
+
+If loaded API data comes from an older server without role metadata, the
+dashboard highlights **Filter unavailable** and keeps its hours included.
+Restart the Node server, reload the dashboard, and fetch the data again; toggling
+the checkbox alone cannot add missing metadata to an already loaded response.
+
+In **Remaining hours by project**, the final column compares hours through today
+within the selected years. Each project has a light-blue **Foreseen** bar above
+an **Actual** bar. The larger value fills the width; the other scales relative
+to it. Actual is green for absolute deviation up to 10%, orange above 10%
+through 25%, and red above 25%, whether ahead or behind. Exactly 10% is green;
+exactly 25% is orange. Actual hours without any foreseen hours are red; two zero
+values produce empty bars. The numeric Actual/Planned/Remaining columns retain
+their selected-year totals.
+
+API comparisons use dated timesheets and planning intervals through the end of
+today in the browser's local timezone. Monthly-only exports cannot provide
+daily actual dates: their reported current-month actual total is retained,
+while foreseen hours are prorated by elapsed calendar days. Future months are
+excluded from the comparison.
 
 Click a project name in the remaining-hours table to fetch detailed project data for that project. One click fetches:
 
@@ -76,7 +164,16 @@ Click a project name in the remaining-hours table to fetch detailed project data
 - `planning.slot` planning records for everyone planned on that project.
 - Budget records and budget lines linked to the project.
 
-The fetched project timesheets feed the per-project contribution pie, monthly line chart, and cumulative line chart. The fetched project planning feeds the per-project `Planned vs actual` chart. The fetched budget lines feed grouped bar charts for the convention budget and the current/past annual budgets; future annual budgets after the current year are excluded. Budget charts use a log scale by default and can be switched to linear scale from the project budget controls. Personnel budget lines such as `Frais de personnel` are hidden by default and can be shown from the same controls. Only one project detail section is shown at a time; clicking another project replaces the previous one.
+The fetched project timesheets feed the per-project contribution pie, monthly
+line chart, and cumulative line chart. The fetched project planning feeds the
+per-project `Planned vs actual` chart. These hour views follow Me / Whole Project
+and Include Ormitters hours. The fetched budget lines feed grouped bar charts
+for the convention budget and the current/past annual budgets; future annual
+budgets after the current year are excluded. Budget charts use a log scale by
+default and can be switched to linear scale from the project budget controls.
+Personnel budget lines such as `Frais de personnel` are hidden by default and
+can be shown from the same controls. Only one project detail section is shown
+at a time; clicking another project replaces the previous one.
 
 ## Files To Provide
 
@@ -214,6 +311,48 @@ Used for:
 
 ## Year Filtering
 
+- The year controls remain visible in the sticky dashboard menu alongside the
+  employee scope and Ormitters setting.
 - The `All` chip includes all available months from uploaded actual and planning files.
 - Individual year chips filter every graph.
 - `Interne` / `Internal` rows are excluded before totals and percentages are calculated.
+
+## Development Instructions and Project Memory
+
+This repository adopts the
+[Buildwise AI Development Framework](https://github.com/buildwise-be/BW_CODEX_DEV_GUIDE)
+version 3.0.0. Start with [AGENTS.md](AGENTS.md); `CLAUDE.md` imports the same
+instructions. The installed structure includes:
+
+- `.ai/framework.json`: framework manifest and required project policy.
+- `docs/ai-governance/`: development workflow, assistant setup, reusable prompts,
+  and wiki refresh guidance.
+- `docs/ai-context/`: mandatory project rules, current state, decisions, known
+  issues, roadmap, change log, and adoption/update notes.
+- `docs/wiki/`: source-derived architecture, API, data flow, configuration,
+  dependencies, and run/test documentation.
+- `.github/`: task and Pull Request templates with Odoo safety reminders.
+- `.codex/`: optional startup hook; automatic hook loading depends on the
+  assistant environment and its trust settings.
+
+Run the Odoo safety tests without connecting to Odoo:
+
+```powershell
+node --test tests/odoo-read-only.test.js
+node --test tests/remaining-hours.test.js
+node --test tests/subcontractor-roles.test.js tests/subcontractor-hours.test.js
+node --test tests/sticky-scope.test.js
+```
+
+If a restricted execution environment blocks the test worker with `spawn EPERM`,
+the existing Node.js runtime also supports running without a child process:
+
+```powershell
+node --test --test-isolation=none tests/odoo-read-only.test.js
+node --test --test-isolation=none tests/remaining-hours.test.js
+node --test --test-isolation=none tests/subcontractor-roles.test.js tests/subcontractor-hours.test.js
+node --test --test-isolation=none tests/sticky-scope.test.js
+```
+
+See [framework adoption](docs/ai-context/FRAMEWORK_ADOPTION.md) for provenance,
+validation commands, and how to preserve the local safety rules during updates.

@@ -252,7 +252,9 @@ async function handleEmployeeTimesheets(request, response) {
   }
 
   const normalizedLines = lines.map(normalizeTimesheetLine).filter((line) => line.date);
+  await enrichEmployeeFunctions(odooUrl, database, uid, apiKey, normalizedLines, warnings);
   const monthly = buildMonthlyTimesheetSummary(normalizedLines);
+  const employeeMonthly = buildMonthlyTimesheetSummary(normalizedLines.filter((line) => !line.isSubcontractor));
 
   sendJson(response, 200, {
     ok: true,
@@ -263,6 +265,7 @@ async function handleEmployeeTimesheets(request, response) {
     lineCount: normalizedLines.length,
     totalHours: roundHours(normalizedLines.reduce((total, line) => total + line.hours, 0)),
     monthly,
+    employeeMonthly,
     lines: normalizedLines,
     warnings
   });
@@ -340,7 +343,9 @@ async function handleEmployeePlanning(request, response) {
   }
 
   const normalizedSlots = slots.map(normalizePlanningSlot).filter((slot) => slot.start || slot.end || slot.hours > 0);
+  await enrichEmployeeFunctions(odooUrl, database, uid, apiKey, normalizedSlots, warnings);
   const monthly = buildMonthlyPlanningSummary(normalizedSlots);
+  const employeeMonthly = buildMonthlyPlanningSummary(normalizedSlots.filter((slot) => !slot.isSubcontractor));
 
   sendJson(response, 200, {
     ok: true,
@@ -352,6 +357,7 @@ async function handleEmployeePlanning(request, response) {
     slotCount: normalizedSlots.length,
     totalHours: roundHours(normalizedSlots.reduce((total, slot) => total + slot.hours, 0)),
     monthly,
+    employeeMonthly,
     slots: normalizedSlots,
     warnings
   });
@@ -400,7 +406,9 @@ async function handleProjectTimesheets(request, response) {
     order: "date asc, id asc"
   });
   const normalizedLines = lines.map(normalizeTimesheetLine).filter((line) => line.date);
+  await enrichEmployeeFunctions(odooUrl, database, uid, apiKey, normalizedLines, warnings);
   const monthly = buildMonthlyTimesheetEmployeeSummary(normalizedLines);
+  const employeeMonthly = buildMonthlyTimesheetEmployeeSummary(normalizedLines.filter((line) => !line.isSubcontractor));
   const projectName = formatProjectName(projectCode, mostFrequentName(normalizedLines.map((line) => line.project)) || (projects[0] && projects[0].name));
 
   sendJson(response, 200, {
@@ -414,6 +422,7 @@ async function handleProjectTimesheets(request, response) {
     lineCount: normalizedLines.length,
     totalHours: roundHours(normalizedLines.reduce((total, line) => total + line.hours, 0)),
     monthly,
+    employeeMonthly,
     lines: normalizedLines,
     warnings
   });
@@ -496,7 +505,9 @@ async function handleProjectPlanning(request, response) {
   }
 
   const normalizedSlots = slots.map(normalizePlanningSlot).filter((slot) => slot.start || slot.end || slot.hours > 0);
+  await enrichEmployeeFunctions(odooUrl, database, uid, apiKey, normalizedSlots, warnings);
   const monthly = buildMonthlyPlanningEmployeeSummary(normalizedSlots);
+  const employeeMonthly = buildMonthlyPlanningEmployeeSummary(normalizedSlots.filter((slot) => !slot.isSubcontractor));
   const projectName = formatProjectName(projectCode, mostFrequentName(normalizedSlots.map((slot) => slot.project)) || (projects[0] && projects[0].name));
 
   sendJson(response, 200, {
@@ -511,6 +522,7 @@ async function handleProjectPlanning(request, response) {
     slotCount: normalizedSlots.length,
     totalHours: roundHours(normalizedSlots.reduce((total, slot) => total + slot.hours, 0)),
     monthly,
+    employeeMonthly,
     slots: normalizedSlots,
     warnings
   });
@@ -799,9 +811,13 @@ async function handleDicoProjects(request, response) {
   const projects = rows.map((project) => normalizeDicoProject(project, matchedField)).filter((project) => project.name);
   const projectIds = projects.map((project) => Number(project.id)).filter((id) => Number.isFinite(id));
   let actualMonthly = [];
+  let employeeActualMonthly = [];
+  let actualLines = [];
   let actualLineCount = 0;
   let actualTotalHours = 0;
   let plannedMonthly = [];
+  let employeePlannedMonthly = [];
+  let plannedSlots = [];
   let plannedSlotCount = 0;
   let plannedTotalHours = 0;
 
@@ -812,7 +828,10 @@ async function handleDicoProjects(request, response) {
         order: "date asc, id asc"
       });
       const normalizedLines = lines.map(normalizeTimesheetLine).filter((line) => line.date);
+      await enrichEmployeeFunctions(odooUrl, database, uid, apiKey, normalizedLines, warnings);
+      actualLines = normalizedLines;
       actualMonthly = buildMonthlyTimesheetSummary(normalizedLines);
+      employeeActualMonthly = buildMonthlyTimesheetSummary(normalizedLines.filter((line) => !line.isSubcontractor));
       actualLineCount = normalizedLines.length;
       actualTotalHours = roundHours(normalizedLines.reduce((total, line) => total + line.hours, 0));
     } catch (error) {
@@ -852,7 +871,10 @@ async function handleDicoProjects(request, response) {
         }
       }
       const normalizedSlots = slots.map(normalizePlanningSlot).filter((slot) => slot.start || slot.end || slot.hours > 0);
+      await enrichEmployeeFunctions(odooUrl, database, uid, apiKey, normalizedSlots, warnings);
+      plannedSlots = normalizedSlots;
       plannedMonthly = buildMonthlyPlanningSummary(normalizedSlots);
+      employeePlannedMonthly = buildMonthlyPlanningSummary(normalizedSlots.filter((slot) => !slot.isSubcontractor));
       plannedSlotCount = normalizedSlots.length;
       plannedTotalHours = roundHours(normalizedSlots.reduce((total, slot) => total + slot.hours, 0));
       if (!planningDomain) {
@@ -874,9 +896,13 @@ async function handleDicoProjects(request, response) {
     projectCount: projects.length,
     projects,
     actualMonthly,
+    employeeActualMonthly,
+    lines: actualLines,
     actualLineCount,
     actualTotalHours,
     plannedMonthly,
+    employeePlannedMonthly,
+    slots: plannedSlots,
     plannedSlotCount,
     plannedTotalHours,
     warnings
@@ -1149,7 +1175,8 @@ async function searchReadAll(odooUrl, database, uid, apiKey, model, domain, fiel
       fields,
       offset,
       limit: pageSize,
-      order: options.order || "id asc"
+      order: options.order || "id asc",
+      ...(options.context ? { context: options.context } : {})
     });
     if (!Array.isArray(rows)) {
       throw new Error(`${model}.search_read returned an unexpected response`);
@@ -2839,6 +2866,131 @@ function compareWorkPackages(a, b) {
   return String(a.name || "").localeCompare(String(b.name || ""), undefined, { numeric: true, sensitivity: "base" });
 }
 
+function isSubcontractorFunction(value) {
+  const normalized = String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
+  return normalized === "ai consultant" || normalized === "ai consultant ormit";
+}
+
+function employeeFunctionDetails(employee, model) {
+  const candidates = [
+    { value: String(employee.job_title || "").trim(), source: `${model}.job_title` },
+    { value: relationalName(employee.job_id).trim(), source: `${model}.job_id` }
+  ].filter((candidate) => candidate.value);
+  const chosen = candidates.find((candidate) => isSubcontractorFunction(candidate.value)) || candidates[0];
+  return {
+    employeeFunction: chosen ? chosen.value : "",
+    employeeFunctionSource: chosen ? chosen.source : "",
+    isSubcontractor: !!chosen && isSubcontractorFunction(chosen.value)
+  };
+}
+
+// Resolve only employees/resources already present in fetched records. Both
+// metadata and record requests use the existing read-only RPC boundary.
+async function enrichEmployeeFunctions(odooUrl, database, uid, apiKey, records, warnings) {
+  if (!records.length) {
+    return;
+  }
+  const positiveId = (value) => Number.isInteger(Number(value)) && Number(value) > 0 ? Number(value) : null;
+  const employeeIds = new Set(records.map((record) => positiveId(record.employeeId)).filter(Boolean));
+  const resourceIds = new Set(records.filter((record) => !positiveId(record.employeeId))
+    .map((record) => positiveId(record.resourceId)).filter(Boolean));
+  const byEmployee = new Map();
+  const byResource = new Map();
+
+  for (const model of ["hr.employee", "hr.employee.public"]) {
+    const pendingEmployeeIds = new Set(Array.from(employeeIds)
+      .filter((id) => !byEmployee.get(id)?.employeeFunction));
+    const pendingResourceIds = new Set(Array.from(resourceIds)
+      .filter((id) => !byResource.get(id)?.employeeFunction));
+    // A resource may have resolved an employee whose function was inaccessible.
+    for (const id of pendingResourceIds) {
+      const employee = byResource.get(id);
+      if (employee) {
+        pendingEmployeeIds.add(employee.id);
+      }
+    }
+    if (!pendingEmployeeIds.size && !pendingResourceIds.size) {
+      break;
+    }
+    try {
+      const fieldDefs = await getModelFields(odooUrl, database, uid, apiKey, model);
+      const fields = ["id", "name", "job_title", "job_id", "resource_id"]
+        .filter((field) => field === "id" || Object.hasOwn(fieldDefs, field));
+      const conditions = [];
+      if (pendingEmployeeIds.size) {
+        conditions.push(["id", "in", Array.from(pendingEmployeeIds)]);
+      }
+      if (pendingResourceIds.size && fields.includes("resource_id")) {
+        conditions.push(["resource_id", "in", Array.from(pendingResourceIds)]);
+      }
+      if (!conditions.length) {
+        continue;
+      }
+      const domain = conditions.length === 2 ? ["|", ...conditions] : conditions;
+      const employees = await searchReadAll(odooUrl, database, uid, apiKey, model, domain, fields, {
+        order: "id asc",
+        context: { active_test: false }
+      });
+      for (const employee of employees) {
+        const id = positiveId(employee.id);
+        const resourceId = positiveId(relationalId(employee.resource_id));
+        // Do not accept unrequested identities returned by a malformed source.
+        if (!id || (!pendingEmployeeIds.has(id) && !pendingResourceIds.has(resourceId))) {
+          continue;
+        }
+        const details = { id, name: String(employee.name || ""), ...employeeFunctionDetails(employee, model) };
+        if (!byEmployee.get(id)?.employeeFunction) {
+          byEmployee.set(id, details);
+        }
+        if (resourceId && pendingResourceIds.has(resourceId) && !byResource.get(resourceId)?.employeeFunction) {
+          byResource.set(resourceId, byEmployee.get(id));
+        }
+      }
+    } catch (error) {
+      warnings.push(`Employee function lookup via ${model} failed: ${error.message}`);
+    }
+  }
+
+  let unknownCount = 0;
+  let planningFallbackCount = 0;
+  for (const record of records) {
+    const employeeId = positiveId(record.employeeId);
+    const mappedEmployee = byResource.get(positiveId(record.resourceId));
+    // Public metadata may enrich the resolved ID without exposing resource_id.
+    const employee = employeeId ? byEmployee.get(employeeId)
+      : byEmployee.get(mappedEmployee?.id) || mappedEmployee;
+    if (employee) {
+      record.employeeId = employee.id;
+      record.employee = record.employee || employee.name;
+    }
+    if (employee?.employeeFunction) {
+      record.employeeFunction = employee.employeeFunction;
+      record.employeeFunctionSource = employee.employeeFunctionSource;
+      record.isSubcontractor = employee.isSubcontractor;
+      record.subcontractorClassification = "employee-function";
+    } else if (String(record.role || "").trim()) {
+      // Planning roles are a disclosed fallback only when HR function is absent.
+      record.employeeFunction = String(record.role).trim();
+      record.employeeFunctionSource = "planning.role_id";
+      record.isSubcontractor = isSubcontractorFunction(record.employeeFunction);
+      record.subcontractorClassification = "planning-role";
+      planningFallbackCount += 1;
+    } else {
+      record.employeeFunction = "";
+      record.employeeFunctionSource = "";
+      record.isSubcontractor = false;
+      record.subcontractorClassification = "unknown";
+      unknownCount += 1;
+    }
+  }
+  if (planningFallbackCount) {
+    warnings.push(`Employee function unavailable for ${planningFallbackCount} planning record(s); subcontractor classification uses the planning role instead.`);
+  }
+  if (unknownCount) {
+    warnings.push(`Employee function unavailable for ${unknownCount} record(s); their hours remain included because subcontractor status cannot be verified.`);
+  }
+}
+
 function normalizeTimesheetLine(line) {
   return {
     id: line.id,
@@ -2878,7 +3030,8 @@ function normalizePlanningSlot(slot) {
     hours: roundHours(hours),
     allocatedPercentage: Number.isFinite(percentage) ? percentage : 0,
     employee: relationalName(slot.employee_id) || relationalName(slot.resource_id),
-    employeeId: relationalId(slot.employee_id) || relationalId(slot.resource_id),
+    employeeId: relationalId(slot.employee_id),
+    resourceId: relationalId(slot.resource_id),
     project: planningProjectName(slot),
     projectId: relationalId(slot.project_id) || relationalId(slot.task_id) || relationalId(slot.sale_line_id) || relationalId(slot.role_id),
     task: relationalName(slot.task_id),
@@ -3220,7 +3373,45 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
+// Fail closed under docs/ai-context/PROJECT_RULES.md. Any write needs explicit
+// user approval before reviewed implementation; there is no automatic bypass.
+function assertReadOnlyOdooCall(endpoint, methodName, params) {
+  let service = "";
+  try {
+    const url = new URL(endpoint);
+    const match = url.pathname.match(/\/xmlrpc\/2\/(common|db|object)$/);
+    if (["http:", "https:"].includes(url.protocol) && !url.search && !url.hash && match) {
+      service = match[1];
+    }
+  } catch (_) {
+    // Invalid endpoints are rejected with the same policy error below.
+  }
+
+  const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+  if (Array.isArray(params)) {
+    if (service === "common" && methodName === "version" && params.length === 0) {
+      return;
+    }
+    if (service === "common" && methodName === "authenticate" && params.length === 4
+      && params.slice(0, 3).every((value) => typeof value === "string") && isObject(params[3])) {
+      return;
+    }
+    if (service === "db" && methodName === "list" && params.length === 0) {
+      return;
+    }
+    if (service === "object" && methodName === "execute_kw" && params.length === 7
+      && typeof params[3] === "string" && params[3].trim()
+      && ["fields_get", "search_read"].includes(params[4])
+      && Array.isArray(params[5]) && isObject(params[6])) {
+      return;
+    }
+  }
+
+  throw new Error("Odoo is strictly read-only: this RPC operation is blocked. Any write requires explicit user approval before implementation or execution.");
+}
+
 async function xmlRpcCall(endpoint, methodName, params) {
+  assertReadOnlyOdooCall(endpoint, methodName, params);
   const body = buildXmlRpcRequest(methodName, params);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
