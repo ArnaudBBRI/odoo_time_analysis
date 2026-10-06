@@ -1,28 +1,20 @@
 # Dependencies
 
-| Area | Observed dependencies |
-| --- | --- |
-| Backend | Node.js core `http`, `fs`, `path`; globals `fetch`, `AbortController`, `URL`, `Buffer`. |
-| Browser input | File/Blob, ArrayBuffer/DataView, TextDecoder, DOMParser, and `DecompressionStream` for compressed XLSX. |
-| Browser display | DOM, canvas 2D, Intl/date, Map/Set, Promise/fetch APIs. |
-| Odoo connector | Reachable XML-RPC common/db/object services; account/API key with read permissions on relevant models. |
-| Safety tests | Built-in Node `node:test`, `node:assert/strict`, `node:vm`, and file/path utilities. |
-| Workflow | PowerShell for the optional session-start hook; Git for branch/history checks. |
+## Runtime
 
-There is no `package.json`, lockfile, vendored application library, external
-script tag, or CDN dependency in the inspected application. XLSX ZIP/XML parsing
-and chart drawing are implemented in `index.html`; XML-RPC encoding/parsing
-is implemented in `server.js`.
+- server.js uses Node built-ins http, fs, path, crypto and async_hooks, plus global fetch and AbortController.
+- Dockerfile selects node:22-alpine. No package.json, npm installation or bundler is present.
+- index.html implements its own workbook reader and canvas charts, without external script dependencies.
+- Browser XLSX decompression requires DecompressionStream, with deflate-raw and deflate attempts. Other required APIs include DOMParser, Blob, TextDecoder, fetch and canvas.
+- Odoo API workflows require access to an Odoo XML-RPC service and permissions for timesheets, planning and associated lookup models.
+- Docker Compose is optional for container execution.
 
-The repository does not pin a Node.js version. The connector needs a runtime
-providing its global APIs. The XLSX reader reports an error if the browser lacks
-`DecompressionStream` or cannot decode the compressed input. Run instructions
-use an existing runtime and ordinary user commands.
+## Internal relationships
+
+The login page and dashboard consume JSON from server.js; tests/auth.test.js uses the Node built-in test runner and a local simulated Odoo server. The server reads config.local.json when present and serves only the application pages and logo. Docker copies the build context into /app and starts that same server. See [Configuration](CONFIGURATION.md) for the build-context limitation.
 
 ## Refresh
 
-- Last refreshed: 2026-10-05.
-- Source basis: imports/global APIs in `server.js` and tests; script tags and
-  workbook/chart code in `index.html`; inventory and optional Codex hook.
-- Limitations: runtime/browser compatibility was not measured across versions;
-  live services and automatic hook execution were not verified.
+- Last refreshed: 2026-10-05
+- Source basis: index.html, server.js, Dockerfile and root inventory.
+- Limitations: no browser compatibility matrix or live Odoo compatibility test is present.

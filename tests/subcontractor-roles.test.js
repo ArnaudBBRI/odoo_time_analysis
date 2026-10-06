@@ -23,6 +23,8 @@ function loadServer(respond) {
     __dirname: path.dirname(serverPath),
     process: { env: {} }, console: { log() {}, error() {} }, URL, AbortController, Buffer,
     require(name) {
+      if (["crypto", "async_hooks"].includes(name)) return require(name);
+      if (name === "./steering-service") return require("../steering-service");
       if (name === "http") {
         return { createServer: () => ({ listen() {}, on() {} }) };
       }
@@ -223,6 +225,7 @@ test("fallback public lookup targets only employee functions still missing", asy
 });
 
 async function callHandler(context, name) {
+  context.getMergedConnectorSettings = body => body;
   context.readJsonBody = async () => ({ odooUrl: settings[0], database: settings[1], username: "test-user", apiKey: settings[3], employeeName: "Employee", projectCode: "71" });
   let status;
   let payload;

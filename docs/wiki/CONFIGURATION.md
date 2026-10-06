@@ -1,45 +1,45 @@
 # Configuration
 
-## Server and connector settings
+## Odoo instance
 
-| Setting | Source/default and behavior |
-| --- | --- |
-| `PORT` | Environment variable; converted to a number, default `8765`. |
-| Host | Fixed `127.0.0.1` in `server.js`. |
-| `odooUrl` | Request `url`/`odooUrl`, local config `odooUrl`/`url`, then `https://odoo.buildwise.be/`. Trailing slashes are removed; a root `/web` URL is normalized to the origin. |
-| `database` | Request, local config, then `buildwiseprd`. |
-| `username` | Request, then local config; required for authenticated reads. |
-| `apiKey` | Request, then local config `apiKey`/`api_key`; required for authenticated reads. |
-| `employeeName` | Request, then local config; required by employee fetch routes. |
-| Project reference | Request `projectCode`/`projectName`/`projectQuery`, then local config `projectId`/`projectID`/`projectCode`; required by project routes. |
+Copy [config.example.json](../../config.example.json) to private config.local.json if the defaults need changing. The file must contain a JSON object.
 
-The first nonblank value wins. Optional `config.local.json` sits beside
-`server.js` and must contain a JSON object.
-[config.example.json](../../config.example.json) shows the ordinary keys.
-Settings are reread when handlers merge them. The inspected code does not take
-Odoo credentials from environment variables or expose a guard bypass setting.
+- odooUrl (alias url): HTTP/HTTPS base URL, default https://odoo.buildwise.be/. A trailing /web is normalized to the origin.
+- database: Odoo database, default buildwiseprd.
 
-The Dico unit string, body limit (64 KiB), RPC timeout (15 seconds), and default
-read page size (1,000) are code constants/defaults. The browser derives its
-current year from its clock and keeps chart/filter state and hour overrides
-in memory.
+Login accepts email and password only; the client cannot select another instance. The session stores the chosen URL/database and the authenticated credentials. Existing config username/apiKey/employeeName values do not override session identity or prefill another employee's data.
 
-## Privacy
+Authenticated queries accept employeeName or projectCode (aliases projectName/projectQuery). Request URL, database, username and apiKey values are ignored in favor of the session. /api/config returns the session's public connector fields, authenticated: true and hasApiKey: false, never its password.
 
-`.gitignore` excludes `config.local.json`. Static serving refuses that basename;
-`/api/config` returns non-secret fields and `hasApiKey`, never the configured key.
-A dashboard-entered key overrides local config for that request, goes to the
-local proxy, then to Odoo as the XML-RPC password. The inspected source does
-not persist keys in browser storage.
+## DiCo steering
 
-Keep local configuration and exports private. Settings do not approve an Odoo
-write; see [PROJECT_RULES.md](../ai-context/PROJECT_RULES.md).
+The optional `pilotage` object controls a confirmed `unitDomain`, the `projectLeaderField` user relation and a non-secret programme/project-ID reference. Defaults are disabled with an empty reference. See [steering configuration](PILOTAGE.md#configuration-and-activation) for validation and an illustrative example. The connected-person Lead Unit flow is separate.
+
+## Environment variables
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| HOST | 127.0.0.1 | HTTP listener; Docker/Compose uses 0.0.0.0. |
+| PORT | 8765 | HTTP port. |
+| SESSION_TTL_SECONDS | 28800 | Fixed positive session lifetime; invalid values prevent startup. |
+| SESSION_COOKIE_SECURE | false | Set to true for HTTPS deployment; adds Secure and checks HTTPS POST origins. |
+
+TLS is handled externally. A reverse proxy must preserve the public Host header for origin checks. Forwarded headers are not trusted for client-IP rate limiting; users behind a proxy may share its login counter.
+
+Sessions and login counters live in one Node process. Logout, replacement login and expiry invalidate sessions; process restart clears them. Expired entries are pruned on incoming requests. Passwords are held in server memory for XML-RPC calls, without disk/browser persistence. Deployment across replicas needs a separate shared-session design.
+
+The server accepts at most 1,000 live sessions and stores at most 10,000 active login-counter addresses. Ten attempts per address in 15 minutes trigger 429 with Retry-After; successful login clears the address's counter. JSON bodies are limited to 64 KiB; each XML-RPC fetch has a 15-second abort timer.
+
+## Files and Docker
+
+config.local.json is excluded by .gitignore and .dockerignore. The optional Compose volume mounts it read-only at /app/config.local.json. Rebuild old images to apply the new build-context exclusion; existing images are unaffected.
+
+Only login.html, index.html and assets/buildwise-logo.svg are served by the application routes. Repository sources, documentation, workbooks and config files are not exposed, even after login. Compose still publishes port 8765 without a loopback-only binding.
 
 ## Refresh
 
-- Last refreshed: 2026-10-05.
-- Source basis: defaults, settings/config helpers, config route, static privacy
-  check and guard in `server.js`; form/config loading in `index.html`;
-  `config.example.json`, `.gitignore`, and `README.md`.
-- Limitations: private config contents were deliberately not read. Credentials,
-  service permissions, runtime settings, and connectivity remain unverified.
+- Last refreshed: 2026-10-05
+- Source basis: server.js, config.example.json, Docker/config files and tests/auth.test.js.
+- Limitations: real Buildwise credentials, proxy/TLS deployment and Docker runtime were not verified.
+
+The portfolio ownership field is fixed to project.project.lead_unit_id. User-unit resolution is server-side and does not use projectOwnerField or client-selected team values.

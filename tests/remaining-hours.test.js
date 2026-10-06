@@ -23,9 +23,10 @@ function utcAtLocalMidnight(value) {
 function loadDashboard() {
   const script = source.match(/<script>([\s\S]*?)<\/script>/)?.[1];
   assert.ok(script, "Dashboard inline script must exist");
-  const bootstrap = "els.odooUrl.value = ODOO_DEFAULT_URL;";
+  const bootstrap = "const originalFetch = window.fetch.bind(window);";
   assert.equal(script.split(bootstrap).length, 2, "Test seam must precede the sole bootstrap");
   const instrumented = script.replace(bootstrap, `
+    state.hoursScope = "me";
     globalThis.dashboard = {
       state, els, monthFromKey, projectColorKey,
       buildRemainingToDateTotals, buildRemainingComparison,

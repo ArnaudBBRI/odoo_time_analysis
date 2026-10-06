@@ -1,9 +1,6 @@
 # Technical Wiki
 
-This wiki describes the local Odoo Time Dashboard from repository sources.
-Project constraints and approval requirements live in
-[PROJECT_RULES.md](../ai-context/PROJECT_RULES.md); project status lives in
-[CURRENT_STATE.md](../ai-context/CURRENT_STATE.md).
+Repository-derived documentation; start with [Overview](OVERVIEW.md) or the [README](../../README.md) for usage.
 
 ## Pages
 
@@ -13,14 +10,16 @@ Project constraints and approval requirements live in
 - [Domain](DOMAIN.md)
 - [Data Flow](DATA_FLOW.md)
 - [Dependencies](DEPENDENCIES.md)
-- [Build](BUILD.md)
+- [Build and Run](BUILD.md)
 - [Testing](TESTING.md)
 - [Configuration](CONFIGURATION.md)
+- [DiCo Steering: Projects, Programmes and Unit](PILOTAGE.md)
+- [Buildwise Visual Reference](BRANDING.md)
+
+Project status and follow-up work belong in [Current State](../ai-context/CURRENT_STATE.md) and [Known Issues](../ai-context/KNOWN_ISSUES.md). Assistant governance is maintained separately under docs/ai-governance/.
 
 ## Refresh
 
-- Last refreshed: 2026-10-05.
-- Source basis: `index.html`, `server.js`, `README.md`, `config.example.json`,
-  `.gitignore`, repository inventory, and linked wiki pages.
-- Limitations: source inspection only; live Odoo, private configuration, sample
-  workbook contents, and browser rendering were not inspected.
+- Last refreshed: 2026-10-05
+- Source basis: login.html, index.html, server.js, assets/buildwise-logo.svg, tests/auth.test.js, README and Docker/configuration files; authentication work is local on branch docker based on a4ac55e.
+- Limitations: no live Odoo query, browser import, Docker build or workbook-content inspection was performed. Simulated authentication tests and welcome-page desktop/mobile checks passed.

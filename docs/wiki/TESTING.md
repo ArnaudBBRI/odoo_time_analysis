@@ -1,98 +1,51 @@
 # Testing
 
-## Offline RPC safety tests
-
-[tests/odoo-read-only.test.js](../../tests/odoo-read-only.test.js) uses Node's
-built-in test runner. It loads the actual server source in a VM with mocked
-server startup, file access, timers, and `fetch`. It opens no sockets, reads no
-private config, and contacts no Odoo instance.
-
-The suite checks permitted service/method combinations, nested read methods,
-mutation and unknown-method rejection, malformed requests, and rejection before
-network access. It also checks existing read helper calls and the absence of
-outbound RPC calls during server startup.
+## Authentication integration suite
 
 ```powershell
-node --test tests/odoo-read-only.test.js
+node --test tests/auth.test.js tests/portfolio-ui.test.js
 ```
 
-If a restricted Windows sandbox prevents the test runner from spawning its
-isolated process, a supporting Node runtime can run the same suite in process:
+The Node built-in test runner launches a copy of the application in an isolated temporary directory and a local simulated XML-RPC server. It does not use real credentials or the repository's private configuration.
+
+Authentication tests cover public/protected routes, invalid login and XML-RPC faults, identity overrides, secret non-disclosure, restricted static files, separate users, logout/CSRF, forged cookies, upstream failure, session rotation/expiry, Secure cookies and login rate limiting.
+
+Owner-team tests cover scoped project-ID queries, no employee-name filtering, zero-hour/empty portfolios, all contributors, ambiguous metadata, task-linked planning, unsupported planning without an unfiltered query, and unknown UI remaining values.
+
+## Syntax and configuration
 
 ```powershell
-node --test --test-isolation=none tests/odoo-read-only.test.js
+node --check server.js
+docker compose config --quiet
 ```
 
-Check backend syntax separately with `node --check server.js`. These checks
-require no package installation or administrator rights. Never test the guard
-by attempting a real Odoo mutation; follow
-[PROJECT_RULES.md](../ai-context/PROJECT_RULES.md).
+Inline JavaScript in index.html and login.html can be parsed with Node vm.Script. Syntax checks do not validate rendering or data calculations.
 
-## Remaining-hours comparison tests
+## Manual checks
 
-[tests/remaining-hours.test.js](../../tests/remaining-hours.test.js) loads the
-actual dashboard script in a VM before UI startup. It tests through-today
-totals, selected years, planning overlap, monthly/DST fallback, threshold
-boundaries in both directions, per-project bar widths, zero forecasts, raw API
-adapters, and row markup/drilldown. It does not call Odoo or read local config.
+## DiCo steering checks
 
-```powershell
-node --test --test-isolation=none tests/remaining-hours.test.js
-```
+Run `node --test tests/steering.test.js tests/steering-http.test.js` for calculations, scope gates, optional-source denial, Progress/WP reconciliation, separate financial periods, programme anomalies and authenticated user isolation. Optional `tests/steering-browser.js` checks desktop/mobile navigation, tabs, leader focus, filters, refresh, errors/retry and overflow using labelled fictional fixtures; see [test setup](PILOTAGE.md#implementation-and-verification).
 
-## Subcontractor-hour tests
+## Additional manual checks
 
-[tests/subcontractor-roles.test.js](../../tests/subcontractor-roles.test.js)
-contains 17 tests including endpoint subtests. It loads the actual backend in a
-VM with mocked startup, file access, and XML-RPC responses. Coverage includes
-exact role matching, same-name distinct identities, scoped/public HR fallback,
-resource resolution when public metadata hides `resource_id`, denied/missing
-metadata warnings, all five hour handlers, inclusive totals, and empty
-employee-only summaries. No sockets, private config, or live Odoo are used.
+- Verify welcome-page layout at desktop and mobile widths, field labels, keyboard focus and password visibility toggle.
+- With a real Odoo account, sign in, test the connection, fetch employee/project data and sign out. Confirm Odoo permissions and authentication settings.
+- Check session-cookie behavior behind the actual HTTPS reverse proxy.
+- Build and run Docker separately when container behavior needs validation.
 
-[tests/subcontractor-hours.test.js](../../tests/subcontractor-hours.test.js)
-contains 24 browser-script tests. It checks unchecked/enabled inclusion controls,
-personal/project/Dico aggregates and raw records, remaining comparisons, local
-toggle reversibility, retained scope/months/settings, task zero/unavailable
-consumption (including historical aggregates and out-of-scope tasks),
-unknown/export/legacy notices, and mode-specific macro overrides.
-Additional coverage verifies truthful stale-response notices, personal versus
-project-wide scope, consultant-hour counters (years, Internal rows, actual
-credits, zero data), and Dico-only Remaining rendering.
+## Current coverage and gaps
 
-```powershell
-node --test --test-isolation=none tests/subcontractor-roles.test.js tests/subcontractor-hours.test.js
-```
+The welcome page was visually inspected at desktop/mobile widths, including the visibility toggle; mobile horizontal overflow was checked. The 19 authentication, connected-Lead-Unit and frontend tests passed on 2026-10-05 using Node v24.10.0.
 
-## Sticky employee-scope tests
-
-[tests/sticky-scope.test.js](../../tests/sticky-scope.test.js) loads the actual
-browser script in a VM with mocked DOM/renderers and network responses. It
-contains 25 tests and checks sticky-control markup/defaults, ID-first Me matching, scoped actual and
-planning feeds, shared task inputs, separate macro overrides, consultant-only
-project discovery, Dico zero rows/baseline fallback, UTC month planning,
-coherent workbook fallback, signed credits, unnamed employee hours, omission
-of the unassigned project lookup, legacy capability/monthly fallback, cached
-read-only hour requests, failure/concurrency/stale employee/Dico/cache response
-handling, and preservation of years/inclusion/chart visibility.
-
-```powershell
-node --test --test-isolation=none tests/sticky-scope.test.js
-```
-
-## Coverage boundaries
-
-The suites cover the outbound safety boundary, mocked hour handlers, and
-dashboard calculations/markup. They do not render the browser layout or
-exercise the full XLSX parser, chart drawing, HTTP socket handling, or live Odoo
-schema/access compatibility. Results and unavailable checks are recorded in
-[CURRENT_STATE.md](../ai-context/CURRENT_STATE.md).
+There is no dedicated lint/typecheck setup or CI workflow. XLSX/XML-RPC parsers, planning allocation and charts do not have a comprehensive regression suite. Live Odoo, real-account browser login, data imports and Docker build/runtime were not validated by this suite.
 
 ## Refresh
 
-- Last refreshed: 2026-10-05.
-- Source basis: all five test files, guarded RPC/function-enrichment/hour
-  handlers in `server.js`, and inclusion/employee-scope/cache/task/override
-  helpers in `index.html`.
-- Limitations: mocks verify this application's dispatch boundary; they do not
-  verify a remote server's custom read-method implementation or access rights.
+- Last refreshed: 2026-10-05
+- Source basis: tests/auth.test.js, server.js, index.html, login.html and Docker configuration.
+- Limitations: simulated authentication is not proof of compatibility with real Buildwise accounts.
+
+## Merge verification (2026-10-06)
+
+All 125 tests passed with node --test across auth.test.js, portfolio-ui.test.js, steering.test.js, steering-http.test.js, odoo-read-only.test.js, remaining-hours.test.js, sticky-scope.test.js, subcontractor-hours.test.js and subcontractor-roles.test.js. Legacy offline fixtures now instrument the authenticated bootstrap and support the crypto/session dependencies; read_group is tested as read-only. No live Odoo or Docker runtime verification was performed.

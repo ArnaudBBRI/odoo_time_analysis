@@ -17,6 +17,7 @@ function loadServer() {
       assert.equal(host, "127.0.0.1");
       callback();
     },
+    address() { return {port: 8765}; },
     on() {}
   };
   const context = {
@@ -27,6 +28,8 @@ function loadServer() {
     AbortController,
     Buffer,
     require(name) {
+      if (["crypto", "async_hooks"].includes(name)) return require(name);
+      if (name === "./steering-service") return require("../steering-service");
       if (name === "http") {
         return { createServer: () => server };
       }
@@ -70,6 +73,7 @@ function objectParams(method, args = [], kwargs = {}) {
 
 test("every current RPC operation is allowed and retains its XML-RPC request", async (t) => {
   const calls = [
+    { service: "object", method: "execute_kw", params: objectParams("read_group", [[]], { fields: ["effective_hours:sum"], groupby: ["project_id"] }) },
     { service: "common", method: "authenticate", params: ["test-db", "test-user", "test-key", {}] },
     { service: "common", method: "version", params: [] },
     { service: "db", method: "list", params: [] },

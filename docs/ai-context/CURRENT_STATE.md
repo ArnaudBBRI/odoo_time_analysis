@@ -2,193 +2,57 @@
 
 ## Functional State
 
-- The repository contains a browser dashboard and a local Node.js Odoo proxy.
-  See [the technical wiki](../wiki/INDEX.md) for source-derived behavior.
-- BW AI Development Framework 3.0.0 was installed on 2026-10-05, including
-  shared assistant instructions, GitHub templates, optional Codex hooks, and
-  project-memory/wiki files.
-- The mandatory Odoo read-only policy is recorded in
-  [PROJECT_RULES.md](PROJECT_RULES.md) and decision D001. No write is approved.
-- The backend now rejects RPC operations outside the existing read allowlist
-  before serialization or network access. There is no runtime bypass.
-- All ten technical wiki pages are initialized from the current source tree;
-  framework provenance and safe updates are documented in
-  [FRAMEWORK_ADOPTION.md](FRAMEWORK_ADOPTION.md).
-- Remaining-hours rows now show paired foreseen/actual bars through today,
-  normalized per project and colored by absolute 10%/25% deviation. API data
-  uses dated records with local day cutoffs; monthly input uses the disclosed
-  forecast proration/report-total fallback. Scope totals and drilldown remain.
-- AI Consultant/AI Consultant Ormit actual and planned hours are now excluded
-  from API-backed hour charts/totals/consumption by default. An enabled,
-  unchecked `Include Ormitters hours` checkbox rebuilds loaded data locally.
-  Scoped HR/public read enrichment resolves employee/resource IDs; unknown
-  metadata and workbook limitations are disclosed. Inclusive responses and
-  scope/project selections are retained, with separate local override modes.
-- Task-linked actuals use filtered records, including zero after complete
-  exclusion. Unassignable subcontractor aggregates produce unavailable task
-  consumption instead of inclusive fallback. Task foreseen budgets and currency
-  budget records retain their source amounts.
-- The Remaining table now labels personal versus all-Dico scope and displays
-  classified consultant hours in the selected years. Old API data leads with
-  a highlighted unavailable-filter notice; no false exclusion claim is shown.
-  Dico-only Remaining data can render without personal datasets.
-- A sticky dashboard menu now holds year scope, Ormitters inclusion, and the
-  default-Me / Whole Project toggle. Relevant actual/planned hour views share
-  that scope, including Dico overview/Remaining data, project charts, progress,
-  expanded pies, and PNG exports. Shared tasks, milestones/deadlines, and
-  financial budgets retain their project baseline.
-- Personal identity comes from fetched employee records, preferring IDs. Missing
-  identity or insufficient export records show a disclosed baseline. Whole
-  Project lazily reads/caches only missing project timesheets/planning for the
-  listed personal projects, preserving project/year/inclusion selections and
-  exposing loading/failure states.
-- Signed actual credits and unnamed employees are retained in project totals.
-  Me keeps the unassigned `(No project)` bucket; Whole Project shows assigned
-  projects and discloses its omission, without looking up the unassigned bucket.
-  Stale employee, Dico, project-detail, and background responses cannot replace
-  data after a connector/employee cache generation changes.
+- DiCo steering adds project/programme/unit macro summaries, meta coverage/source diagnostics, contributor drill-down, upcoming known deadlines and Summary/Resources/Budgets/Reliability project tabs. The connected-project-leader shortcut matches the session UID against a configured user relation and resets other filters.
+- Steering reads live using the signed-in account, without persisted history or source writes. Authoritative cumulative project hours, visible timesheets and reconciled Progress/WP evidence are distinct; annual/convention financial periods and currencies are kept separate. The confirmed DiCo filter and programme reference are server-side local configuration; steering remains disabled by default until that filter is confirmed.
+
+- Time-view UI is simplified to the connected Lead Unit and Refresh. Removed Ready/loaded banners, connector status/test controls, hidden credentials and unused client API helpers; only loading/errors remain visible. Removed the export/Internal subtitle and the pilotage activation/configuration banner; steering controls and data behavior are preserved. The page heading and browser title are now Odoo Unit Dashboard.
+
+- The dashboard automatically resolves the connected person's Lead Unit and selects project.project.lead_unit_id. It retrieves accessible archived/zero-hour projects and all contributors' hours by exact project IDs; ownership-field/team selectors are removed.
+- Project drilldown uses the selected project's already loaded summaries. Missing planning remains unknown while owned projects stay visible.
+
+- The browser dashboard implements personal/project actual and planned hours, remaining hours, monthly/cumulative charts and task deadline markers. Top-level workbook upload controls are currently commented out; XLSX parsers remain implemented.
+- Authentication adds a responsive Buildwise welcome page at / and /login, using an official local logo and source-backed blue/turquoise styles.
+- Odoo email/password login creates an HttpOnly/SameSite session. The dashboard and all connector routes require the session. Queries are bound to that user's identity and Odoo permissions; request or config credentials cannot replace it.
+- Logout, fixed expiry, replacement-login rotation, origin checks and login rate limiting are implemented. Passwords are retained only in server memory for XML-RPC calls; a server restart clears sessions.
+- HTTP serving is limited to application pages and the logo. config.local.json is now excluded from Docker build contexts.
+- README, example configuration, technical wiki, decisions, known issues and change log reflect the new behavior.
 
 ## In Progress
 
-- None for this request. Sticky controls, shared employee scope, offline
-  verification, independent review fixes, and documentation are complete.
+- PR #1 conflict resolution is complete in an isolated checkout. Main is integrated with the published docker branch; local automatic-activation follow-up changes in the original checkout remain untouched.
+- DiCo steering implementation and simulated checks are complete locally, uncommitted. Real DiCo configuration, programme mapping and live Odoo validation remain pending. See [Pilotage](../wiki/PILOTAGE.md).
+- PR #1 targets main: https://github.com/ArnaudBBRI/odoo_time_analysis/pull/1. The user authorized conflict resolution and push on 2026-10-06; no merge into main was requested.
+- Pre-existing untracked framework/governance files remain untouched. DECISIONS.md, previously a template, now records the approved authentication choice.
 
 ## Known Limitations
 
-- Broader Odoo integration and browser rendering remain unverified; scoped
-  read-only Extrai inquiries succeeded as recorded below. Do not contact live
-  Odoo as part of safety verification.
-- Preexisting dashboard changes were preserved while editing the requested
-  table and API adapters. Unrelated dashboard behavior was not fully reviewed.
-- Browser layout was not visually verified: the browser tool's URL policy
-  blocked the local file preview. Offline tests validate calculation and row
-  markup, not rendered dimensions.
-- Role classification uses current HR functions; historical function timelines
-  are unavailable. Unknown functions and metadata-free workbook hours remain
-  included with notices; broader HR schema/access remains unverified.
-- Sticky-menu dimensions and rendered Me / Whole Project interactions have not
-  been verified in a browser. Whole-project background reads use the existing
-  guarded endpoints; broader project access remains unverified.
-
-- Scoped live verification on 2026-10-05 subsequently confirmed private HR
-  `job_title` reads for all four employees with positive recorded Extrai hours.
-  This does not verify public HR fallback, other projects, planning roles, or
-  browser rendering. A subsequent diagnostic found and restarted the stale
-  local server; the current HTTP endpoint now returns employee summaries and
-  role fields. Existing browser datasets still need a reload/refetch.
+- Real Buildwise password/XML-RPC compatibility and real-account data access remain unverified by the agent. SSO/MFA flows are not implemented.
+- Sessions/counters are local to one process. HTTPS termination and SESSION_COOKIE_SECURE=true require deployment configuration; proxy users can share an IP counter.
+- No comprehensive workbook/chart regression suite, dedicated lint/typecheck setup or CI workflow is defined.
+- Live imports, sample workbook contents and Docker build/runtime were not verified. See [Known Issues](KNOWN_ISSUES.md) and [Decisions](DECISIONS.md).
+- Steering requires metadata-confirmed direct project relations; unsupported models remain unavailable. No live Progress/WP or budget control verification was possible without a real account. No dedicated lint/typecheck or build command exists for these dependency-free Node/browser modules.
 
 ## Project Maturity
 
-- Small local application under active development; no release/deployment
-  process was established by this task.
+A runnable dashboard, authenticated local connector and authentication integration suite are implemented. Production deployment and real-account verification remain unestablished.
 
 ## Last Verified
 
-- Date: 2026-10-05 (Europe/Brussels).
-- The running local app on port 8765 serves the current workspace HTML with the
-  sticky controls. The 94 offline tests also passed with Europe/Brussels time;
-  this static HTTP check did not query Odoo or verify browser rendering.
-- Upstream installer dry run and installation: 26 framework/template files
-  created without overwriting app files.
-- Upstream `validate-target.ps1 -Profile full -IncludeWiki`: passed, including
-  required project policy presence.
-- Direct `.codex/hooks/session_start.ps1` invocation and PowerShell syntax check:
-  passed. Automatic hook dispatch/trust remains unverified.
-- Negative fixture check: both validator and startup hook returned exit code 1
-  when only `PROJECT_RULES.md` was absent.
-- `node --check server.js` and `node --check tests/odoo-read-only.test.js`: passed.
-- `node --test --test-isolation=none tests/odoo-read-only.test.js`: 11/11 passed
-  with Node.js 24.19.0. Default isolation was blocked by sandbox `spawn EPERM`;
-  no-child execution ran the actual offline suite successfully.
-- Local Markdown links and `git diff --check`: passed. The existing
-  `index.html` remained byte-for-byte unchanged during adoption.
-- No package build/lint/typecheck scripts exist; no live Odoo or full browser
-  integration test was run. Independent governance/code review found no
-  substantive issues.
-- Remaining-hours improvement: all 17 tests in
-  `node --test --test-isolation=none tests/remaining-hours.test.js` passed,
-  including Brussels UTC midnight/year boundaries and DST month proration.
-- The 11 Odoo safety tests passed again after the Dico response-only change.
-  Backend/test syntax and scoped whitespace checks passed. No new Odoo operation
-  was added and no live Odoo was contacted.
-- Independent review found UTC timestamp and blank-project grouping issues;
-  both were fixed and covered by the final offline tests. Browser rendering
-  remains unverified for the reason above.
-- Subcontractor improvement: all 63 tests passed in the combined offline command
-  `node --test --test-isolation=none tests/odoo-read-only.test.js tests/remaining-hours.test.js tests/subcontractor-roles.test.js tests/subcontractor-hours.test.js`:
-  11 RPC safety, 17 remaining-hour, 17 backend role, and 18 frontend filtering
-  tests. Backend and new test syntax checks and `git diff --check` passed.
-- Independent review identified and verified fixes for public metadata on
-  resource-only planning and task aggregate/year fallback errors. The final
-  regressions cover these cases. Tests used mocked network/file/server startup;
-  no live Odoo or private config was read, no dependency was installed, and the
-  Odoo guard was not changed by this feature.
-- User-requested Extrai lookup (54252043) on 2026-10-05: read 280 timesheet
-  records, all matching exact project ID 2083. The current guarded enrichment
-  found one AI Consultant with 449 positive recorded hours, all in 2026, with
-  no function lookup warnings. This was an explicitly requested read-only
-  inquiry, separate from offline safety testing. Credentials remained inside
-  the server settings code and were not printed or copied into artifacts.
-- Unchanged-checkbox follow-up: all 69 combined offline tests passed (11 safety,
-  17 remaining-hour, 17 backend role, 24 frontend filtering). Syntax and diff
-  whitespace checks passed. Independent UI review found an Internal-row counter
-  mismatch; fixed and covered alongside scope, stale-response, zero-data,
-  actual-credit, and Dico-only regressions.
-- Targeted read-only Extrai diagnostic through current handlers and frontend
-  adapters/table markup: selected 2026 actuals changed from 838 to 1287 hours
-  when inclusion was checked, a 449-hour delta. Classified consultant planning
-  in those records was zero; two planning records had unknown functions and
-  remained included with warnings. This did not render browser pixels.
-- Runtime repair: identified old listener PID 57108 and verified it served the
-  exact workspace `index.html`, then restarted only that local dashboard process.
-  Current server PID 28684 runs the absolute workspace `server.js` in a hidden
-  standard-user process, with stdout/stderr in the user's temporary directory.
-  HTTP `/api/odoo/project-timesheets` now returns `employeeMonthly`, classifications
-  on all 280 Extrai lines, and 838/1287 filtered/inclusive 2026 hours, no warnings.
-  No Odoo write, installation, or guard change occurred.
-- Sticky-scope improvement: all 94 combined offline tests passed in
-  `node --test --test-isolation=none tests/odoo-read-only.test.js tests/remaining-hours.test.js tests/subcontractor-roles.test.js tests/subcontractor-hours.test.js tests/sticky-scope.test.js`:
-  11 RPC safety, 17 remaining-hour, 17 backend role, 24 prior frontend, and
-  25 sticky-scope tests. Inline dashboard JavaScript and server syntax, unique
-  HTML IDs, and whitespace checks passed.
-- Independent review fixes preserve signed credits and unnamed employee hours,
-  reject stale response generations, keep actual/planning fallback coherent,
-  disclose missing filtering capabilities, and offset project-detail scrolling
-  below the sticky menu. The final regressions cover these cases. This request
-  used offline checks only; no live Odoo fetch or private config read was used
-  for sticky-scope verification. Browser rendering remains unverified.
+- Date: 2026-10-06 (Europe/Brussels).
+- Branch: docker; HEAD: 2a5596f. Compared with main and checked actual Git status; pre-existing local changes preserved.
+- All nine unit/integration suites passed: 125 tests, including main’s read-only, remaining-hours, sticky-scope and subcontractor suites. Tests use isolated mocked Odoo sources.
+- Coverage includes credential rejection/XML-RPC faults, route protection, user isolation, credential overrides, secret non-disclosure, static-file restrictions, CSRF/logout, upstream failure, rotation, expiry, Secure cookie behavior and rate limiting.
+- node --check server.js and inline JavaScript parsing for index.html/login.html: passed.
+- node --check steering.js, steering-service.js and steering-client.js: passed. Steering browser checks passed at 1440px and 390px: unit → programme → project, four tabs, leader focus, keyboard navigation, shared filters, refresh and failed-refresh retry; no JavaScript errors or mobile page overflow. Screenshots use labelled fictional fixtures, not live business data.
+- Welcome-page visual checks at desktop/mobile widths and password visibility toggle: passed; mobile overflow check returned false at 390px.
+- Docker Compose configuration and local Markdown links checked; no Docker build was performed.
+- No dedicated lint/typecheck command exists. Functional Odoo, workbook and deployment checks remain unverified.
 
 ## Session handoff
 
-- Objective: add sticky year/Ormitters controls and one Me / Whole Project scope
-  across relevant hour views while preserving shared project baselines and
-  read-only behavior.
-- Updated: 2026-10-05 (Europe/Brussels).
-- Completed: framework adoption and read-only guard; paired through-today bars,
-  raw API record retention, Dico response fields, offline regression tests,
-  review fixes, and documentation updates; subcontractor metadata enrichment,
-  employee-only summaries, checkbox rebuilds, task safeguards, and 63 combined
-  passing offline tests.
-  Follow-up completed: truthful unavailable-filter UI, Remaining scope/counters,
-  Dico-only rendering, 69 passing tests, scoped live diagnostic, and local server
-  restart with verified current HTTP responses.
-  Sticky-scope improvement completed: responsive controls, identity-based
-  scoped views, lazy project-hour cache, shared-baseline labels, and updated
-  documentation, with 94 combined passing offline tests and independent review
-  fixes for credits, unnamed employees, stale responses, and coherent fallback.
-- Implementation base: `main`,
-  `8a6bc9441d3c68d6ea4067827ff571889909002f`.
-- Delivery scope: existing dashboard work plus the requested table/API adapter
-  and sticky-scope changes in `index.html`, updated `README.md` and `server.js`,
-  and the framework/docs/tests. The user explicitly authorized committing and
-  pushing this work directly on `main` on 2026-10-05. Private local configuration
-  remains ignored. Git history/status is authoritative for the delivered
-  revision and publication state.
-- Checks: see Last Verified above; a scoped live Extrai/function read succeeded.
-  Broader integration and browser behavior remain unverified.
-- Next action: reload the dashboard and fetch employee data, then select Whole
-  Project for team hours if desired. Dico changes the overview project list.
-  Await the user's next scoped request; no implementation/check is pending.
-- Runtime note: the current local server is running with role filtering on port
-  8765 (PID 28684). Previously loaded browser responses do not update themselves.
-- Blockers: none; see [DECISIONS.md](DECISIONS.md) for constraints.
+- Objective: preserve connected-person Lead Unit/time behavior and implement the approved DiCo project/programme/unit steering plan plus the connected-project-leader shortcut.
+- Completed: existing Lead Unit flow plus steering calculations, scoped read API, programme configuration, macro/meta views, four-tab detail, coverage/reconciliation controls, 30 passing combined tests, labelled desktop/mobile browser verification and documentation.
+- Local changes: existing time/auth/Lead Unit changes remain; new steering modules/assets/tests and related docs are uncommitted. Unrelated framework files and private configuration are preserved.
+- Preview: local Node server on http://127.0.0.1:8767/ for review; main runtime default remains port 8765. Preview was restarted with the final source after verification.
+- Next action: review PR #1 after GitHub confirms it is mergeable. Live Odoo and deployment verification remain pending.
+- Blockers: none for local implementation; real Odoo settings and deployment behavior remain verification limits.

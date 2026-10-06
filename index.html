@@ -3,23 +3,23 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Odoo Time Dashboard</title>
+  <title>Odoo Unit Dashboard</title>
   <style>
     :root {
-      --bg: #f5f7f6;
+      --bg: #f7f7f7;
       --panel: #ffffff;
-      --panel-soft: #eef4f2;
-      --ink: #182322;
-      --muted: #64726f;
-      --line: #d7dfdc;
-      --teal: #0f766e;
-      --teal-dark: #0b5f59;
+      --panel-soft: #eaf8f7;
+      --ink: #1b1b1b;
+      --muted: #7d7d7d;
+      --line: #e6e6e6;
+      --teal: #007fae;
+      --teal-dark: #006e97;
       --coral: #c75f4c;
       --gold: #a87618;
       --indigo: #4556b2;
       --shadow: 0 18px 38px rgba(24, 35, 34, 0.08);
       color-scheme: light;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: "neue-haas-unica", "Helvetica Neue", Arial, sans-serif;
     }
 
     * {
@@ -39,9 +39,9 @@
     }
 
     .app-header {
-      background: #162422;
-      color: #f8fbfa;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+      background: #ffffff;
+      color: #1b1b1b;
+      border-bottom: 4px solid #00bfb6;
     }
 
     .header-inner {
@@ -69,7 +69,7 @@
 
     .subtitle {
       margin-top: 10px;
-      color: #bed1cd;
+      color: #464646;
       max-width: 58ch;
       line-height: 1.5;
     }
@@ -1456,14 +1456,23 @@
         height: 260px;
       }
     }
+    .portfolio-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0 20px; }
+    .portfolio-toolbar > div { display: grid; gap: 5px; }
+    .portfolio-label { font-size: 12px; color: var(--muted); }
+    .portfolio-message { padding: 12px 16px; margin-bottom: 16px; background: var(--panel-soft); border-radius: 4px; line-height: 1.5; }
+    select { font: inherit; padding: 12px; border: 1px solid var(--line); border-radius: 4px; background: white; max-width: 100%; }
+    [hidden] { display: none !important; }
   </style>
 </head>
 <body>
   <header class="app-header">
     <div class="header-inner">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap">
+        <a href="https://www.buildwise.be/fr/"><img src="/assets/buildwise-logo.svg" alt="Buildwise" width="235" height="27"></a>
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap"><span id="signedInEmail"></span><button id="logoutButton" class="secondary-button" type="button">Se déconnecter</button></div>
+      </div>
       <div>
-        <h1>Odoo Time Dashboard</h1>
-        <p class="subtitle">Timesheet and project contribution exports, excluding Internal holiday rows from every percentage.</p>
+        <h1>Odoo Unit Dashboard</h1>
       </div>
       <!--
       <div class="file-grid" aria-label="Workbook uploads">
@@ -1489,6 +1498,32 @@
   </header>
 
   <main>
+    <nav id="pilotage-nav" class="pilotage-nav" aria-label="Navigation du dashboard">
+      <button type="button" data-view="time" aria-current="page">Mon temps</button>
+      <button type="button" data-view="projects" disabled>Projets</button>
+      <button type="button" data-view="programmes" disabled>Programmes</button>
+      <button type="button" data-view="unit" disabled>Unité DiCo</button>
+      <button type="button" id="pilotage-my-projects" disabled>Mes projets comme project leader</button>
+    </nav>
+    <p id="pilotage-activation" class="pilotage-note" role="status" hidden></p>
+    <section id="pilotage-view" hidden aria-label="Pilotage DiCo">
+      <div class="panel pilotage-toolbar">
+        <div><h2 id="pilotage-title">Pilotage DiCo</h2><p id="pilotage-date"></p></div>
+        <button type="button" id="pilotage-refresh">Actualiser</button>
+        <div class="pilotage-filters">
+          <label>Programme<select id="pilotage-programme"><option value="">Tous</option></select></label>
+          <label>Responsable<select id="pilotage-owner"><option value="">Tous</option></select></label>
+          <label>Statut<select id="pilotage-stage"><option value="">Tous</option></select></label>
+          <label>Période<select id="pilotage-period"><option value="">Toutes les périodes</option></select></label>
+          <label class="pilotage-checkbox"><input type="checkbox" id="pilotage-leader">Project leader : moi</label>
+        </div>
+        <p class="pilotage-note">La période sélectionne les projets dont les dates recouvrent l’année. Les heures restent des cumuls projet / horizon disponible ; aucun historique des chargements n’est conservé.</p>
+      </div>
+      <p id="pilotage-status" role="status" aria-live="polite"></p>
+      <div id="pilotage-content"></div>
+      <section id="pilotage-detail" class="panel" hidden aria-label="Fiche projet"></section>
+    </section>
+    <div id="time-view">
     <section class="dashboard-menu" aria-label="Dashboard view controls">
       <label class="hours-inclusion-control">
         <input id="includeOrmittersHours" type="checkbox" aria-describedby="subcontractorHoursNote">
@@ -1507,70 +1542,12 @@
       </div>
       <p id="hoursScopeStatus" class="hours-scope-status" aria-live="polite"></p>
     </section>
-
-    <section class="status-bar" aria-live="polite">
-      <p id="statusText">Use the Odoo API fields below to fetch employee and project data.</p>
-      <span id="statusPill" class="status-pill warn">Waiting</span>
-    </section>
-
-    <section class="panel connector-panel" aria-label="Odoo API connection">
-      <div class="panel-head">
-        <div>
-          <h2>Odoo API</h2>
-        </div>
-        <div id="odooConnectionStatus" class="panel-meta connector-status">Not tested</div>
-      </div>
-      <form id="odooConnectionForm" class="connector-form">
-        <label class="field">
-          <span>Odoo URL</span>
-          <input id="odooUrl" type="url" value="https://odoo.buildwise.be/" placeholder="https://example.odoo.com" autocomplete="url" required>
-        </label>
-        <label class="field">
-          <span>Database</span>
-          <input id="odooDatabase" type="text" value="buildwiseprd" list="odooDatabaseOptions" autocomplete="off" required>
-          <datalist id="odooDatabaseOptions"></datalist>
-        </label>
-        <label class="field">
-          <span>Username</span>
-          <input id="odooUsername" type="email" autocomplete="username" required>
-        </label>
-        <label class="field">
-          <span>API key</span>
-          <input id="odooApiKey" type="password" autocomplete="current-password" placeholder="Paste key or use config.local.json">
-        </label>
-        <div class="connector-actions">
-          <!--
-          <button id="listOdooDatabases" class="secondary-button" type="button">List databases</button>
-          -->
-          <button id="testOdooConnection" class="primary-button" type="submit">Test connection</button>
-        </div>
-      </form>
-      <div class="timesheet-debug">
-        <div class="debug-head">
-          <h3>API Fetch</h3>
-          <span id="timesheetDebugStatus" class="connector-status">No query run</span>
-        </div>
-        <form id="timesheetDebugForm" class="debug-form">
-          <label class="field">
-            <span>Employee name</span>
-            <input id="timesheetEmployeeName" type="text" placeholder="First Last" autocomplete="off" required>
-          </label>
-          <button id="fetchEmployeeTimesheets" class="primary-button" type="submit">Fetch employee data</button>
-        </form>
-        <!--
-        <form id="projectDebugForm" class="debug-form">
-          <label class="field">
-            <span>Project ID</span>
-            <input id="projectCodeInput" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="54252043" autocomplete="off" required>
-          </label>
-          <button id="fetchProjectData" class="primary-button" type="submit">Fetch project data</button>
-        </form>
-        -->
-        <!--
-        <pre id="timesheetDebugOutput" class="debug-output">{}</pre>
-        -->
-      </div>
-    </section>
+    <p id="statusText" class="portfolio-message" role="alert" hidden></p>
+    <form id="timesheetDebugForm" class="portfolio-toolbar">
+      <div><span class="portfolio-label">Lead Unit</span><strong id="leadUnitName">Loading…</strong></div>
+      <button id="fetchTeamProjects" class="secondary-button" type="submit">Refresh</button>
+    </form>
+    <p id="timesheetDebugStatus" class="portfolio-message" role="status" aria-live="polite" hidden></p>
 
     <section class="panel" aria-label="Hours included in the dashboard">
       <p id="subcontractorHoursNote" class="remaining-help" aria-live="polite">AI Consultant and AI Consultant Ormit actual and planned hours are excluded from hour totals and budget consumption.</p>
@@ -1578,11 +1555,11 @@
 
     <section id="kpiGrid" class="kpis" aria-label="Summary metrics">
       <div class="kpi">
-        <span id="overviewHoursLabel">My hours</span>
+        <span id="overviewHoursLabel">Portfolio actual hours</span>
         <strong id="myHours">0</strong>
       </div>
       <div class="kpi">
-        <span id="overviewProjectsLabel">My projects</span>
+        <span id="overviewProjectsLabel">Owned projects</span>
         <strong id="myProjectCount">0</strong>
       </div>
       <div class="kpi">
@@ -1598,14 +1575,14 @@
     <section id="employeePanel" class="panel" hidden>
       <div class="panel-head">
         <div>
-          <h2 id="employeePanelTitle">My Time by Project</h2>
+          <h2 id="employeePanelTitle">My Lead Unit — Time by Project</h2>
         </div>
         <div id="employeeMeta" class="panel-meta"></div>
       </div>
       <div class="employee-chart">
         <div class="employee-pie-grid">
           <div id="employeeActualBlock" class="employee-pie-block">
-            <h3>Actual time (as of today)</h3>
+            <h3>Portfolio actual time</h3>
             <div class="pie-wrap">
               <canvas id="employeePie" class="chart-canvas" aria-label="My actual project time pie chart"></canvas>
               <div id="employeeLegend" class="legend"></div>
@@ -1654,8 +1631,9 @@
 
     <section id="emptyState" class="panel empty-state">
       <strong>No data loaded</strong>
-      <p>Use the Odoo API fields above to build the dashboard.</p>
+      <p>Projects load automatically for your Lead Unit.</p>
     </section>
+    </div>
   </main>
 
   <script>
@@ -1677,8 +1655,6 @@
       const CURRENT_YEAR = new Date().getFullYear();
       const MS_PER_DAY = 24 * 60 * 60 * 1000;
       const MS_PER_WEEK = 7 * MS_PER_DAY;
-      const ODOO_DEFAULT_URL = "https://odoo.buildwise.be/";
-      const ODOO_DEFAULT_DATABASE = "buildwiseprd";
 
       const MONTHS = {
         january: 0, jan: 0, janvier: 0,
@@ -1696,8 +1672,10 @@
       };
 
       const state = {
+        portfolioProjects: [],
+        portfolioPlanningError: null,
         includeOrmittersHours: false,
-        hoursScope: "me",
+        hoursScope: "whole",
         projectHoursCache: new Map(),
         hoursCacheGeneration: 0,
         wholeProjectHoursLoading: false,
@@ -1735,25 +1713,11 @@
         personalPlanFile: document.getElementById("personalPlanFile"),
         projectFiles: document.getElementById("projectFiles"),
         plannedFiles: document.getElementById("plannedFiles"),
-        odooConnectionForm: document.getElementById("odooConnectionForm"),
-        odooUrl: document.getElementById("odooUrl"),
-        odooDatabase: document.getElementById("odooDatabase"),
-        odooDatabaseOptions: document.getElementById("odooDatabaseOptions"),
-        odooUsername: document.getElementById("odooUsername"),
-        odooApiKey: document.getElementById("odooApiKey"),
-        listOdooDatabases: document.getElementById("listOdooDatabases"),
-        testOdooConnection: document.getElementById("testOdooConnection"),
-        odooConnectionStatus: document.getElementById("odooConnectionStatus"),
         timesheetDebugForm: document.getElementById("timesheetDebugForm"),
-        timesheetEmployeeName: document.getElementById("timesheetEmployeeName"),
-        fetchEmployeeTimesheets: document.getElementById("fetchEmployeeTimesheets"),
-        projectDebugForm: document.getElementById("projectDebugForm"),
-        projectCodeInput: document.getElementById("projectCodeInput"),
-        fetchProjectData: document.getElementById("fetchProjectData"),
+        leadUnitName: document.getElementById("leadUnitName"),
+        fetchTeamProjects: document.getElementById("fetchTeamProjects"),
         timesheetDebugStatus: document.getElementById("timesheetDebugStatus"),
-        timesheetDebugOutput: document.getElementById("timesheetDebugOutput"),
         statusText: document.getElementById("statusText"),
-        statusPill: document.getElementById("statusPill"),
         filterBar: document.getElementById("filterBar"),
         yearChips: document.getElementById("yearChips"),
         scopeText: document.getElementById("scopeText"),
@@ -1783,9 +1747,24 @@
         emptyState: document.getElementById("emptyState")
       };
 
-      els.odooUrl.value = ODOO_DEFAULT_URL;
-      els.odooDatabase.value = ODOO_DEFAULT_DATABASE;
-      loadConnectorConfig();
+      const originalFetch = window.fetch.bind(window);
+      window.fetch = async (...args) => {
+        const response = await originalFetch(...args);
+        if (response.status === 401) {
+          const result = await response.clone().json().catch(() => ({}));
+          if (result.authenticationRequired) window.location.replace("/login");
+        }
+        return response;
+      };
+      loadSessionIdentity();
+      fetchTeamProjects();
+      document.getElementById("logoutButton").addEventListener("click", async () => {
+        try {
+          const response = await fetch("/api/auth/logout", { method: "POST" });
+          if (!response.ok) throw new Error("Sign-out failed. Please try again.");
+          window.location.replace("/login");
+        } catch (error) { setTimesheetDebugStatus(error.message, "warn"); }
+      });
 
       els.includeOrmittersHours.addEventListener("change", () => {
         setIncludeOrmittersHours(els.includeOrmittersHours.checked);
@@ -1793,14 +1772,6 @@
       });
       els.hoursScopeMe.addEventListener("click", () => setHoursScope("me"));
       els.hoursScopeWhole.addEventListener("click", () => setHoursScope("whole"));
-      [els.odooUrl, els.odooDatabase, els.odooUsername, els.odooApiKey].forEach((input) => {
-        input.addEventListener("change", () => {
-          state.hoursCacheGeneration += 1;
-          state.projectHoursCache.clear();
-          state.wholeProjectHoursLoading = false;
-          render();
-        });
-      });
 
       if (els.employeeFile) {
         els.employeeFile.addEventListener("change", () => {
@@ -1842,28 +1813,10 @@
         });
       }
 
-      els.odooConnectionForm.addEventListener("submit", (event) => {
-        event.preventDefault();
-        testOdooConnection();
-      });
-
-      if (els.listOdooDatabases) {
-        els.listOdooDatabases.addEventListener("click", () => {
-          listOdooDatabases();
-        });
-      }
-
       els.timesheetDebugForm.addEventListener("submit", (event) => {
         event.preventDefault();
-        fetchEmployeeTimesheets();
+        fetchTeamProjects();
       });
-
-      if (els.projectDebugForm) {
-        els.projectDebugForm.addEventListener("submit", (event) => {
-          event.preventDefault();
-          fetchProjectData();
-        });
-      }
 
       els.employeeRemainingTable.addEventListener("click", (event) => {
         const button = event.target.closest("[data-project-drilldown]");
@@ -1881,54 +1834,31 @@
 
       window.addEventListener("resize", debounce(renderChartsOnly, 160));
 
-      async function loadConnectorConfig() {
+      async function loadSessionIdentity() {
         try {
-          const response = await fetch("/api/config", {
-            headers: { Accept: "application/json" }
-          });
-          if (!response.ok) {
-            return;
-          }
+          const response = await fetch("/api/auth/session");
+          const session = await response.json();
+          if (response.ok) document.getElementById("signedInEmail").textContent = session.email;
+        } catch (_) { /* The portfolio request reports connection failures. */ }
+      }
 
-          const config = await response.json().catch(() => ({}));
-          if (!config.ok) {
-            return;
-          }
-
-          if (config.odooUrl) {
-            els.odooUrl.value = config.odooUrl;
-          }
-          if (config.database) {
-            els.odooDatabase.value = config.database;
-          }
-          if (config.username) {
-            els.odooUsername.value = config.username;
-          }
-          if (config.employeeName) {
-            els.timesheetEmployeeName.value = config.employeeName;
-          }
-          if (config.projectCode && els.projectCodeInput) {
-            els.projectCodeInput.value = config.projectCode;
-          }
-          if (config.hasApiKey) {
-            els.odooApiKey.placeholder = "Loaded from config.local.json";
-          }
-          if (config.hasConfig) {
-            setOdooConnectionStatus("Config loaded, not tested", "warn");
-          }
-        } catch (_) {
-          // Opening index.html directly keeps the XLSX-only workflow working.
-        }
+      function clearTeamPortfolio() {
+        state.projectFetchToken++;
+        state.portfolioProjects = [];
+        state.portfolioPlanningError = null;
+        state.employee = null;
+        state.personalPlan = null;
+        state.projects = [];
+        state.plans = [];
+        state.hiddenSeries.clear();
+        state.taskDeadlines.clear();
+        state.activeProjectKey = "";
+        refreshYears(true);
+        render();
       }
 
       async function fetchEmployeeTimesheets() {
-        const payload = {
-          url: els.odooUrl.value.trim(),
-          database: els.odooDatabase.value.trim(),
-          username: els.odooUsername.value.trim(),
-          apiKey: els.odooApiKey.value.trim(),
-          employeeName: els.timesheetEmployeeName.value.trim()
-        };
+        const payload = { employeeName: els.timesheetEmployeeName?.value?.trim() || state.employee?.employeeName || "" };
 
         if (!payload.employeeName) {
           setTimesheetDebugStatus("Enter an employee name.", "warn");
@@ -1943,7 +1873,7 @@
         state.wholeProjectHoursLoading = false;
         const overviewFetchGeneration = state.hoursCacheGeneration;
         setOdooButtonsDisabled(true);
-        setDebugOutput({});
+
 
         try {
           const [timesheetFetch, planningFetch] = await Promise.allSettled([
@@ -2010,68 +1940,21 @@
             `${result.lineCount} timesheet lines, ${formatHours(result.totalHours)} h fetched, ${formatHours(chartHours)} h charted; ${planningStatus}`,
             planningError ? "warn" : "ok"
           );
-          setDebugOutput({
-            timesheets: result,
-            planning: planningError ? { ok: false, error: planningError } : planningResult,
-            dashboard: {
-              actualChartedHours: chartHours,
-              plannedChartedHours: planChartHours,
-              plannedProjectCount: planChartRows
-            }
-          });
+
         } catch (error) {
           const unavailable = error instanceof TypeError;
           const message = unavailable
             ? "Connector unavailable. Run node server.js, then open the local URL."
             : error.message;
           setTimesheetDebugStatus(message, "warn");
-          setDebugOutput({
-            ok: false,
-            error: message
-          });
+
         } finally {
           setOdooButtonsDisabled(false);
         }
       }
-
-      async function fetchProjectData() {
-        const payload = {
-          url: els.odooUrl.value.trim(),
-          database: els.odooDatabase.value.trim(),
-          username: els.odooUsername.value.trim(),
-          apiKey: els.odooApiKey.value.trim(),
-          projectCode: els.projectCodeInput ? els.projectCodeInput.value.trim() : ""
-        };
-
-        if (!payload.projectCode) {
-          setTimesheetDebugStatus("Enter a project ID.", "warn");
-          if (els.projectCodeInput) {
-            els.projectCodeInput.focus();
-          }
-          return;
-        }
-
-        await fetchProjectDetails(payload.projectCode, payload.projectCode);
-      }
-
-      async function fetchProjectDrilldown(projectName) {
-        const cleanProjectName = cleanLabel(projectName);
-        if (!cleanProjectName) {
-          setTimesheetDebugStatus("This project row has no project name to fetch.", "warn");
-          return;
-        }
-        const projectReference = extractProjectCode(cleanProjectName) || cleanProjectName;
-        await fetchProjectDetails(projectReference, cleanProjectName);
-      }
-
       async function fetchDicoProjects() {
         const overviewFetchGeneration = state.hoursCacheGeneration;
-        const payload = {
-          url: els.odooUrl.value.trim(),
-          database: els.odooDatabase.value.trim(),
-          username: els.odooUsername.value.trim(),
-          apiKey: els.odooApiKey.value.trim()
-        };
+        const payload = {};
         const wasAllYears = state.years.length > 0 && state.selectedYears.size === state.years.length;
 
         setTimesheetDebugStatus("Fetching Dico projects...", "warn");
@@ -2090,198 +1973,87 @@
             `${result.projectCount} Dico project${result.projectCount === 1 ? "" : "s"} fetched; ${formatHours(result.actualTotalHours || 0)} h actual, ${formatHours(result.plannedTotalHours || 0)} h planned.`,
             result.projectCount ? "ok" : "warn"
           );
-          setDebugOutput({
-            dicoProjects: result
-          });
+
         } catch (error) {
           const unavailable = error instanceof TypeError;
           const message = unavailable
             ? "Connector unavailable. Run node server.js, then open the local URL."
             : error.message;
           setTimesheetDebugStatus(message, "warn");
-          setDebugOutput({
-            ok: false,
-            error: message
-          });
+
         } finally {
           setOdooButtonsDisabled(false);
         }
       }
 
-      async function fetchProjectDetails(projectReference, displayName) {
-        const fetchToken = ++state.projectFetchToken;
-        const cacheGeneration = state.hoursCacheGeneration;
-        const payload = {
-          url: els.odooUrl.value.trim(),
-          database: els.odooDatabase.value.trim(),
-          username: els.odooUsername.value.trim(),
-          apiKey: els.odooApiKey.value.trim(),
-          projectCode: projectReference,
-          projectName: displayName
-        };
+      function getOdooRequestPayload() { return {employeeName: els.employeeName?.value || state.employee?.employeeName || "", projectCode: els.projectCode?.value || ""}; }
+      async function fetchTeamProjects() {
 
-        setTimesheetDebugStatus(`Fetching project details for ${compactLegendLabel(displayName || projectReference)}...`, "warn");
+        clearTeamPortfolio();
+        const token = state.projectFetchToken;
         setOdooButtonsDisabled(true);
-        setDebugOutput({});
 
+        setTimesheetDebugStatus("Loading owned projects, timesheets and planning…", "warn");
         try {
-          const [timesheetFetch, planningFetch, workPackageFetch, milestoneFetch, budgetFetch] = await Promise.allSettled([
-            postOdooJson("/api/odoo/project-timesheets", payload, "Project timesheet fetch"),
-            postOdooJson("/api/odoo/project-planning", payload, "Project planning fetch"),
-            postOdooJson("/api/odoo/project-workpackages", payload, "Project work-package fetch"),
-            postOdooJson("/api/odoo/project-milestones", payload, "Project milestone fetch"),
-            postOdooJson("/api/odoo/project-budgets", payload, "Project budget fetch")
-          ]);
-
-          if (timesheetFetch.status === "rejected") {
-            throw timesheetFetch.reason;
-          }
-
-          const timesheetResult = timesheetFetch.value;
-          if (fetchToken !== state.projectFetchToken || cacheGeneration !== state.hoursCacheGeneration) {
-            return;
-          }
-          const projectDataset = buildProjectDatasetFromApi(timesheetResult);
-          state.projects = [projectDataset];
-          state.activeProjectKey = projectSeriesKey(projectDataset);
-          state.workPackages.clear();
-          state.milestones.clear();
-          state.projectBudgets.clear();
-          state.budgetPersonnelVisible.clear();
-          state.budgetLinearScale.clear();
-          state.projectMacroOverrides.clear();
-          let planningResult = null;
-          let planningError = null;
-          let planDataset = null;
-          let planChartHours = 0;
-          let workPackageResult = null;
-          let workPackageError = null;
-          let workPackageDataset = null;
-          let milestoneResult = null;
-          let milestoneError = null;
-          let milestoneDataset = null;
-          let budgetResult = null;
-          let budgetError = null;
-          let budgetDataset = null;
-          let budgetChartCount = 0;
-
-          if (planningFetch.status === "fulfilled") {
-            planningResult = planningFetch.value;
-            planDataset = buildProjectPlanDatasetFromApi(planningResult, projectDataset);
-            if (planDataset) {
-              state.plans = [planDataset];
-              planChartHours = planDataset.rows.reduce((total, row) => total + sumMap(row.values), 0);
-            } else {
-              state.plans = [];
-            }
-          } else {
-            planningError = planningFetch.reason.message || String(planningFetch.reason);
-            state.plans = [];
-          }
-
-          if (workPackageFetch.status === "fulfilled") {
-            workPackageResult = workPackageFetch.value;
-            workPackageDataset = buildProjectWorkPackageDatasetFromApi(workPackageResult, projectDataset);
-            if (workPackageDataset) {
-              state.workPackages.set(projectSeriesKey(projectDataset), workPackageDataset);
-            } else {
-              state.workPackages.delete(projectSeriesKey(projectDataset));
-            }
-          } else {
-            workPackageError = workPackageFetch.reason.message || String(workPackageFetch.reason);
-            state.workPackages.delete(projectSeriesKey(projectDataset));
-          }
-
-          if (milestoneFetch.status === "fulfilled") {
-            milestoneResult = milestoneFetch.value;
-            milestoneDataset = buildProjectMilestoneDatasetFromApi(milestoneResult, projectDataset);
-            if (milestoneDataset) {
-              state.milestones.set(projectSeriesKey(projectDataset), milestoneDataset);
-            } else {
-              state.milestones.delete(projectSeriesKey(projectDataset));
-            }
-          } else {
-            milestoneError = milestoneFetch.reason.message || String(milestoneFetch.reason);
-            state.milestones.delete(projectSeriesKey(projectDataset));
-          }
-
-          if (budgetFetch.status === "fulfilled") {
-            budgetResult = budgetFetch.value;
-            budgetDataset = buildProjectBudgetDatasetFromApi(budgetResult);
-            if (budgetDataset) {
-              state.projectBudgets.set(projectSeriesKey(projectDataset), budgetDataset);
-              budgetChartCount = countRenderableBudgetCharts(budgetDataset);
-            }
-          } else {
-            budgetError = budgetFetch.reason.message || String(budgetFetch.reason);
-          }
-
-          state.projectHoursCache.set(projectColorKey(displayName || projectDataset.name), {
-            name: displayName || projectDataset.name, actualResult: timesheetResult, plannedResult: planningResult,
-            error: planningError || ""
-          });
+          const result = await postOdooJson("/api/odoo/team-projects", {}, "Lead Unit portfolio");
+          if (token !== state.projectFetchToken) return;
+          els.leadUnitName.textContent = result.team.name;
+          state.portfolioProjects = result.projects;
+          state.hoursCacheGeneration += 1;
+          state.projectHoursCache.clear();
+          for (const item of result.projects) state.projectHoursCache.set(projectColorKey(item.name), { name: item.name, actualResult: item.timesheets, plannedResult: item.planning, error: result.planningError || "" });
+          state.portfolioPlanningError = result.planningError;
+          result.timesheets.teamName = result.team.name;
+          if (result.planning) result.planning.teamName = result.team.name;
+          state.employee = result.timesheets.monthly.length
+            ? buildEmployeeDatasetFromApi(result.timesheets)
+            : { type: "employee", source: "api", fileName: result.team.name, months: [], rows: [] };
+          state.personalPlan = result.planning && buildPersonalPlanDatasetFromApi(result.planning)
+            || { type: "personal-plan", source: "api", fileName: result.team.name, months: [], timelineMonths: [], rows: [] };
           state.errors = [];
-          refreshYears(false);
-          if (planDataset) {
-            const scopedPlanKeys = getSelectedMonthKeys();
-            planChartHours = planDataset.rows.reduce((total, row) => total + sumMap(row.values, scopedPlanKeys), 0);
+          refreshYears(true);
+          if (state.personalPlan) {
+            const scopedPlanEntries = aggregateNamedRows(state.personalPlan.rows, getSelectedMonthKeys());
+            planChartRows = scopedPlanEntries.length;
+            planChartHours = sumEntries(scopedPlanEntries);
           }
           render();
-          if (els.projectList && !els.projectList.hidden) {
-            els.projectList.scrollIntoView({ behavior: "smooth", block: "start" });
-          }
 
-          const actualChartHours = projectDataset.rows.reduce((total, row) => total + sumMap(row.values), 0);
-          const planningStatus = planningError
-            ? `planning failed: ${planningError}`
-            : `${planningResult.slotCount} planning slots, ${formatHours(planningResult.totalHours)} h fetched, ${formatHours(planChartHours)} h in selected year scope`;
-          const workPackageStatus = workPackageError
-            ? `work packages failed: ${workPackageError}`
-            : workPackageResult
-              ? `${workPackageResult.taskCount} task${workPackageResult.taskCount === 1 ? "" : "s"} fetched, ${workPackageResult.workPackageCount} WP${workPackageResult.workPackageCount === 1 ? "" : "s"} detected`
-              : "no task data";
-          const milestoneStatus = milestoneError
-            ? `milestones failed: ${milestoneError}`
-            : milestoneResult
-              ? `${milestoneResult.milestoneCount} milestone${milestoneResult.milestoneCount === 1 ? "" : "s"} fetched`
-              : "no milestone data";
-          const budgetStatus = budgetError
-            ? `budgets failed: ${budgetError}`
-            : budgetResult
-              ? `${budgetResult.budgetCount} budgets inspected, ${budgetChartCount} budget chart${budgetChartCount === 1 ? "" : "s"}`
-              : "no budget data";
-          setTimesheetDebugStatus(
-            `${projectDataset.name}: ${timesheetResult.lineCount} timesheet lines, ${formatHours(timesheetResult.totalHours)} h fetched, ${formatHours(actualChartHours)} h charted; ${planningStatus}; ${workPackageStatus}; ${milestoneStatus}; ${budgetStatus}`,
-            planningError || workPackageError || milestoneError || budgetError ? "warn" : "ok"
-          );
-          setDebugOutput({
-            projectTimesheets: timesheetResult,
-            projectPlanning: planningError ? { ok: false, error: planningError } : planningResult,
-            projectWorkPackages: workPackageError ? { ok: false, error: workPackageError } : workPackageResult,
-            projectMilestones: milestoneError ? { ok: false, error: milestoneError } : milestoneResult,
-            projectBudgets: budgetError ? { ok: false, error: budgetError } : budgetResult,
-            dashboard: {
-              actualChartedHours: actualChartHours,
-              plannedChartedHours: planChartHours,
-              workPackageRows: workPackageDataset ? workPackageDataset.rows.length : 0,
-              milestoneCount: milestoneDataset ? milestoneDataset.milestones.length : 0,
-              budgetChartCount,
-              projectCount: state.projects.length,
-              planCount: state.plans.length
-            }
-          });
-        } catch (error) {
-          const unavailable = error instanceof TypeError;
-          const message = unavailable
-            ? "Connector unavailable. Run node server.js, then open the local URL."
-            : error.message;
-          setTimesheetDebugStatus(message, "warn");
-          setDebugOutput({
-            ok: false,
-            error: message
-          });
-        } finally {
+          setTimesheetDebugStatus(`${result.projects.length} owned projects — ${result.team.name}${result.planningError ? "; planning unavailable" : ""}`, result.planningError ? "warn" : "ok");
+        } catch (error) { els.leadUnitName.textContent = "Lead Unit unavailable"; setTimesheetDebugStatus(error.message, "warn"); }
+        finally {
           setOdooButtonsDisabled(false);
+
+        }
+      }
+
+      async function fetchProjectDrilldown(projectName) {
+        if (state.portfolioProjects.length) {
+          const selected = state.portfolioProjects.find(project => project.name === projectName);
+          if (!selected) return;
+          let project;
+          try { project = buildProjectDatasetFromApi(selected.timesheets); }
+          catch (_) { project = { type: "project", source: "api", name: selected.name, code: String(selected.id), months: [], rows: [] }; }
+          const plan = selected.planning && buildProjectPlanDatasetFromApi(selected.planning, project);
+          state.projects = [project];
+          state.plans = plan ? [plan] : [];
+          state.activeProjectKey = projectSeriesKey(project);
+          refreshYears();
+          render();
+          const detailToken = ++state.projectFetchToken;
+          const payload = { projectId: Number(selected.id) };
+          const details = await Promise.allSettled([
+            postOdooJson("/api/odoo/project-workpackages", payload, "Work packages"),
+            postOdooJson("/api/odoo/project-milestones", payload, "Milestones"),
+            postOdooJson("/api/odoo/project-budgets", payload, "Budgets")
+          ]);
+          if (detailToken !== state.projectFetchToken) return;
+          const key = projectSeriesKey(project);
+          const builders = [buildProjectWorkPackageDatasetFromApi, buildProjectMilestoneDatasetFromApi, buildProjectBudgetDatasetFromApi];
+          const stores = [state.workPackages, state.milestones, state.projectBudgets];
+          details.forEach((detail, i) => { if (detail.status === "fulfilled") { const dataset = builders[i](detail.value, project); if (dataset) stores[i].set(key, dataset); } });
+          render();
+          return;
         }
       }
 
@@ -2298,117 +2070,13 @@
         return result;
       }
 
-      async function listOdooDatabases() {
-        const url = els.odooUrl.value.trim();
-        if (!url) {
-          setOdooConnectionStatus("Enter the Odoo URL first.", "warn");
-          els.odooUrl.focus();
-          return;
-        }
-
-        setOdooConnectionStatus("Listing databases...", "warn");
-        setOdooButtonsDisabled(true);
-
-        try {
-          const response = await fetch("/api/odoo/list-databases", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url })
-          });
-          const result = await response.json().catch(() => ({}));
-          if (!response.ok || !result.ok) {
-            throw new Error(result.error || `Database listing failed with HTTP ${response.status}`);
-          }
-
-          const databases = Array.isArray(result.databases) ? result.databases : [];
-          els.odooDatabaseOptions.innerHTML = databases
-            .map((database) => `<option value="${escapeHtml(database)}"></option>`)
-            .join("");
-
-          if (databases.length === 1) {
-            els.odooDatabase.value = databases[0];
-            setOdooConnectionStatus(`Found database "${databases[0]}".`, "ok");
-          } else if (databases.length > 1) {
-            setOdooConnectionStatus(`Found ${databases.length} databases. Choose one from the database field.`, "ok");
-          } else {
-            setOdooConnectionStatus("Odoo returned no databases. Listing may be disabled on this instance.", "warn");
-          }
-        } catch (error) {
-          const unavailable = error instanceof TypeError;
-          setOdooConnectionStatus(
-            unavailable ? "Connector unavailable. Run node server.js, then open the local URL." : error.message,
-            "warn"
-          );
-        } finally {
-          setOdooButtonsDisabled(false);
-        }
-      }
-
-      async function testOdooConnection() {
-        const payload = {
-          url: els.odooUrl.value.trim(),
-          database: els.odooDatabase.value.trim(),
-          username: els.odooUsername.value.trim(),
-          apiKey: els.odooApiKey.value.trim()
-        };
-
-        setOdooConnectionStatus("Testing...", "warn");
-        setOdooButtonsDisabled(true);
-
-        try {
-          const response = await fetch("/api/odoo/test-connection", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-          });
-          const result = await response.json().catch(() => ({}));
-          if (!response.ok || !result.ok) {
-            throw new Error(result.error || `Connection test failed with HTTP ${response.status}`);
-          }
-
-          const suffix = result.serverVersion ? `, Odoo ${result.serverVersion}` : "";
-          setOdooConnectionStatus(`Connected as user #${result.uid}${suffix}`, "ok");
-        } catch (error) {
-          const unavailable = error instanceof TypeError;
-          setOdooConnectionStatus(
-            unavailable ? "Connector unavailable. Run node server.js, then open the local URL." : error.message,
-            "warn"
-          );
-        } finally {
-          setOdooButtonsDisabled(false);
-        }
-      }
-
       function setOdooButtonsDisabled(disabled) {
-        if (els.listOdooDatabases) {
-          els.listOdooDatabases.disabled = disabled;
-        }
-        els.testOdooConnection.disabled = disabled;
-        els.fetchEmployeeTimesheets.disabled = disabled;
-        if (els.fetchProjectData) {
-          els.fetchProjectData.disabled = disabled;
-        }
-        if (els.fetchDicoProjects) {
-          els.fetchDicoProjects.disabled = disabled;
-        }
-      }
-
-      function setOdooConnectionStatus(message, tone) {
-        els.odooConnectionStatus.textContent = message;
-        els.odooConnectionStatus.classList.toggle("ok", tone === "ok");
-        els.odooConnectionStatus.classList.toggle("warn", tone === "warn");
+        els.fetchTeamProjects.disabled = disabled;
       }
 
       function setTimesheetDebugStatus(message, tone) {
-        els.timesheetDebugStatus.textContent = message;
-        els.timesheetDebugStatus.classList.toggle("ok", tone === "ok");
-        els.timesheetDebugStatus.classList.toggle("warn", tone === "warn");
-      }
-
-      function setDebugOutput(value) {
-        if (els.timesheetDebugOutput) {
-          els.timesheetDebugOutput.textContent = JSON.stringify(value, null, 2);
-        }
+        els.timesheetDebugStatus.hidden = tone === "ok";
+        els.timesheetDebugStatus.textContent = tone === "ok" ? "" : message;
       }
 
       async function loadEmployee(file) {
@@ -3204,8 +2872,7 @@
         });
         if (!missing.length) return;
         const generation = state.hoursCacheGeneration;
-        const payload = { url: els.odooUrl.value.trim(), database: els.odooDatabase.value.trim(),
-          username: els.odooUsername.value.trim(), apiKey: els.odooApiKey.value.trim() };
+        const payload = {};
         state.wholeProjectHoursLoading = true;
         render();
         // Limit concurrent reads so an overview with many projects does not flood Odoo.
@@ -3362,7 +3029,7 @@
           const projects = Array.isArray(monthEntry.projects) ? monthEntry.projects : [];
           projects.forEach((project) => {
             const name = cleanLabel(project.name);
-            if (!name || isInternal(name)) {
+            if (!name || (!result.teamName && isInternal(name))) {
               return;
             }
             const hours = toHours(project.hours);
@@ -3397,7 +3064,7 @@
           type: "employee",
           source: "api",
           sourceResult: result,
-          fileName: `Odoo API - ${result.employeeName || "employee timesheets"}`,
+          fileName: `Odoo API - ${result.teamName || result.employeeName || "timesheets"}`,
           sheetName: "account.analytic.line",
           months,
           rows,
@@ -3420,7 +3087,7 @@
           const projects = Array.isArray(monthEntry.projects) ? monthEntry.projects : [];
           projects.forEach((project) => {
             const name = cleanLabel(project.name);
-            if (!name || isInternal(name)) {
+            if (!name || (!result.teamName && isInternal(name))) {
               return;
             }
             const hours = toHours(project.hours);
@@ -4281,6 +3948,7 @@
 
       function render() {
         els.includeOrmittersHours.checked = state.includeOrmittersHours;
+        els.hoursScopeMe.disabled = state.portfolioProjects.length > 0;
         els.hoursScopeMe.setAttribute("aria-pressed", String(state.hoursScope === "me"));
         els.hoursScopeWhole.setAttribute("aria-pressed", String(state.hoursScope === "whole"));
         const overview = getScopedOverview();
@@ -4314,48 +3982,12 @@
       }
 
       function renderStatus() {
-        const loaded = [];
-        if (state.employee) {
-          loaded.push(state.employee.source === "api" ? "employee API data" : "employee export");
-        }
-        if (state.personalPlan) {
-          loaded.push("personal planning");
-        }
-        if (state.projects.length) {
-          loaded.push(`${state.projects.length} project view${state.projects.length === 1 ? "" : "s"}`);
-        }
-        if (state.plans.length) {
-          loaded.push(`${state.plans.length} planned export${state.plans.length === 1 ? "" : "s"}`);
-        }
-        if (state.workPackages.size) {
-          loaded.push(`${state.workPackages.size} work-package view${state.workPackages.size === 1 ? "" : "s"}`);
-        }
-        if (state.milestones.size) {
-          loaded.push(`${state.milestones.size} milestone view${state.milestones.size === 1 ? "" : "s"}`);
-        }
-        if (state.projectBudgets.size) {
-          loaded.push(`${state.projectBudgets.size} project budget set${state.projectBudgets.size === 1 ? "" : "s"}`);
-        }
-        if (state.dicoProjects) {
-          loaded.push(`${state.dicoProjects.projects.length} Dico project${state.dicoProjects.projects.length === 1 ? "" : "s"}`);
-        }
-        if (state.taskDeadlines.size) {
-          loaded.push(`${state.taskDeadlines.size} task deadline file${state.taskDeadlines.size === 1 ? "" : "s"}`);
-        }
-
-        if (state.errors.length) {
-          setStatus(state.errors.join(" | "), "Check file", true);
-        } else if (loaded.length) {
-          setStatus(`Loaded ${loaded.join(" and ")}.`, "Ready", false);
-        } else {
-          setStatus("Use the Odoo API fields to fetch employee and project data.", "Waiting", true);
-        }
+        setStatus(state.errors.join(" | "), "", state.errors.length > 0);
       }
 
       function setStatus(text, pill, warn) {
-        els.statusText.textContent = text;
-        els.statusPill.textContent = pill;
-        els.statusPill.classList.toggle("warn", warn);
+        els.statusText.hidden = !warn;
+        els.statusText.textContent = warn ? text : "";
       }
 
       function renderYearFilters() {
@@ -4514,11 +4146,7 @@
           summary.entries.forEach((entry) => employees.add(entry.name));
         });
         els.myHours.textContent = formatHours(myHours);
-        const overview = getScopedOverview();
-        if (els.overviewHoursLabel) els.overviewHoursLabel.textContent = overview.baseline ? "Shared project hours" : state.hoursScope === "me" ? "My hours" : "Whole project hours";
-        if (els.overviewProjectsLabel) els.overviewProjectsLabel.textContent = "Projects in scope";
-        if (overview.unavailable) els.myHours.textContent = "—";
-        els.myProjectCount.textContent = String(employeeEntries.length);
+        els.myProjectCount.textContent = String(state.portfolioProjects.length || employeeEntries.length);
         els.projectHours.textContent = formatHours(projectHours);
         els.employeeCount.textContent = String(employees.size);
       }
@@ -4529,7 +4157,7 @@
           return;
         }
         els.employeePanel.hidden = false;
-        if (els.employeePanelTitle) els.employeePanelTitle.textContent = state.hoursScope === "whole" || overview.baseline ? "Whole Project Time by Project" : "My Time by Project";
+        if (els.employeePanelTitle) els.employeePanelTitle.textContent = state.portfolioProjects.length ? "My Lead Unit — Time by Project" : state.hoursScope === "whole" || overview.baseline ? "Whole Project Time by Project" : "My Time by Project";
         els.employeeActualBlock.hidden = !overview.actual;
         els.employeePlanBlock.hidden = !overview.planned;
 
@@ -4558,6 +4186,15 @@
       function renderEmployeeRemainingTable(actualEntries, plannedEntries, selectedKeys, overview = getScopedOverview()) {
         els.employeeRemainingBlock.hidden = !state.employee && !state.personalPlan && !state.dicoProjects;
         renderRemainingHoursScope();
+        if (state.portfolioPlanningError) {
+          els.employeeRemainingMeta.textContent = "Planning unavailable; remaining hours cannot be calculated.";
+          const rows = buildEmployeeRemainingRows(actualEntries, []);
+          els.employeeRemainingTableWrap.hidden = false;
+          els.employeeRemainingTable.innerHTML = rows.map(row => renderRemainingRow({ ...row, unknownPlanning: true }, 0)).join("");
+          els.employeeRemainingEmpty.hidden = false;
+          els.employeeRemainingEmpty.textContent = state.portfolioPlanningError;
+          return;
+        }
 
         renderRemainingTableHead();
         els.remainingComparisonNote.hidden = !overview.planned || (
@@ -4774,6 +4411,7 @@
           }
         });
 
+        state.portfolioProjects.forEach(project => ensureRow({ name: project.name }));
         return Array.from(rows.values())
           .map((row) => ({
             ...row,
@@ -4788,7 +4426,10 @@
           });
       }
 
-      function renderRemainingRow(row) {
+      function renderRemainingRow(row, maxAbsRemaining) {
+        if (row.unknownPlanning) {
+          return `<tr data-project-drilldown="true" data-project-name="${escapeHtml(row.name)}"><td><button class="remaining-project-button" type="button" data-project-drilldown="true" data-project-name="${escapeHtml(row.name)}">${escapeHtml(compactLegendLabelWithDates(row.name))}</button></td><td class="number">${formatHours(row.actual)}</td><td class="number">—</td><td class="number">—</td><td>Planning unavailable</td></tr>`;
+        }
         const remainingClass = row.remaining < -0.01 ? "negative" : "positive";
         const comparison = buildRemainingComparison(row.actualToDate, row.foreseenToDate);
         const deviationLabel = Number.isFinite(comparison.divergence)
@@ -5102,7 +4743,7 @@
       }
 
       function buildProjectMacroInfo(project, plan, workPackageSet) {
-        const employeeName = cleanLabel(els.timesheetEmployeeName.value);
+        const employeeName = cleanLabel(els.timesheetEmployeeName?.value || "");
         if (!employeeName) {
           return null;
         }
@@ -7235,5 +6876,8 @@
       }
     })();
   </script>
+  <link rel="stylesheet" href="/steering-client.css">
+  <script src="/steering.js"></script>
+  <script src="/steering-client.js"></script>
 </body>
 </html>

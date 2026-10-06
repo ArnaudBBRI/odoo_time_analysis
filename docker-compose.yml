@@ -1,0 +1,12 @@
+services:
+  odoo-time-dashboard:
+    build: .
+    ports:
+      - "8765:8765"
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8765
+    # To use a private local config, create config.local.json first, then uncomment:
+    # volumes:
+    #   - ./config.local.json:/app/config.local.json:ro
+    restart: unless-stopped

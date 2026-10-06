@@ -1,0 +1,9 @@
+.git
+.agents
+.codex
+node_modules
+config.local.json
+tests
+npm-debug.log
+Dockerfile
+docker-compose.yml

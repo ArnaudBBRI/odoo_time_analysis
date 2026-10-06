@@ -1,34 +1,19 @@
 # Overview
 
-The Odoo Time Dashboard compares actual timesheet hours with planned hours.
-[index.html](../../index.html) contains its browser interface, styles, XLSX
-reader, data transformations, and canvas charts in one file.
+The main dashboard now automatically selects all projects owned by the connected person's Lead Unit and compares actual/planned hours across their contributors. Projects with no hours remain listed.
 
-Two input paths exist:
+The Odoo Time Dashboard compares actual and planned hours from Odoo pivot XLSX exports or read-only XML-RPC queries. It provides personal project distributions, remaining hours, employee contributions, monthly and cumulative project charts, and uploaded task deadline markers.
 
-- Open `index.html` directly and select local Odoo pivot-style XLSX exports.
-  The browser reads the files and builds personal/project charts locally.
-- Run [server.js](../../server.js) and open `http://127.0.0.1:8765/` to use
-  the Odoo XML-RPC connector through local HTTP endpoints.
+## Entry points
 
-The dashboard includes personal actual/planned pies, remaining-hours tables,
-project contribution/monthly/cumulative/planned-versus-actual charts, task
-deadlines, milestones, work-package progress, and budget bar charts. It also
-has a responsible-unit project listing and local chart PNG export. A sticky menu
-combines year filters, Ormitters inclusion, and the default-Me / Whole Project
-toggle for relevant hour views. Shared tasks, milestones/deadlines, and currency
-budgets retain their baseline. Employee legend toggles control visible series.
+- Run the server and open / for the [Buildwise welcome page](../../login.html). Sign in with an Odoo email/password to access /dashboard. The top-level XLSX upload controls in index.html are currently commented out; the underlying parsers remain implemented.
+- Run [server.js](../../server.js) for static hosting and the Odoo connector.
+- [Dockerfile](../../Dockerfile) and [docker-compose.yml](../../docker-compose.yml) provide container execution.
 
-The backend reads Odoo records and normalizes them for the browser. A guard
-rejects RPC operations outside its read-only allowlist before network access. Local editable hour
-overrides are held in browser memory. The repository has no package manifest,
-bundler, database layer, or application deployment pipeline. See
-[Build](BUILD.md), [Data Flow](DATA_FLOW.md), and
-[PROJECT_RULES.md](../ai-context/PROJECT_RULES.md).
+login.html contains the responsive welcome/sign-in page; index.html contains the protected dashboard, workbook reader, aggregation and canvas charts. The Node server uses built-in modules and global fetch; there is no package manifest or compilation step.
 
 ## Refresh
 
-- Last refreshed: 2026-10-05.
-- Source basis: `index.html`, `server.js`, `README.md`, and repository inventory.
-- Limitations: includes the current working-tree dashboard; its preexisting
-  edits and rendered behavior were not fully tested. Live Odoo was not contacted.
+- Last refreshed: 2026-10-05
+- Source basis: login.html, index.html, server.js, README.md, Docker files and tests/auth.test.js.
+- Limitations: browser imports and live Odoo access were not exercised during this refresh.

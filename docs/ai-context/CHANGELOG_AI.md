@@ -1,81 +1,54 @@
 # AI Change Log
 
-## 2026-10-05 - Sticky Dashboard Controls and Employee Scope
+## 2026-10-05 — DiCo steering
 
-- Consolidated year selection, Ormitters inclusion, and Me / Whole Project in a
-  responsive sticky menu; Me is selected initially.
-- Added common scoped hour inputs for overview/Remaining, Dico, project charts,
-  project progress, expanded pies, and exports, preserving source responses and
-  selected years/project/inclusion. Employee IDs from fetched personal records
-  determine personal scope, with exact-name fallback only when IDs are absent.
-- Added lazy read-only project timesheet/planning caching for complete team
-  overviews and explicit loading/failure feedback. Missing identity or export
-  detail shows a disclosed shared baseline.
-- Kept tasks, milestones/deadlines, and financial budgets as shared project
-  data. Preserved signed actual credits and unnamed employee contributions;
-  Whole Project omits the unassigned project bucket with a notice. Guarded
-  response generations and coherent actual/planning fallbacks avoid stale or
-  mixed-scope inputs.
-- All 94 combined offline tests passed, including 25 sticky-scope tests.
-  Syntax, unique-ID, whitespace, and independent review checks completed;
-  browser rendering and live scope fetches remain unverified. Details are
-  recorded in `CURRENT_STATE.md`.
+- Added authenticated on-demand project/programme/unit macro and meta views, configured programme membership, project-leader shortcut, contributor drill-down and four-tab project detail.
+- Added strict resource/Progress/WP reconciliation and period/currency-separated financial aggregation with explicit missing-data states.
+- Preserved the existing time and connected Lead Unit flow, existing local changes, and private configuration. No Odoo writes, persistence, commit, push or PR.
+- Validation: 30 combined Node tests; syntax checks; desktop/mobile rendered verification with fictional fixtures, including keyboard navigation and error/retry. Live Odoo and Docker remain unverified.
 
-## 2026-10-05 - Diagnose Unchanged Inclusion Toggle
+This file records meaningful AI-assisted changes and complements Git history.
 
-- Confirmed the running local server still returned old responses without
-  employee-function flags/summaries, making the checkbox a no-op for those data.
-- Replaced the false exclusion claim with a highlighted unavailable-filter
-  notice. Added personal/all-Dico Remaining scope labels and selected-year
-  consultant-hour counters; enabled Dico-only Remaining rendering.
-- Added six regressions, including Internal-row exclusion and signed actual
-  credits in counters. All 69 combined offline tests passed.
-- Verified current handlers against read-only Extrai actual/planning data and
-  confirmed the project-wide 2026 actual toggle delta of 449 hours.
-- Identified the stale server by process/port and exact workspace page content,
-  restarted that local process with current code, then confirmed the HTTP API
-  returns all 280 classified records and 838/1287 employee-only/inclusive hours.
+## Unreleased
 
-## 2026-10-05 - Subcontractor Hour Filtering
+### 2026-10-05: Refresh dashboard documentation
 
-- Added scoped read-only employee-function enrichment and safe planning
-  resource-to-employee resolution, including public metadata/role fallbacks.
-- Added default exclusion for AI Consultant and AI Consultant Ormit actual and
-  planned hours across hour charts/totals/consumption, with an unchecked local
-  inclusion checkbox. Preserved inclusive originals, selected years/project,
-  and separate manual overrides for each setting.
-- Kept empty filtered datasets valid and prevented inclusive task aggregates
-  from restoring excluded hours. Unknown functions, export limitations, and
-  unavailable task consumption are disclosed in the dashboard.
-- Added offline role and dashboard regressions; independent review fixes cover
-  public metadata for resource-only planning and out-of-scope task aggregates.
-  Final verification and limitations are recorded in `CURRENT_STATE.md`.
+- Summary: replaced technical wiki placeholders with source-backed descriptions and expanded README runtime, Docker and data-interpretation guidance.
+- Documentation: all ten wiki pages, README, CURRENT_STATE.md and KNOWN_ISSUES.md; governance, roadmap and decision templates were preserved.
+- Checks: server and inline browser JavaScript syntax, Compose configuration, local README/wiki links and tracked diff whitespace passed.
+- Limitations: no browser functional checks, workbook-content inspection, live Odoo calls or Docker build/runtime validation.
+- Follow-up: Docker build-context private-file handling and actual-time label behavior are recorded in KNOWN_ISSUES.md; implementation was not changed.
+- Issue or PR: none supplied or created. The user subsequently authorized committing and pushing the refreshed documentation on branch docker.
 
-## 2026-10-05 - Remaining-Hours Comparison
+## 2026-10-05: Add Odoo sign-in and Buildwise welcome page
 
-- Replaced the balance graphic with light-blue foreseen and colored actual bars
-  through today, normalized independently for each project.
-- Applied absolute 10%/25% deviation thresholds in both directions and handled
-  zero forecasts and empty pairs.
-- Retained raw API records for date-accurate employee/Dico comparisons; no new
-  Odoo request or write path was added. Kept scope totals and drilldown intact.
-- Added offline regression checks and documented monthly-export fallback,
-  calendar-day proration, and UTC-to-local cutoff behavior. Verification results
-  are recorded in `CURRENT_STATE.md`.
+- Summary: added email/password sign-in through Odoo, fixed-lifetime in-memory sessions, logout/rotation, protected dashboard/API routes, rate limiting and POST origin checks. Connector identity is scoped to the signed-in user.
+- UI: French welcome page, official Buildwise SVG logo, website-derived blue/turquoise palette, responsive layout and session identity/logout in the dashboard header. The dashboard retains its existing English content.
+- Configuration: optional Secure cookies/TTL, instance-only example config, private-config Docker exclusion and restricted static file serving.
+- Checks: 10 simulated-Odoo integration tests passed; server and inline browser JavaScript syntax, Compose configuration, Markdown links and welcome-page visual/mobile overflow checks passed.
+- Documentation: README, wiki pages (including a new visual reference), decisions, known issues and current state.
+- Limits: real Odoo account compatibility, SSO/MFA, shared sessions across replicas, TLS deployment, workbook imports and Docker build/runtime were not verified or implemented as applicable.
+- Publication: the user authorized committing and pushing the authentication changes on branch docker. No PR was requested or created.
 
-## 2026-10-05 - Framework Adoption and Odoo Safety
+## 2026-10-05: Replace person filtering with owner-team portfolios
 
-- Request: adopt BW_CODEX_DEV_GUIDE and make Odoo access strictly read-only.
-- Installed Buildwise framework 3.0.0 from commit
-  `d968ed2fb82171e9337d6fbd90f23939efdaaf90`.
-- Added mandatory project policy and durable decisions, including the user's
-  standard-user Windows constraint.
-- Added a strict RPC service/method allowlist before outbound serialization and
-  network access; mutation and unknown operations are blocked with no bypass.
-- Initialized all ten source-derived wiki pages, documented upstream provenance
-  and update conflicts, and retained the framework MIT notice.
-- Checks: full framework validation, direct startup hook, missing-policy negative
-  fixture, syntax/link/diff checks, and all 11 offline safety tests passed.
-  The sandbox required the test runner's no-child-process mode; details and
-  verification boundaries are recorded in `CURRENT_STATE.md`.
-- Preserved the user's existing `index.html` edits; no live Odoo was contacted.
+- Added live ownership-field metadata, team selection and exact team/project-ID domains. Accessible archived and zero-hour projects remain visible; aggregate actual/planned data covers all contributors.
+- Project detail uses already loaded ID-scoped summaries. Missing planning is displayed as unknown; unsupported schemas never trigger an unfiltered planning search.
+- Validation: 16 server/frontend tests passed, including empty teams, zero-hour projects, ownership ambiguity, task-linked planning, scoped queries and unknown remaining values. Syntax checks passed; real Odoo ownership semantics remain unverified.
+- Updated README, wiki, decisions, known issues and current state. Changes remain local and uncommitted.
+
+### Connected Lead Unit clarification
+
+- User clarified ownership is Lead Unit and must be the connected person's unit. Removed both selectors and automatic schema/field browsing.
+- Fixed project ownership to lead_unit_id; resolve own unit by UID/user_id and direct-unit or department-parent relations. Reject absent/multiple units and ignore client unit overrides.
+- 19 tests passed, including direct/parent resolution, missing/multiple units, empty portfolios, override rejection, planning schema handling and UI model cases. Full live user-unit resolution remains unverified.
+
+### Simplify time-view controls
+
+- Removed loaded/Ready banners, Odoo connection status/test controls, hidden credential fields and unused connector client code.
+- Retained connected Lead Unit, Refresh and loading/error feedback. Related UI documentation updated; pre-existing steering work is preserved.
+- Further UI cleanup requested by the user: removed the export/Internal subtitle and hidden the pilotage activation/configuration diagnostics. Inline JavaScript and steering-client.js syntax passed; portfolio UI tests passed (2/2).
+
+## 2026-10-06: PR conflict resolution
+
+Integrated main into the published dashboard branch in an isolated checkout. Preserved Buildwise authentication and connected-unit ownership alongside project budgets, work packages, milestones, scoped hours and read-only safeguards. Updated legacy test fixtures for authenticated bootstrap; all 125 tests pass. Unpublished local follow-up changes remain in the original checkout.

@@ -1,22 +1,12 @@
 # Odoo Time Dashboard
 
-`index.html` is a self-contained browser dashboard for Odoo timesheet and planning exports. Open it in a browser and upload the XLSX files through the inputs at the top of the page.
-
-**Odoo access is strictly read-only. This app must never, never ever write
-anything to Odoo.** Any necessary write requires explicit advance approval from
-the user for that specific operation, environment, and affected records. General
-development approval is insufficient. See the mandatory
-[project rules](docs/ai-context/PROJECT_RULES.md); no Odoo write is currently
-approved. The backend rejects RPC operations outside its read-only allowlist
-before sending them to Odoo, with no runtime bypass flag.
+The dashboard compares Odoo timesheets and planning. Run the server, open the Buildwise welcome page, and sign in with your Odoo email and password. The underlying XLSX readers remain available in index.html; the top-level workbook upload controls are currently commented out.
 
 ## Local Server Quick Start
 
-An existing Node.js runtime with global `fetch` support is required. Starting
-this local server works as a standard Windows user; administrator rights are
-not needed.
+The dashboard also includes French DiCo project/programme/unit steering views with coverage diagnostics, separate convention/annual budgets and a connected-project-leader shortcut. They require a confirmed responsible-unit filter in private configuration. See [DiCo steering setup and measures](docs/wiki/PILOTAGE.md); the existing time dashboard remains available when steering is disabled.
 
-To use the Odoo API features, start the local server from this repository folder:
+Use Node.js 22 to match the Docker runtime. No npm installation or build step is required. To use the Odoo API features, start the local server from this repository folder:
 
 ```bash
 node server.js
@@ -39,141 +29,74 @@ node server.js
 
 Then open `http://127.0.0.1:8766/`.
 
+## Docker Quick Start
+
+Build and run the dashboard with Docker Compose:
+
+```bash
+docker compose up --build
+```
+
+Then open:
+
+```text
+http://127.0.0.1:8765/
+```
+
+Stop it with `Ctrl+C`, or run it in the background:
+
+```bash
+docker compose up --build -d
+```
+
+To use private configuration, create `config.local.json` and enable the read-only `volumes` section in `docker-compose.yml`. The file is excluded from the Docker build context.
+
+Stop background containers with `docker compose down`; inspect logs with `docker compose logs -f`. If host port `8765` is occupied, change the host side of the Compose port mapping, for example `8766:8765`.
+
+Compose publishes the port without a loopback-only binding. The dashboard and its APIs require sign-in, and only application pages and the logo are served. Use HTTPS when exposing the application beyond localhost. See [Configuration](docs/wiki/CONFIGURATION.md).
+
+## Sign In With Odoo
+
+The home page uses the Buildwise visual style and asks for your Odoo email and password. A successful login opens `/dashboard`; use **Se déconnecter** to end the session. The server authenticates against the configured Odoo instance, defaulting to `https://odoo.buildwise.be/` and database `buildwiseprd`.
+
+All dashboard API requests use the signed-in user's Odoo credentials and permissions. Request fields and private-config API keys cannot replace that identity. No local dashboard account database is created.
+
+Sessions expire after eight hours by default and are stored in server memory. Restarting the server signs everyone out. The browser receives a random session cookie with `HttpOnly` and `SameSite=Lax`; the password remains in server memory for authenticated XML-RPC calls and is not persisted to disk or browser storage.
+
+For an HTTPS deployment, set `SESSION_COOKIE_SECURE=true` on the server/container. TLS must be provided by the deployment or reverse proxy. If a proxy is used, preserve the public `Host` header so POST origin checks match the browser origin. Set `SESSION_TTL_SECONDS` to change the fixed session lifetime (default `28800`). Invalid/nonpositive lifetimes stop startup.
+
+Ten login attempts per client IP within 15 minutes trigger a temporary block; successful login resets that address's counter. Behind a reverse proxy, users may share its address. Sessions and rate limits are local to one Node process, not shared across replicas.
+
+This flow requires an Odoo password accepted by XML-RPC. SSO-only and two-factor authentication flows are not implemented; compatibility with the actual Buildwise Odoo authentication settings must be checked with a real account. See [Odoo's external API documentation](https://www.odoo.com/documentation/18.0/developer/reference/external_api.html).
+
 ## Optional Local Config
 
-To avoid re-entering the same Odoo values every time, copy `config.example.json` to `config.local.json` and fill in your own values:
+To select an Odoo instance, copy `config.example.json` to `config.local.json`:
 
 ```json
 {
   "odooUrl": "https://odoo.buildwise.be/",
-  "database": "buildwiseprd",
-  "username": "your.odoo.login@example.com",
-  "apiKey": "paste-your-api-key-here",
-  "employeeName": "First Last"
+  "database": "buildwiseprd"
 }
 ```
 
-`config.local.json` is ignored by Git and is not served as a static file by `server.js`. The browser only receives the non-secret fields and whether an API key exists; the API key stays on the local server side.
+The server reads the instance URL and database for sign-in. Existing username, API key and employee defaults do not override the signed-in user. Employee and project queries are entered in the dashboard.
 
-When `apiKey` is present in `config.local.json`, you can leave the dashboard's API key field empty. Typing a value in the field still overrides the config value for that request.
+`config.local.json` is ignored by Git, excluded from new Docker build contexts and inaccessible through the HTTP server. If older images were built with private configuration, rebuild them using the updated exclusions; the change does not remove files from existing images.
 
-## Running With The Odoo API Connector
+## Running With The Odoo Connector
 
-The XLSX workflow still works by opening `index.html` directly. The Odoo API connection test needs the local proxy server in `server.js`, because browsers usually cannot call Odoo XML-RPC directly from a local page.
+Start the server and sign in before fetching data. No separate API key entry is needed. Fetch actions reuse the Odoo session credentials. The API retains Odoo's permissions; a dashboard login does not grant additional access.
 
-The connection test asks for:
+## My Lead Unit Portfolio
 
-- **Odoo URL**: the base URL of your Odoo instance, for example `https://example.odoo.com`. A copied `/web` URL is also accepted.
-- **Database**: the Odoo database name.
-- **Username**: your Odoo login email or username.
-- **API key**: the key generated from your Odoo account security settings.
+Projects load automatically for the signed-in person's **Lead Unit**. There is no field or team selector. Use **Refresh** to reload the portfolio. The time view shows only the connected Lead Unit and useful loading/error messages, without a connection-test panel or a Ready banner.
 
-When typed in the browser, the API key is not saved by the dashboard. It is only sent to the local server for the current API request, and the local server forwards it to Odoo as the XML-RPC password. If you choose to store it in `config.local.json`, keep that file private.
+The project ownership field is `project.project.lead_unit_id`. The server reads the authenticated user by exact UID, using its Lead Unit/Unit relation when available, or an employee record linked through `user_id`. If only department membership is available, it follows the department's explicit unit relation, unit flag or parent hierarchy to a department named as a Unit. It does not look up people by name or accept client overrides of the unit.
 
-The Buildwise connector fields are prefilled with:
+All accessible projects whose lead_unit_id matches that unit are listed, including archived and zero-hour projects. Hours cover all contributors on those projects. Clicking a project displays its already loaded ID-scoped detail. Year filters affect hour totals without removing zero-hour owned projects.
 
-- **Odoo URL**: `https://odoo.buildwise.be/`
-- **Database**: `buildwiseprd`
-
-Use **Timesheet Debug** to enter an employee name and fetch matching API data. One click fetches:
-
-- `account.analytic.line` timesheet records for actual hours.
-- `planning.slot` planning records for planned hours.
-
-The fetched actual hours feed the `Actual time` pie. The fetched planning slots
-feed the `Planned time` pie and the remaining-hours table.
-
-The menu at the top stays visible while scrolling. It contains **Include
-Ormitters hours**, the selected **year scope**, and a **Me / Whole Project**
-toggle. **Me** is selected initially and uses the employee data you fetched.
-**Whole Project** shows every employee's actual and planned hours on the listed
-projects. The toggle applies to the overview pies, Remaining table, hour
-summaries, project contribution/monthly/cumulative/planned-versus-actual charts,
-and project planning progress. Expanded pies and their PNG exports follow the
-same scope. Shared tasks, milestones, deadlines, and financial budgets keep
-their project baseline in either mode.
-
-The first Whole Project selection reads timesheets and planning for missing
-listed projects, then caches those responses in browser memory. A loading or
-unavailable message appears until the complete overview is available; select
-Whole Project again to retry failed reads. Subsequent scope and Ormitters
-changes reuse loaded data. The selected years and project detail are preserved.
-Me matches employee IDs from fetched personal records, using exact employee
-names only when IDs are unavailable. Where identity or export data cannot
-support a personal breakdown, the dashboard labels the shared baseline.
-Actual and planning fall back together when either cannot support Me. Signed
-timesheet credits and hours without an employee name remain in whole-project
-totals. The personal `(No project)` bucket remains visible in Me; Whole Project
-shows assigned projects and labels the omitted unassigned hours.
-
-**Include Ormitters hours** is unchecked by default. Employees whose function
-is exactly **AI Consultant** or **AI Consultant Ormit** are treated as
-subcontractors: their actual and planned hours are excluded from hour totals,
-pies, monthly/cumulative charts, remaining-hours comparisons, and project
-progress calculations. Check the option to include their hours. It recalculates
-the loaded data locally and keeps the selected years and project.
-
-The connector reads the current employee job title/job position, including
-archived employees, with a public employee fallback when needed. It resolves
-planning resources to employee IDs; a planning role is a disclosed fallback
-when employee function is unavailable. Matching ignores case and repeated
-whitespace. Historical employee functions are not available in these reads.
-Unknown functions remain included with a visible notice. Workbook exports lack
-function metadata and also remain included, with a notice.
-
-Task consumption uses filtered task-linked timesheets. If subcontractor hours
-cannot be assigned to tasks, task actual hours show as unavailable instead of
-using an inclusive precomputed total. Task foreseen budgets and monetary budget
-charts retain their source amounts. Local hour overrides are kept separately
-for each checkbox setting. After updating the application, restart the local
-Node server, reload the page, and fetch the data again for employee metadata.
-
-The Remaining table initially shows **personal hours** for the employee you
-fetched. Select **Whole Project** to include other employees' contributions,
-subject to the Ormitters setting. Click **Yes** beside “Want to see all projects
-with Dico as responsible Unit?” to use the Dico project list in the overview
-pies and Remaining table; the Me / Whole Project setting still applies. Opening
-a project detail preserves that setting. The table labels its scope and shows
-identified consultant hours included or excluded in the selected years. Zero
-consultant hours means the checkbox has no effect on that table's current
-population.
-
-If loaded API data comes from an older server without role metadata, the
-dashboard highlights **Filter unavailable** and keeps its hours included.
-Restart the Node server, reload the dashboard, and fetch the data again; toggling
-the checkbox alone cannot add missing metadata to an already loaded response.
-
-In **Remaining hours by project**, the final column compares hours through today
-within the selected years. Each project has a light-blue **Foreseen** bar above
-an **Actual** bar. The larger value fills the width; the other scales relative
-to it. Actual is green for absolute deviation up to 10%, orange above 10%
-through 25%, and red above 25%, whether ahead or behind. Exactly 10% is green;
-exactly 25% is orange. Actual hours without any foreseen hours are red; two zero
-values produce empty bars. The numeric Actual/Planned/Remaining columns retain
-their selected-year totals.
-
-API comparisons use dated timesheets and planning intervals through the end of
-today in the browser's local timezone. Monthly-only exports cannot provide
-daily actual dates: their reported current-month actual total is retained,
-while foreseen hours are prorated by elapsed calendar days. Future months are
-excluded from the comparison.
-
-Click a project name in the remaining-hours table to fetch detailed project data for that project. One click fetches:
-
-- `account.analytic.line` timesheet records for everyone who encoded hours on that project.
-- `planning.slot` planning records for everyone planned on that project.
-- Budget records and budget lines linked to the project.
-
-The fetched project timesheets feed the per-project contribution pie, monthly
-line chart, and cumulative line chart. The fetched project planning feeds the
-per-project `Planned vs actual` chart. These hour views follow Me / Whole Project
-and Include Ormitters hours. The fetched budget lines feed grouped bar charts
-for the convention budget and the current/past annual budgets; future annual
-budgets after the current year are excluded. Budget charts use a log scale by
-default and can be switched to linear scale from the project budget controls.
-Personnel budget lines such as `Frais de personnel` are hidden by default and
-can be shown from the same controls. Only one project detail section is shown
-at a time; clicking another project replaces the previous one.
+If no unique Lead Unit can be resolved, the application reports it and makes no project query. Unsupported planning relations leave planned/remaining values unknown while retaining the projects. Odoo record permissions still apply.
 
 ## Files To Provide
 
@@ -311,48 +234,23 @@ Used for:
 
 ## Year Filtering
 
-- The year controls remain visible in the sticky dashboard menu alongside the
-  employee scope and Ormitters setting.
 - The `All` chip includes all available months from uploaded actual and planning files.
 - Individual year chips filter every graph.
 - `Interne` / `Internal` rows are excluded before totals and percentages are calculated.
 
-## Development Instructions and Project Memory
+## Data Interpretation And Runtime Limits
 
-This repository adopts the
-[Buildwise AI Development Framework](https://github.com/buildwise-be/BW_CODEX_DEV_GUIDE)
-version 3.0.0. Start with [AGENTS.md](AGENTS.md); `CLAUDE.md` imports the same
-instructions. The installed structure includes:
+- Portfolio actual/planned charts reflect loaded records within the selected year scope; there is no separate cutoff excluding future-dated records.
+- Portfolio remaining hours equal planned minus actual for the selected years; negative values indicate actual hours exceeding that plan.
+- API planning slots are distributed across months in proportion to elapsed time. This is not a working-day or holiday-calendar calculation.
+- XLSX imports run in browser memory and are not uploaded to the server. Reloading requires importing or fetching again.
+- The embedded XLSX reader requires a browser with `DecompressionStream` support. No external workbook or chart library is loaded.
+- Live API results depend on Odoo permissions and available planning fields. Employee-name searches use partial matching and may return multiple matching employees.
 
-- `.ai/framework.json`: framework manifest and required project policy.
-- `docs/ai-governance/`: development workflow, assistant setup, reusable prompts,
-  and wiki refresh guidance.
-- `docs/ai-context/`: mandatory project rules, current state, decisions, known
-  issues, roadmap, change log, and adoption/update notes.
-- `docs/wiki/`: source-derived architecture, API, data flow, configuration,
-  dependencies, and run/test documentation.
-- `.github/`: task and Pull Request templates with Odoo safety reminders.
-- `.codex/`: optional startup hook; automatic hook loading depends on the
-  assistant environment and its trust settings.
+## Technical Documentation
 
-Run the Odoo safety tests without connecting to Odoo:
+See the [technical wiki](docs/wiki/INDEX.md) for architecture, API routes, configuration, data flow and verification commands. [Current State](docs/ai-context/CURRENT_STATE.md) records completed work and verification limits; [Known Issues](docs/ai-context/KNOWN_ISSUES.md) records observed follow-up items.
 
-```powershell
-node --test tests/odoo-read-only.test.js
-node --test tests/remaining-hours.test.js
-node --test tests/subcontractor-roles.test.js tests/subcontractor-hours.test.js
-node --test tests/sticky-scope.test.js
-```
+## Project details and hour scopes
 
-If a restricted execution environment blocks the test worker with `spawn EPERM`,
-the existing Node.js runtime also supports running without a child process:
-
-```powershell
-node --test --test-isolation=none tests/odoo-read-only.test.js
-node --test --test-isolation=none tests/remaining-hours.test.js
-node --test --test-isolation=none tests/subcontractor-roles.test.js tests/subcontractor-hours.test.js
-node --test --test-isolation=none tests/sticky-scope.test.js
-```
-
-See [framework adoption](docs/ai-context/FRAMEWORK_ADOPTION.md) for provenance,
-validation commands, and how to preserve the local safety rules during updates.
+Unit portfolios aggregate all contributors in the connected Lead Unit. Project rows open shared work-package, milestone and budget details. The consultant-hours toggle includes or excludes AI Consultant / AI Consultant Ormit records. Personal datasets retain Me and Whole Project scopes; unit portfolios use Whole Project and disable Me. Odoo calls are strictly read-only, including aggregate reads; writes and unknown RPC operations are rejected.

@@ -1,80 +1,61 @@
 # API
 
-[server.js](../../server.js) binds to `127.0.0.1` on port `8765` by default.
-The browser calls these local JSON routes:
+The local server returns JSON. All dashboard and Odoo routes require a valid bw_session cookie. Unauthenticated API requests return 401 with authenticationRequired: true; protected page requests redirect to /login.
 
-| Method | Route | Main result |
+## Authentication
+
+| Method | Route | Behavior |
 | --- | --- | --- |
-| GET | `/api/config` | Non-secret defaults/settings, `hasConfig`, and `hasApiKey`. |
-| POST | `/api/odoo/test-connection` | Authenticated `uid` and optional `serverVersion`. |
-| POST | `/api/odoo/list-databases` | Sorted database names. |
-| POST | `/api/odoo/employee-timesheets` | Employee timesheet `lines`, `monthly` totals, count, and total hours. |
-| POST | `/api/odoo/employee-planning` | Employee planning `slots`, `monthly` totals, count, and total hours. |
-| POST | `/api/odoo/project-timesheets` | Project timesheet lines and monthly totals by employee. |
-| POST | `/api/odoo/project-planning` | Project planning slots and monthly totals by employee. |
-| POST | `/api/odoo/project-workpackages` | Normalized project tasks, work-package detection, and progress. |
-| POST | `/api/odoo/project-milestones` | Dated project milestones. |
-| POST | `/api/odoo/project-budgets` | Convention/annual budgets, lines, diagnostics, and excluded future-year count. |
-| POST | `/api/odoo/dico-projects` | Responsible-unit projects, aggregate monthly hours, and normalized timesheet `lines`/planning `slots` for through-today comparisons. |
+| POST | /api/auth/login | Public. JSON email/password; authenticates through configured Odoo XML-RPC, sets HttpOnly/SameSite=Lax cookie, returns ok, email and expiresAt. |
+| POST | /api/auth/logout | Removes the current session and clears its cookie; returns ok, including when already signed out. |
+| GET | /api/auth/session | Protected. Returns ok, email and expiresAt. |
 
-POST bodies accept connector settings (`url` or `odooUrl`, `database`,
-`username`, `apiKey`). Blank values fall back to server-side settings.
-Employee routes also require `employeeName`; project routes require a project
-reference via `projectCode` (with `projectName`/`projectQuery` aliases).
-Database listing only needs a URL. The server chooses all Odoo models and
-methods; no public generic RPC endpoint exists.
+Login returns 400 for invalid input, 401 for rejected credentials, 429 for rate limiting, 502 for upstream/configuration failure and 503 when session capacity is reached. Origin checks reject cross-site POSTs with 403. Incorrect endpoint methods return 405. See [Configuration](CONFIGURATION.md) for HTTPS, lifetime and limits.
 
-Responses include `ok`. Failures return `error`; many data responses include
-`warnings`, query domains, and fields. Method mismatch returns 405; invalid
-settings/JSON return 400; failed authentication returns 401; unhandled errors
-return 500. JSON request bodies are capped at 64 KiB.
+## Connected Lead Unit portfolio
 
-The four employee/project hour routes retain inclusive `monthly`, counts,
-`totalHours`, and raw `lines`/`slots`, and add `employeeMonthly` with classified
-subcontractor hours excluded. Dico similarly retains inclusive `actualMonthly`,
-`plannedMonthly`, counts/totals, `lines`/`slots`, and adds
-`employeeActualMonthly`/`employeePlannedMonthly`. Empty filtered summaries are
-valid arrays; browser adapters retain months from the inclusive summaries.
+- POST /api/odoo/my-lead-unit: resolves the session user's unit and returns leadUnit id/name.
+- POST /api/odoo/team-projects: automatically uses the same connected unit and project.project.lead_unit_id, returning its projects and actual/planned summaries. No query inputs are required; caller teamId/ownerField values are ignored.
+- Previous project-owner-fields and owner-teams discovery/list endpoints are removed.
 
-Normalized hour records add `employeeFunction`, `employeeFunctionSource`,
-`isSubcontractor`, and `subcontractorClassification` (`employee-function`,
-`planning-role`, or `unknown`). Planning keeps `resourceId` separate from
-`employeeId`. Function lookup reads only fetched employee/resource identities
-through `hr.employee` and, when needed, `hr.employee.public`, including archived
-employees. HR record fields are limited to ID/name, `job_title`, `job_id`, and
-`resource_id`. Resource mappings use the resolved employee's latest metadata.
-Lookup failures, unknown functions, and planning-role fallback emit warnings.
-See [Domain](DOMAIN.md) for matching and [Data Flow](DATA_FLOW.md) for filtering.
+The user is read by exact UID, or through hr.employee/hr.employee.public user_id. Direct Lead Unit/Unit relations take priority; department membership can resolve through a unit relation, is_unit flag or parent department named as a Unit. Failure or multiple distinct units returns 422 before any project query. Projects include accessible archived and zero-hour entries, and no-project results make no timesheet/planning query. Queries scope all contributor records by exact project IDs.
 
-The browser's Whole Project scope reuses `/api/odoo/project-timesheets` and
-`/api/odoo/project-planning` to cache missing team-hour responses for projects
-listed in the personal overview. Project details can seed this cache. Dico
-responses already contain full records for employee-scope filtering. No new
-route or outbound RPC operation is introduced by the sticky scope controls.
+Direct planning project relations and task.project_id are supported. Unsupported planning returns null with planningError and no unfiltered fallback. Existing employee/project connector endpoints remain available for compatibility.
 
-## Outbound integration
+## Dashboard connector
 
-`assertReadOnlyOdooCall` permits only these service/method combinations before
-XML serialization or network access:
+| Method | Route | Query inputs and successful response |
+| --- | --- | --- |
+| GET | /api/config | Public session connector fields, hasConfig, authenticated and hasApiKey: false; no credential secret. |
+| POST | /api/odoo/test-connection | Uses session identity; returns uid and optional serverVersion. |
+| POST | /api/odoo/list-databases | Uses session instance URL; returns sorted databases, if Odoo permits listing. |
+| POST | /api/odoo/employee-timesheets | employeeName; normalized lines, monthly project totals, lineCount, totalHours, domain and warnings. |
+| POST | /api/odoo/employee-planning | employeeName; normalized slots, monthly project totals, slotCount, totalHours, fields, domain and warnings. |
+| POST | /api/odoo/project-timesheets | projectCode; project identity, normalized lines, monthly employee totals, counts, hours, domain and warnings. |
+| POST | /api/odoo/project-planning | projectCode; project identity, normalized slots, monthly employee totals, counts, hours, fields, domain and warnings. |
 
-- `/xmlrpc/2/common`: `authenticate`, `version`.
-- `/xmlrpc/2/db`: `list`.
-- `/xmlrpc/2/object`: `execute_kw` wrapping `fields_get` or `search_read`.
+Session URL, database, username and password override any caller-supplied authentication fields and private config credentials. Invalid query settings/JSON return 400. Rejected Odoo query authentication returns 401; employee fallback lookup can return 404; unexpected database-list structure returns 502. Unhandled errors return 500. JSON bodies are limited to 64 KiB; oversized connections are destroyed.
 
-Unknown operations, malformed envelopes, and query/fragment URLs are rejected;
-there is no runtime bypass. XML-RPC uses HTTP POST with a 15-second timeout.
-`searchReadAll` paginates in groups of 1,000 by default. See the mandatory
-[Odoo policy](../ai-context/PROJECT_RULES.md) before changing the integration.
+Odoo calls use /xmlrpc/2/common, /xmlrpc/2/db and /xmlrpc/2/object. Read operations use fields_get and search_read, with default 1,000-record pages. No Odoo write operations are implemented.
 
-The root serves `index.html`; existing repository files use the static handler
-except `config.local.json` (403). Missing/out-of-root paths return 404;
-`/favicon.ico` returns 204.
+## DiCo steering API
+
+Three authenticated POST routes are available under `/api/odoo/pilotage/`: `metadata`, `portfolio`, and `project` (positive integer `projectId`). Reads are scoped to the server-confirmed DiCo domain and session permissions, with per-source availability and reconciliation states. See [route contracts and measures](PILOTAGE.md). Authenticated browser assets `/steering.js`, `/steering-client.js`, and `/steering-client.css` are served; `/steering-service.js` is not.
+
+## Application pages and files
+
+- /, /login and /login.html serve the public welcome page, or redirect signed-in users to /dashboard.
+- /dashboard and /index.html serve the protected dashboard.
+- /assets/buildwise-logo.svg is public; /favicon.ico returns 204.
+- Other files/routes return 404 after login. Anonymous non-API requests redirect to /login.
+- Responses use no-store, nosniff, same-origin referrer policy and a CSP blocking framing and off-origin connections. Inline scripts/styles remain allowed for the current single-file pages.
 
 ## Refresh
 
-- Last refreshed: 2026-10-05.
-- Source basis: route dispatch, hour handlers/function enrichment, settings,
-  pagination, RPC guard/transport, and static serving in `server.js`; requests
-  and API adapters in `index.html`.
-- Limitations: response behavior is source-derived; no live Odoo calls,
-  authentication, permissions, or custom-model compatibility were tested.
+- Last refreshed: 2026-10-05
+- Source basis: server.js, browser callers and tests/auth.test.js.
+- Limitations: integration tests use simulated Odoo; real Odoo permissions and schemas remain unverified.
+
+## APIs retained from main
+
+Authenticated POST routes /api/odoo/project-workpackages, /api/odoo/project-milestones and /api/odoo/project-budgets return task/WP, milestone and financial details. Unit-row detail calls pass projectId (a positive integer), resolved against project.project.id including archived records; missing IDs fail without a name-search fallback. Existing projectCode lookups remain available for legacy callers. /api/odoo/dico-projects retains the legacy fixed-unit API. The RPC boundary accepts only common.authenticate/version, db.list and object fields_get/search_read/read_group; mutations and unknown operations are blocked before network access.
