@@ -20,3 +20,7 @@ The DiCo steering views introduce cumulative project-authoritative actuals, conv
 - Last refreshed: 2026-10-05
 - Source basis: index.html dataset builders, matching, filtering and chart functions; server.js normalization and month allocation.
 - Limitations: business meanings and completeness of supplied exports were not validated.
+
+## Hours and project detail behavior retained from main
+
+Date-level actual/foreseen comparisons use selected years and the Brussels day boundary; planning allocation uses Odoo UTC month boundaries. Signed actual credits are retained. AI Consultant and AI Consultant Ormit hours are classified using employee functions and excluded by default, with an inclusion toggle. Whole Project and Me remain distinct for personal datasets; a connected-unit portfolio uses Whole Project scope, with Me disabled to avoid treating every contributor as the signed-in person. Project budget, task/WP and milestone evidence is shared project data.

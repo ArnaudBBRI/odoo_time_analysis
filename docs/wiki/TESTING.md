@@ -45,3 +45,7 @@ There is no dedicated lint/typecheck setup or CI workflow. XLSX/XML-RPC parsers,
 - Last refreshed: 2026-10-05
 - Source basis: tests/auth.test.js, server.js, index.html, login.html and Docker configuration.
 - Limitations: simulated authentication is not proof of compatibility with real Buildwise accounts.
+
+## Merge verification (2026-10-06)
+
+All 125 tests passed with node --test across auth.test.js, portfolio-ui.test.js, steering.test.js, steering-http.test.js, odoo-read-only.test.js, remaining-hours.test.js, sticky-scope.test.js, subcontractor-hours.test.js and subcontractor-roles.test.js. Legacy offline fixtures now instrument the authenticated bootstrap and support the crypto/session dependencies; read_group is tested as read-only. No live Odoo or Docker runtime verification was performed.

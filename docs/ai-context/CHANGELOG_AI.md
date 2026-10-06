@@ -48,3 +48,7 @@ This file records meaningful AI-assisted changes and complements Git history.
 - Removed loaded/Ready banners, Odoo connection status/test controls, hidden credential fields and unused connector client code.
 - Retained connected Lead Unit, Refresh and loading/error feedback. Related UI documentation updated; pre-existing steering work is preserved.
 - Further UI cleanup requested by the user: removed the export/Internal subtitle and hidden the pilotage activation/configuration diagnostics. Inline JavaScript and steering-client.js syntax passed; portfolio UI tests passed (2/2).
+
+## 2026-10-06: PR conflict resolution
+
+Integrated main into the published dashboard branch in an isolated checkout. Preserved Buildwise authentication and connected-unit ownership alongside project budgets, work packages, milestones, scoped hours and read-only safeguards. Updated legacy test fixtures for authenticated bootstrap; all 125 tests pass. Unpublished local follow-up changes remain in the original checkout.

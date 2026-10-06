@@ -25,3 +25,7 @@ The DiCo steering extension separates shared calculations (`steering.js`), read 
 - Last refreshed: 2026-10-05
 - Source basis: root file inventory, index.html, server.js, Docker files and framework manifest.
 - Limitations: example workbook contents were not inspected.
+
+## Integrated project modules
+
+server.js includes metadata-driven work-package, milestone and budget handlers and an explicit read-only RPC allowlist. index.html retains the corresponding project visualizations, selected-year comparisons, subcontractor inclusion and generation-scoped caches. Unit-row drilldowns fetch the shared details by exact project ID after installing already loaded hour summaries.

@@ -19,9 +19,9 @@
 
 ## In Progress
 
-- Authentication was published as 2a5596f. Connected-Lead-Unit portfolio, steering modules and dashboard simplification are complete on branch docker; the user requested commit and push on 2026-10-05.
+- PR #1 conflict resolution is complete in an isolated checkout. Main is integrated with the published docker branch; local automatic-activation follow-up changes in the original checkout remain untouched.
 - DiCo steering implementation and simulated checks are complete locally, uncommitted. Real DiCo configuration, programme mapping and live Odoo validation remain pending. See [Pilotage](../wiki/PILOTAGE.md).
-- No PR was requested or created; no related GitHub Issue was supplied.
+- PR #1 targets main: https://github.com/ArnaudBBRI/odoo_time_analysis/pull/1. The user authorized conflict resolution and push on 2026-10-06; no merge into main was requested.
 - Pre-existing untracked framework/governance files remain untouched. DECISIONS.md, previously a template, now records the approved authentication choice.
 
 ## Known Limitations
@@ -38,9 +38,9 @@ A runnable dashboard, authenticated local connector and authentication integrati
 
 ## Last Verified
 
-- Date: 2026-10-05 (Europe/Brussels).
+- Date: 2026-10-06 (Europe/Brussels).
 - Branch: docker; HEAD: 2a5596f. Compared with main and checked actual Git status; pre-existing local changes preserved.
-- node --test tests/auth.test.js tests/portfolio-ui.test.js tests/steering.test.js tests/steering-http.test.js: 30 tests passed using Node v24.10.0 and isolated simulated Odoo fixtures.
+- All nine unit/integration suites passed: 125 tests, including main’s read-only, remaining-hours, sticky-scope and subcontractor suites. Tests use isolated mocked Odoo sources.
 - Coverage includes credential rejection/XML-RPC faults, route protection, user isolation, credential overrides, secret non-disclosure, static-file restrictions, CSRF/logout, upstream failure, rotation, expiry, Secure cookie behavior and rate limiting.
 - node --check server.js and inline JavaScript parsing for index.html/login.html: passed.
 - node --check steering.js, steering-service.js and steering-client.js: passed. Steering browser checks passed at 1440px and 390px: unit → programme → project, four tabs, leader focus, keyboard navigation, shared filters, refresh and failed-refresh retry; no JavaScript errors or mobile page overflow. Screenshots use labelled fictional fixtures, not live business data.
@@ -54,5 +54,5 @@ A runnable dashboard, authenticated local connector and authentication integrati
 - Completed: existing Lead Unit flow plus steering calculations, scoped read API, programme configuration, macro/meta views, four-tab detail, coverage/reconciliation controls, 30 passing combined tests, labelled desktop/mobile browser verification and documentation.
 - Local changes: existing time/auth/Lead Unit changes remain; new steering modules/assets/tests and related docs are uncommitted. Unrelated framework files and private configuration are preserved.
 - Preview: local Node server on http://127.0.0.1:8767/ for review; main runtime default remains port 8765. Preview was restarted with the final source after verification.
-- Next action: confirm the actual DiCo field/ID in pilotage.unitDomain and unitConfirmed; define programme/project IDs; verify projectLeaderField and the resource/budget/Progress/WP models with a real Odoo account. Also verify the connected Lead Unit flow. No implementation work remains for the local approved scope; live schema/runtime validation is pending.
+- Next action: review PR #1 after GitHub confirms it is mergeable. Live Odoo and deployment verification remain pending.
 - Blockers: none for local implementation; real Odoo settings and deployment behavior remain verification limits.

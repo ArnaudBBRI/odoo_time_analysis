@@ -250,3 +250,7 @@ Used for:
 ## Technical Documentation
 
 See the [technical wiki](docs/wiki/INDEX.md) for architecture, API routes, configuration, data flow and verification commands. [Current State](docs/ai-context/CURRENT_STATE.md) records completed work and verification limits; [Known Issues](docs/ai-context/KNOWN_ISSUES.md) records observed follow-up items.
+
+## Project details and hour scopes
+
+Unit portfolios aggregate all contributors in the connected Lead Unit. Project rows open shared work-package, milestone and budget details. The consultant-hours toggle includes or excludes AI Consultant / AI Consultant Ormit records. Personal datasets retain Me and Whole Project scopes; unit portfolios use Whole Project and disable Me. Odoo calls are strictly read-only, including aggregate reads; writes and unknown RPC operations are rejected.

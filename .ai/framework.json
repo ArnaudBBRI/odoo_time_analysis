@@ -1,0 +1,198 @@
+{
+  "schemaVersion": 2,
+  "name": "bw-ai-dev-framework",
+  "version": "3.0.0",
+  "sourceRepository": "https://github.com/buildwise-be/BW_CODEX_DEV_GUIDE",
+  "description": "Repository-centric AI development framework for AI-assisted software engineering.",
+  "files": [
+    {
+      "path": "CLAUDE.md",
+      "source": "src/CLAUDE.md",
+      "owner": "Framework",
+      "installMode": "managed",
+      "required": true
+    },
+    {
+      "path": "docs/ai-governance/ASSISTANT_SETUP.md",
+      "source": "src/docs/ai-governance/ASSISTANT_SETUP.md",
+      "owner": "Framework",
+      "installMode": "managed",
+      "required": true
+    },
+    {
+      "path": "AGENTS.md",
+      "source": "src/AGENTS.md",
+      "owner": "Framework",
+      "installMode": "managed",
+      "required": true
+    },
+    {
+      "path": ".ai/framework.json",
+      "source": "src/.ai/framework.json",
+      "owner": "Framework",
+      "installMode": "managed",
+      "required": true
+    },
+    {
+      "path": ".codex/hooks.json",
+      "source": "src/.codex/hooks.json",
+      "owner": "Framework",
+      "installMode": "managed",
+      "required": false
+    },
+    {
+      "path": ".codex/hooks/session_start.ps1",
+      "source": "src/.codex/hooks/session_start.ps1",
+      "owner": "Framework",
+      "installMode": "managed",
+      "required": false
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/codex-task.md",
+      "source": "src/.github/ISSUE_TEMPLATE/codex-task.md",
+      "owner": "Framework",
+      "installMode": "managed",
+      "required": false
+    },
+    {
+      "path": ".github/pull_request_template.md",
+      "source": "src/.github/pull_request_template.md",
+      "owner": "Framework",
+      "installMode": "managed",
+      "required": false
+    },
+    {
+      "path": "docs/ai-governance/AI_DEVELOPMENT_GUIDE.md",
+      "source": "src/docs/ai-governance/AI_DEVELOPMENT_GUIDE.md",
+      "owner": "Framework",
+      "installMode": "managed",
+      "required": true
+    },
+    {
+      "path": "docs/ai-governance/PROMPTS.md",
+      "source": "src/docs/ai-governance/PROMPTS.md",
+      "owner": "Framework",
+      "installMode": "managed",
+      "required": false
+    },
+    {
+      "path": "docs/ai-governance/WIKI_REFRESH_GUIDE.md",
+      "source": "src/docs/ai-governance/WIKI_REFRESH_GUIDE.md",
+      "owner": "Framework",
+      "installMode": "managed",
+      "required": false
+    },
+    {
+      "path": "docs/ai-context/PROJECT_RULES.md",
+      "source": "docs/ai-context/PROJECT_RULES.md",
+      "owner": "Project",
+      "installMode": "create-if-missing",
+      "required": true
+    },
+    {
+      "path": "docs/ai-context/CURRENT_STATE.md",
+      "source": "templates/context/CURRENT_STATE.md",
+      "owner": "Project",
+      "installMode": "create-if-missing",
+      "required": true
+    },
+    {
+      "path": "docs/ai-context/DECISIONS.md",
+      "source": "templates/context/DECISIONS.md",
+      "owner": "Project",
+      "installMode": "create-if-missing",
+      "required": true
+    },
+    {
+      "path": "docs/ai-context/ROADMAP.md",
+      "source": "templates/context/ROADMAP.md",
+      "owner": "Project",
+      "installMode": "create-if-missing",
+      "required": false
+    },
+    {
+      "path": "docs/ai-context/KNOWN_ISSUES.md",
+      "source": "templates/context/KNOWN_ISSUES.md",
+      "owner": "Project",
+      "installMode": "create-if-missing",
+      "required": true
+    },
+    {
+      "path": "docs/ai-context/CHANGELOG_AI.md",
+      "source": "templates/context/CHANGELOG_AI.md",
+      "owner": "Project",
+      "installMode": "create-if-missing",
+      "required": false
+    },
+    {
+      "path": "docs/wiki/INDEX.md",
+      "source": "templates/wiki/INDEX.md",
+      "owner": "Generated",
+      "installMode": "create-if-missing",
+      "required": false
+    },
+    {
+      "path": "docs/wiki/OVERVIEW.md",
+      "source": "templates/wiki/OVERVIEW.md",
+      "owner": "Generated",
+      "installMode": "create-if-missing",
+      "required": false
+    },
+    {
+      "path": "docs/wiki/MODULES.md",
+      "source": "templates/wiki/MODULES.md",
+      "owner": "Generated",
+      "installMode": "create-if-missing",
+      "required": false
+    },
+    {
+      "path": "docs/wiki/API.md",
+      "source": "templates/wiki/API.md",
+      "owner": "Generated",
+      "installMode": "create-if-missing",
+      "required": false
+    },
+    {
+      "path": "docs/wiki/DOMAIN.md",
+      "source": "templates/wiki/DOMAIN.md",
+      "owner": "Generated",
+      "installMode": "create-if-missing",
+      "required": false
+    },
+    {
+      "path": "docs/wiki/DATA_FLOW.md",
+      "source": "templates/wiki/DATA_FLOW.md",
+      "owner": "Generated",
+      "installMode": "create-if-missing",
+      "required": false
+    },
+    {
+      "path": "docs/wiki/DEPENDENCIES.md",
+      "source": "templates/wiki/DEPENDENCIES.md",
+      "owner": "Generated",
+      "installMode": "create-if-missing",
+      "required": false
+    },
+    {
+      "path": "docs/wiki/BUILD.md",
+      "source": "templates/wiki/BUILD.md",
+      "owner": "Generated",
+      "installMode": "create-if-missing",
+      "required": false
+    },
+    {
+      "path": "docs/wiki/TESTING.md",
+      "source": "templates/wiki/TESTING.md",
+      "owner": "Generated",
+      "installMode": "create-if-missing",
+      "required": false
+    },
+    {
+      "path": "docs/wiki/CONFIGURATION.md",
+      "source": "templates/wiki/CONFIGURATION.md",
+      "owner": "Generated",
+      "installMode": "create-if-missing",
+      "required": false
+    }
+  ]
+}

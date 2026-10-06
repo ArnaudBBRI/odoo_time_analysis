@@ -1,0 +1,18 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -lc 'root=$(git rev-parse --show-toplevel 2>/dev/null || pwd); pwsh -NoProfile -ExecutionPolicy Bypass -File \"$root/.codex/hooks/session_start.ps1\"'",
+            "commandWindows": "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"$root = git rev-parse --show-toplevel 2>$null; if (-not $root) { $root = (Get-Location).Path }; & (Join-Path $root '.codex/hooks/session_start.ps1')\"",
+            "timeout": 30,
+            "statusMessage": "Checking BW Codex framework context"
+          }
+        ]
+      }
+    ]
+  }
+}

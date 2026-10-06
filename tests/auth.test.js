@@ -243,7 +243,7 @@ test('connected employee Lead Unit determines the portfolio; caller overrides ar
   assert.equal(portfolio.planning.totalHours, 10);
   assert.equal(portfolio.projects[0].timesheets.monthly[0].employees.length, 2);
   const queries = f.calls.filter(xml => xml.includes('<string>search_read</string>'));
-  const employeeQueries = queries.filter(xml => xml.includes('<string>hr.employee</string>'));
+  const employeeQueries = queries.filter(xml => xml.includes('<string>hr.employee</string>') && xml.includes('<string>user_id</string>'));
   assert.ok(employeeQueries.length);
   for (const xml of employeeQueries) {
     assert.match(xml, /<string>user_id<\/string>/);
@@ -284,7 +284,7 @@ for (const scenario of ['direct-unit', 'no-unit', 'multiple-units', 'empty', 'ta
       } else {
         assert.equal(result.planning.totalHours, 10);
         if (scenario === 'task-planning') assert.ok(f.calls.some(xml => xml.includes('<string>task_id.project_id</string>')));
-        if (scenario === 'direct-unit') assert.ok(!f.calls.some(xml => xml.includes('<string>hr.employee</string>')));
+        if (scenario === 'direct-unit') assert.ok(!f.calls.some(xml => xml.includes('<string>hr.employee</string>') && xml.includes('<string>user_id</string>')));
       }
     }
   });

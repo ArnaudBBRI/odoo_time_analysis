@@ -55,3 +55,7 @@ Three authenticated POST routes are available under `/api/odoo/pilotage/`: `meta
 - Last refreshed: 2026-10-05
 - Source basis: server.js, browser callers and tests/auth.test.js.
 - Limitations: integration tests use simulated Odoo; real Odoo permissions and schemas remain unverified.
+
+## APIs retained from main
+
+Authenticated POST routes /api/odoo/project-workpackages, /api/odoo/project-milestones and /api/odoo/project-budgets return task/WP, milestone and financial details. Unit-row detail calls pass projectId (a positive integer), resolved against project.project.id including archived records; missing IDs fail without a name-search fallback. Existing projectCode lookups remain available for legacy callers. /api/odoo/dico-projects retains the legacy fixed-unit API. The RPC boundary accepts only common.authenticate/version, db.list and object fields_get/search_read/read_group; mutations and unknown operations are blocked before network access.
