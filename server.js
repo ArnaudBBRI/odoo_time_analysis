@@ -4,6 +4,7 @@ const path = require("path");
 const crypto = require("crypto");
 const { AsyncLocalStorage } = require("async_hooks");
 const steeringService = require("./steering-service");
+const projectFinanceService = require("./project-finance-service");
 
 const HOST = process.env.HOST || "127.0.0.1";
 const PORT = Number(process.env.PORT || 8765);
@@ -116,7 +117,7 @@ const server = http.createServer((request, response) => {
         await handleSteering(request, response, url.pathname);
         return;
       }
-      if (["/steering.js", "/steering-client.js", "/steering-client.css", "/personal-time.js", "/personal-time.css", "/project-monthly.js", "/project-browser.js", "/project-browser.css"].includes(url.pathname)) {
+      if (["/steering.js", "/steering-client.js", "/steering-client.css", "/personal-time.js", "/personal-time.css", "/project-monthly.js", "/project-browser.js", "/project-browser.css", "/project-budget.js", "/project-budget.css"].includes(url.pathname)) {
         await serveStaticFile(url.pathname, response);
         return;
       }
@@ -126,6 +127,10 @@ const server = http.createServer((request, response) => {
       }
       if (url.pathname === "/api/odoo/project-hours") {
         await handleProjectHours(request, response);
+        return;
+      }
+      if (url.pathname === "/api/odoo/project-finance") {
+        await handleProjectFinance(request, response);
         return;
       }
       if (["/api/odoo/my-lead-unit", "/api/odoo/team-projects"].includes(url.pathname)) {
@@ -4585,6 +4590,35 @@ async function readProjectLifetimeMetadata(args, projectId, warnings) {
     } catch (_) { warnings.push("Project dates are unavailable with your current Odoo access."); }
   }
   return lifetime;
+}
+
+async function handleProjectFinance(request, response) {
+  const session = authContext.getStore();
+  if (!session) { sendJson(response, 401, { ok: false, error: "Please sign in to continue", authenticationRequired: true }); return; }
+  if (request.method !== "POST") { sendJson(response, 405, { ok: false, error: "Use POST for this endpoint" }); return; }
+  let body;
+  try { body = await readJsonBody(request); }
+  catch (_) { sendJson(response, 400, { ok: false, error: "Request body must be valid JSON" }); return; }
+  if (!Number.isSafeInteger(body?.projectId) || body.projectId <= 0) {
+    sendJson(response, 400, { ok: false, error: "A positive integer projectId is required" }); return;
+  }
+  try {
+    const settings = getAuthSettings({});
+    const uid = await authenticateOdoo(settings.odooUrl, settings.database, settings.username, settings.apiKey);
+    if (!Number.isSafeInteger(uid) || uid <= 0 || uid !== session.uid) {
+      sendJson(response, 401, { ok: false, error: "Odoo rejected your credentials", authenticationRequired: true }); return;
+    }
+    const args = [settings.odooUrl, settings.database, uid, settings.apiKey];
+    const rpc = {
+      fields: model => executeKw(...args, model, "fields_get", [], { attributes: ["string", "type", "relation", "selection", "currency_field", "related"] }),
+      read: (model, domain, fields) => searchReadAll(...args, model, domain, fields, { context: { active_test: false, lang: "en_US" }, order: "id asc" })
+    };
+    const result = await projectFinanceService.load(body.projectId, rpc);
+    sendJson(response, result.notFound ? 404 : 200, result);
+  } catch (_) {
+    // Do not reflect credential-bearing RPC faults or financial source records.
+    sendJson(response, 502, { ok: false, error: "Les budgets du projet sont indisponibles. Réessayez ou vérifiez vos accès Odoo." });
+  }
 }
 
 async function handleProjectHours(request, response) {

@@ -144,6 +144,12 @@ Macro legend visibility does not remove projects from this grid. Each tile has
 a native radio button, the project name, and its manager's photo when available;
 initials or a question mark provide a fallback.
 
+The selected project has a **Heures / Budget** switch at the top. **Heures** is
+the initial view; each project remembers its view during the browser session.
+The budget view hides the year controls and keeps the selected project open,
+because its financial comparisons cover the project and each annual budget's
+own period. Returning to Heures restores the existing hour preferences.
+
 Selecting a tile opens **Projets · 01 — Vue d’ensemble** with **Mes heures**, **Heures du projet · tous les employés
 (hors Ormitters)**, then **Convention · durée du projet (hors Ormitters)**.
 Known consultant hours are excluded by default; unknown functions remain included
@@ -226,6 +232,65 @@ retry and preserve available comparisons. **Tous les projets** returns
 to the grid and restores focus. This view works without DiCo configuration;
 Programmes, Unité DiCo and the leader/contributor shortcuts retain their
 separate steering portfolio.
+
+**Budget · 01 — Convention** shows the project convention macro fields: total
+budget, personnel budget in money and hours, maximum funding, funding type/body,
+external reference and project dates. It compares a single identified
+convention's budget with the project's recorded monetary costs through today in
+Brussels. Multiple conventions require an explicit choice and are never added
+together. If no convention lines are readable, the macro total can provide a
+clearly labelled fallback, only with a confirmed matching currency.
+
+Recorded consumption combines posted expense analytic entries and existing
+monetary time costs. Income, draft/canceled entries and future-dated entries are
+excluded; signed credits remain signed. No rate is inferred from employee
+hours. Before-start/after-end costs remain included and are disclosed separately.
+Exact convention rubric IDs supply the breakdown; costs without a matching
+rubric, including unassigned time costs, remain separately visible in the total.
+Missing measures, unknown classifications and incomplete reads are disclosed;
+different/unknown currencies prevent a misleading combined total or ratio.
+
+**Budget · 02 — Budgets annuels** shows every accessible annual budget,
+including future years and separate versions, in chronological cards. Adjacent
+vertical bars show **Budgeté / Consommé · facturé / Engagé**, each with thinner
+companion bars for its annual expense codes. Code colors stay consistent across
+years and measures; hover and keyboard focus show exact values. Clicking a thin
+code bar opens its associated bill/expense allocations, with dates, supplier and
+document references, signed category amounts and Settlements New descriptions.
+The popup respects the Ormit cost filter and distinguishes complete, partial,
+unavailable and empty lists. Budgeted/Engaged clicks retain the selected measure
+alongside billed detail; planned allocations and unbilled orders are not bills.
+Escape, Close or the backdrop dismisses the popup and returns focus to the bar.
+Annual plots are 25% taller, and the convention macro cards and metadata use a
+further 20% less spacing while preserving readable text. Dense
+charts scroll within their card, using the same signed axis for confirmed matching
+currencies. Annual consumption is billed spending;
+the project-lifetime total also includes recorded time costs. Engaged spending
+overlaps billed spending, so the two are never added. Annual expense categories
+are distinct from convention rubrics. Expandable tables retain expense detail,
+pending-approval amounts, Odoo balances, and separate income/adjustment/unclassified
+lines; the annual parent net is not treated as the expense envelope. Workflow
+status and reconciliation information remain visible. Confirmed all-zero detail
+rows are omitted; negative, pending-only and unknown amounts remain visible.
+
+The unchecked **Exclure les coûts des Ormitters** checkbox applies to every annual
+chart for the project. It identifies the canonical **Ormit Talent** supplier,
+including verified commercial-partner links, rather than excluding all costs on
+financial accounts 613990 or 617000. Exact settlement category, period and currency
+must reconcile to each billed line. Committed exclusion also requires readable
+purchase evidence; an affected line with an unexplained outstanding commitment
+remains unavailable. Budget allocations, pending approvals and source Odoo
+balances stay unchanged, as do the convention and recorded personnel costs.
+Bill detail uses the amount allocated to the exact annual category and period,
+not the full invoice total. Credits remain negative. Optional description
+failures retain known amounts; employee timesheet descriptions, payments and
+balance-sheet entries are excluded from these popups.
+
+The budget data is loaded only when opening Budget, cached separately by exact
+project ID and invalidated by refresh. Year changes and convention selection
+recompute from that cache. The annual cost exclusion is remembered separately
+for each project and independently of the hours checkbox. All source reads use the signed-in account and the
+existing read-only RPC guard; no financial write or settlement action exists.
 
 ## Lead Unit portfolio reads
 
@@ -376,7 +441,9 @@ Used for:
 ## Year Filtering
 
 - The `All` chip includes all available months from uploaded actual and planning files.
-- Individual year chips filter every graph.
+- Individual year chips filter scoped hour views. The project lifetime/monthly
+  history and Budget panel retain their independent project scopes; Budget
+  displays all accessible annual years.
 - `Interne` / `Internal` rows are excluded before totals and percentages are calculated.
 
 ## Data Interpretation And Runtime Limits

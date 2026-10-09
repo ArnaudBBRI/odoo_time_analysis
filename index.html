@@ -6,6 +6,7 @@
   <title>Mon temps · Odoo Dashboard</title>
   <link rel="stylesheet" href="/personal-time.css">
   <link rel="stylesheet" href="/project-browser.css">
+  <link rel="stylesheet" href="/project-budget.css">
   <style>
     :root {
       --bg: #f7f7f7;
@@ -1676,6 +1677,7 @@
 
   <script src="/personal-time.js"></script>
   <script src="/project-monthly.js"></script>
+  <script src="/project-budget.js"></script>
   <script src="/project-browser.js"></script>
   <script>
     (() => {
@@ -1724,6 +1726,11 @@
         focusPersonalProjectId: null,
         personalProjectHoursCache: new Map(),
         personalProjectHoursGeneration: 0,
+        personalProjectFinanceCache: new Map(),
+        personalProjectFinanceGeneration: 0,
+        personalProjectView: new Map(),
+        personalProjectConvention: new Map(),
+        personalProjectExcludeOrmitterCosts: new Map(),
         personalProjectOrmitters: new Map(),
         personalProjectMonthlyMode: new Map(),
         personalProjectMonthlyEmployee: new Map(),
@@ -1927,6 +1934,8 @@
           state.personalTimeResult = result;
           state.personalProjectHoursGeneration += 1;
           state.personalProjectHoursCache.clear();
+          state.personalProjectFinanceGeneration += 1;
+          state.personalProjectFinanceCache.clear();
           state.hoursScope = "me";
           state.portfolioProjects = [];
           state.portfolioPlanningError = result.planningError || null;
@@ -1963,7 +1972,10 @@
             setOdooButtonsDisabled(false);
             renderPersonalTimeMacro();
             renderPersonalProjects();
-            if (state.dashboardView === "projects" && state.selectedPersonalProjectId != null) loadPersonalProjectHours(state.selectedPersonalProjectId);
+            if (state.dashboardView === "projects" && state.selectedPersonalProjectId != null) {
+              if (state.personalProjectView.get(String(state.selectedPersonalProjectId)) === "budget") loadPersonalProjectFinance(state.selectedPersonalProjectId);
+              else loadPersonalProjectHours(state.selectedPersonalProjectId);
+            }
           }
         }
       }
@@ -2004,9 +2016,16 @@
       function renderPersonalProjects() {
         if (typeof window === "undefined" || !window.ProjectBrowser || !els.personalProjectsContent) return;
         const projects = getScopedPersonalProjects();
+        const rememberedView = state.personalProjectView.get(String(state.selectedPersonalProjectId));
+        if (rememberedView === "budget" && state.selectedPersonalProjectId != null &&
+          !projects.some(project => String(project.id) === String(state.selectedPersonalProjectId))) {
+          const selected = state.personalTimeResult?.projects?.find(project => String(project.id) === String(state.selectedPersonalProjectId));
+          if (selected) projects.push(selected);
+        }
         if (!projects.some(project => String(project.id) === String(state.selectedPersonalProjectId))) state.selectedPersonalProjectId = null;
+        const panel = state.personalProjectView.get(String(state.selectedPersonalProjectId)) || "hours";
         const hours = state.personalProjectHoursCache.get(String(state.selectedPersonalProjectId));
-        const monthly = hours?.result ? summarizePersonalProjectMonthly(hours.result) : null;
+        const monthly = panel === "hours" && hours?.result ? summarizePersonalProjectMonthly(hours.result) : null;
         const calendarScope = hours?.result ? window.PersonalTime.projectCalendarProgress(state.selectedYears,
           hours.result.lifetime?.startDate, hours.result.lifetime?.endDate, new Date()) : null;
         const projectKey = String(state.selectedPersonalProjectId);
@@ -2023,6 +2042,12 @@
           focusDetail: state.focusPersonalProjectDetail,
           focusProjectId: state.focusPersonalProjectId,
           years: state.selectedYears,
+          panel,
+          finance: {
+            ...(state.personalProjectFinanceCache.get(projectKey) || { result: null, loading: panel === "budget", error: "" }),
+            selectedConventionId: state.personalProjectConvention.get(projectKey) ?? null,
+            excludeOrmitterCosts: state.personalProjectExcludeOrmitterCosts.get(projectKey) === true
+          },
           detail: state.selectedPersonalProjectId == null ? null : {
             personal: hours?.result ? summarizePersonalProjectHours(hours.result, true) : null,
             project: hours?.result ? summarizePersonalProjectHours(hours.result, false) : null,
@@ -2040,6 +2065,10 @@
           },
           onSelect: choosePersonalProject,
           onBack: clearPersonalProject,
+          onViewChange: setPersonalProjectView,
+          onBudgetRetry: () => loadPersonalProjectFinance(state.selectedPersonalProjectId, true),
+          onConventionChange: setPersonalProjectConvention,
+          onExcludeOrmitterCostsChange: setPersonalProjectExcludeOrmitterCosts,
           onIncludeOrmittersChange: setPersonalProjectOrmitters,
           onMonthlyModeChange: setPersonalProjectMonthlyMode,
           onMonthlyEmployeeChange: setPersonalProjectMonthlyEmployee,
@@ -2047,6 +2076,41 @@
         });
         state.focusPersonalProjectDetail = false;
         state.focusPersonalProjectId = null;
+        updatePersonalProjectFilterVisibility();
+      }
+
+      function updatePersonalProjectFilterVisibility() {
+        els.filterBar.hidden = !["time", "projects"].includes(state.dashboardView) ||
+          (state.dashboardView === "projects" && state.selectedPersonalProjectId != null &&
+            state.personalProjectView.get(String(state.selectedPersonalProjectId)) === "budget");
+      }
+
+      function setPersonalProjectView(panel) {
+        if (!["hours", "budget"].includes(panel) || state.selectedPersonalProjectId == null) return;
+        const id = state.selectedPersonalProjectId;
+        const key = String(id);
+        if ((state.personalProjectView.get(key) || "hours") === panel) return;
+        state.personalProjectView.set(key, panel);
+        renderPersonalProjects();
+        if (panel === "budget") loadPersonalProjectFinance(id);
+        else loadPersonalProjectHours(id);
+      }
+
+      function setPersonalProjectConvention(id) {
+        const key = String(state.selectedPersonalProjectId);
+        const finance = state.personalProjectFinanceCache.get(key)?.result;
+        if (!finance?.conventions?.some(budget => String(budget.id) === String(id))) return;
+        state.personalProjectConvention.set(key, String(id));
+        renderPersonalProjects();
+      }
+
+      function setPersonalProjectExcludeOrmitterCosts(exclude) {
+        if (state.selectedPersonalProjectId == null || typeof exclude !== "boolean") return;
+        const key = String(state.selectedPersonalProjectId);
+        if (!state.personalProjectFinanceCache.get(key)?.result) return;
+        if ((state.personalProjectExcludeOrmitterCosts.get(key) === true) === exclude) return;
+        state.personalProjectExcludeOrmitterCosts.set(key, exclude);
+        renderPersonalProjects();
       }
 
       function choosePersonalProject(id) {
@@ -2054,7 +2118,8 @@
         state.selectedPersonalProjectId = id;
         state.focusPersonalProjectDetail = true;
         renderPersonalProjects();
-        loadPersonalProjectHours(id);
+        if (state.personalProjectView.get(String(id)) === "budget") loadPersonalProjectFinance(id);
+        else loadPersonalProjectHours(id);
       }
 
       function summarizePersonalProjectHours(result, personal = false, now = new Date(), years = state.selectedYears) {
@@ -2238,6 +2303,39 @@
         state.focusPersonalProjectId = state.selectedPersonalProjectId;
         state.selectedPersonalProjectId = null;
         renderPersonalProjects();
+      }
+
+      async function loadPersonalProjectFinance(id, force = false) {
+        if (!Number.isSafeInteger(Number(id)) || Number(id) <= 0 ||
+          !state.personalTimeResult?.projects?.some(project => String(project.id) === String(id))) return;
+        const key = String(id);
+        const cached = state.personalProjectFinanceCache.get(key);
+        if (cached?.loading || (!force && cached?.result)) return;
+        const generation = state.personalProjectFinanceGeneration;
+        const entry = { result: null, loading: true, error: "" };
+        state.personalProjectFinanceCache.set(key, entry);
+        renderPersonalProjects();
+        try {
+          const result = await postOdooJson("/api/odoo/project-finance", { projectId: Number(id) }, "Budget du projet");
+          if (generation !== state.personalProjectFinanceGeneration) return;
+          if (Number(result.project?.id) !== Number(id) || !Array.isArray(result.conventions) ||
+            !Array.isArray(result.annual) || !result.lifetime || !result.macro) {
+            throw new Error("Le budget reçu ne correspond pas au projet sélectionné.");
+          }
+          entry.result = result;
+          const selectedConvention = state.personalProjectConvention.get(key);
+          if (selectedConvention != null && !result.conventions.some(budget => String(budget.id) === selectedConvention)) {
+            state.personalProjectConvention.delete(key);
+          }
+        } catch (error) {
+          if (generation !== state.personalProjectFinanceGeneration) return;
+          entry.error = error.message || "Le budget du projet est indisponible. Réessayez.";
+        } finally {
+          if (generation === state.personalProjectFinanceGeneration) {
+            entry.loading = false;
+            renderPersonalProjects();
+          }
+        }
       }
 
       function clearTeamPortfolio() {
@@ -4450,7 +4548,7 @@
 
       function renderYearFilters() {
         renderYearFilterControl(els.filterBar, els.scopeText, els.yearChips);
-        if (!["time", "projects"].includes(state.dashboardView)) els.filterBar.hidden = true;
+        updatePersonalProjectFilterVisibility();
       }
 
       function renderYearFilterControl(container, scopeText, chips) {

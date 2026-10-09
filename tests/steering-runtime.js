@@ -15,6 +15,9 @@ function xmlValue(value) {
 }
 async function startRuntime(options = {}) {
   const calls = [], failures = [];
+  const finance = options.finance ? require("./project-finance-fixture") : null;
+  const fixtureDefinitions = finance ? finance.definitions : data.definitions;
+  const fixtureRecords = options.financeRecords || (finance ? finance.records : data.records);
   const mock = http.createServer(async (req, res) => {
     let xml = ""; for await (const chunk of req) xml += chunk;
     calls.push(xml);
@@ -22,15 +25,20 @@ async function startRuntime(options = {}) {
     if (xml.includes("<methodName>authenticate</methodName>")) result = xml.includes("<string>correct password</string>") ? xml.includes("second@example.com") ? 8 : 7 : false;
     if (xml.includes("<methodName>execute_kw</methodName>")) {
       const model = /<string>([^<]+)<\/string><\/value><\/param>\s*<param><value><string>(?:fields_get|search_read|read_group)<\/string>/.exec(xml)?.[1];
-      if (xml.includes("<string>fields_get</string>")) result = data.definitions[model] || {};
+      if (xml.includes("<string>fields_get</string>")) result = fixtureDefinitions[model] || {};
       else {
-        result = structuredClone(data.records[model] || []);
+        result = structuredClone(fixtureRecords[model] || []);
         if (xml.includes("<param><value><int>8</int></value></param>")) result = result.filter(row => model === "project.project" ? row.id === 12 : row.project_id?.[0] === 12);
         if (model === "project.project") {
           const match = /<string>id<\/string><\/value><value><string>=<\/string><\/value><value><int>(\d+)<\/int>/.exec(xml);
           if (match) result = result.filter(row => row.id === Number(match[1]));
         }
         if (options.failModel === model) { failures.push(model); res.end(`<methodResponse><fault><value><struct><member><name>faultString</name><value><string>private-upstream-secret</string></value></member></struct></value></fault></methodResponse>`); return; }
+        if (finance) {
+          const offset = Number(/<name>offset<\/name><value><int>(\d+)<\/int>/.exec(xml)?.[1] || 0);
+          const limit = Number(/<name>limit<\/name><value><int>(\d+)<\/int>/.exec(xml)?.[1] || 1000);
+          result = result.slice(offset, offset + limit);
+        }
       }
     }
     res.writeHead(200, { "Content-Type": "text/xml" });
@@ -38,7 +46,7 @@ async function startRuntime(options = {}) {
   });
   mock.listen(0, "127.0.0.1"); await once(mock, "listening");
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "bw-pilotage-fixture-"));
-  for (const file of ["server.js", "index.html", "login.html", "steering.js", "steering-service.js", "steering-client.js", "steering-client.css", "personal-time.js", "personal-time.css", "project-monthly.js", "project-browser.js", "project-browser.css"]) fs.copyFileSync(path.join(__dirname, "..", file), path.join(directory, file));
+  for (const file of ["server.js", "index.html", "login.html", "steering.js", "steering-service.js", "project-finance-service.js", "steering-client.js", "steering-client.css", "personal-time.js", "personal-time.css", "project-monthly.js", "project-browser.js", "project-browser.css", "project-budget.js", "project-budget.css"]) fs.copyFileSync(path.join(__dirname, "..", file), path.join(directory, file));
   // Only the isolated test copy is labelled. Fixtures are never included in the real dashboard.
   const index = path.join(directory, "index.html");
   fs.writeFileSync(index, fs.readFileSync(index, "utf8").replace("<body>", '<body><p style="text-align:center;background:#e9f4f7;padding:8px">Données simulées · contrôle local</p>'));

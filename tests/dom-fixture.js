@@ -21,6 +21,7 @@ function domFixture() {
       this.hidden = false;
       this.className = "";
       this.ownText = "";
+      this.parentElement = null;
       this.classList = {
         add: value => { this.className = [...new Set([...this.className.split(/\s+/), value])].join(" ").trim(); },
         remove: value => { this.className = this.className.split(/\s+/).filter(item => item !== value).join(" "); }
@@ -29,8 +30,11 @@ function domFixture() {
     set textContent(value) { this.ownText = String(value); this.children = []; }
     get textContent() { return this.ownText + this.children.map(child => child.textContent).join(""); }
     set innerHTML(_) { throw new Error("UI must render source text without HTML injection"); }
-    append(...children) { this.children.push(...children); }
-    replaceChildren(...children) { this.ownText = ""; this.children = children; }
+    append(...children) { children.forEach(child => { child.parentElement = this; }); this.children.push(...children); }
+    replaceChildren(...children) { this.children.forEach(child => { child.parentElement = null; }); children.forEach(child => { child.parentElement = this; }); this.ownText = ""; this.children = children; }
+    remove() { if (this.parentElement) this.parentElement.children = this.parentElement.children.filter(child => child !== this); this.parentElement = null; }
+    showModal() { if (this.tagName !== "dialog") throw new Error("Only dialogs can open modally"); this.open = true; document.modalElement = this; }
+    close() { if (this.tagName !== "dialog") throw new Error("Only dialogs can close"); this.open = false; if (document.modalElement === this) document.modalElement = null; this.dispatch("close"); }
     setAttribute(name, value) { this.attributes.set(name, String(value)); if (name === "class") this.className = String(value); }
     getAttribute(name) { return this.attributes.get(name) ?? null; }
     addEventListener(name, callback) { this.listeners.set(name, callback); }

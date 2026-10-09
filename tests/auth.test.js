@@ -266,7 +266,7 @@ async function fixture(options = {}) {
   mock.listen(0, '127.0.0.1');
   await once(mock, 'listening');
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'bw-auth-test-'));
-  for (const file of ['server.js', 'index.html', 'login.html', 'steering.js', 'steering-service.js', 'steering-client.js', 'steering-client.css', 'personal-time.js', 'personal-time.css', 'project-monthly.js', 'project-browser.js', 'project-browser.css']) fs.copyFileSync(path.join(__dirname, '..', file), path.join(directory, file));
+  for (const file of ['server.js', 'index.html', 'login.html', 'steering.js', 'steering-service.js', 'project-finance-service.js', 'steering-client.js', 'steering-client.css', 'personal-time.js', 'personal-time.css', 'project-monthly.js', 'project-browser.js', 'project-browser.css', 'project-budget.js', 'project-budget.css']) fs.copyFileSync(path.join(__dirname, '..', file), path.join(directory, file));
   fs.mkdirSync(path.join(directory, 'assets'));
   fs.copyFileSync(path.join(__dirname, '..', 'assets', 'buildwise-logo.svg'), path.join(directory, 'assets', 'buildwise-logo.svg'));
   const mockOrigin = `http://127.0.0.1:${mock.address().port}`;
@@ -329,12 +329,12 @@ test('Odoo login, session isolation and access control', async t => {
     assert.match(await welcome.text(), /Bienvenue/);
     assert.equal(welcome.headers.get('cache-control'), 'no-store');
     assert.equal((await f.request('/assets/buildwise-logo.svg')).status, 200);
-    for (const route of ['/dashboard', '/index.html', '/project-monthly.js', '/project-browser.js', '/project-browser.css']) {
+    for (const route of ['/dashboard', '/index.html', '/project-monthly.js', '/project-browser.js', '/project-browser.css', '/project-budget.js', '/project-budget.css']) {
       const response = await f.request(route);
       assert.equal(response.status, 303);
       assert.equal(response.headers.get('location'), '/login');
     }
-    for (const route of ['/api/config', '/api/auth/session', '/api/odoo/employee-timesheets', '/api/odoo/project-planning']) {
+    for (const route of ['/api/config', '/api/auth/session', '/api/odoo/employee-timesheets', '/api/odoo/project-planning', '/api/odoo/project-finance']) {
       const response = await f.request(route);
       assert.equal(response.status, 401);
       assert.equal((await response.json()).authenticationRequired, true);
@@ -373,8 +373,8 @@ test('Odoo login, session isolation and access control', async t => {
     assert.match(f.calls.at(-1), /correct password/);
     assert.doesNotMatch(f.calls.at(-1), /attacker|private-config-secret/);
     assert.equal((await f.request('/dashboard', { headers: { Cookie: first } })).status, 200);
-    for (const route of ['/project-monthly.js', '/project-browser.js', '/project-browser.css']) assert.equal((await f.request(route, { headers: { Cookie: first } })).status, 200);
-    for (const route of ['/server.js', '/config.local.json', '/.git/config', '/README.md', '/timesheets_aca.xlsx', '/assets/../server.js', '/project-monthly.js.map']) {
+    for (const route of ['/project-monthly.js', '/project-browser.js', '/project-browser.css', '/project-budget.js', '/project-budget.css']) assert.equal((await f.request(route, { headers: { Cookie: first } })).status, 200);
+    for (const route of ['/server.js', '/project-finance-service.js', '/config.local.json', '/.git/config', '/README.md', '/timesheets_aca.xlsx', '/assets/../server.js', '/project-monthly.js.map']) {
       assert.equal((await f.request(route, { headers: { Cookie: first } })).status, 404);
     }
     const homepage = await f.request('/', { headers: { Cookie: first } });

@@ -2,6 +2,47 @@
 
 ## Functional State
 
+- The selected **Projets** view now switches between **Heures / Budget** at the
+  top. Budget replaces the hours graphs and hides the selected-year controls.
+  **Budget · 01 / Convention** shows project macro information, workflow status,
+  lifetime recorded costs versus a selected convention, and exact-rubric
+  comparisons. Multiple convention versions require a choice and are never
+  summed. Unmapped personnel/expense costs remain separately visible in the
+  total. **Budget · 02 / Budgets annuels** shows every accessible annual period,
+  including future years, as adjacent Budgeted/Billed/Committed vertical bars
+  with thinner code companions, stable code colors, exact pointer/keyboard/tap
+  details and shared signed scales per confirmed currency. Dense plots scroll
+  within their cards. Annual plot/axis height is now 225px (25% taller), and
+  macro cards/metadata use another 20% less spacing after the earlier compaction.
+  Clicking a thin code bar opens a native **Factures et écritures** popup with
+  signed category allocations, supplier/reference labels and Settlements New
+  descriptions. Close/Escape/backdrop return focus to the bar; rerenders release
+  modal state before detaching its host. Budgeted/Engaged measures stay distinct
+  from associated billed entries.
+  Annual details omit only confirmed all-five-zero rows, retaining negatives,
+  pending-only activity and unknown amounts.
+- Annual graphs share a default-off **Exclure les coûts des Ormitters** choice
+  remembered separately per project. Canonical Ormit Talent/commercial-root
+  identities, exact annual-line periods/categories/currencies and billed
+  reconciliation govern exclusion. Confirmed purchase evidence is checked
+  independently; unverified outstanding supplier commitments remain unavailable.
+  Budget allocations, pending approval, reported Odoo balances and convention/
+  personnel costs stay unchanged. Supplier descriptions or GL codes alone do
+  not identify Ormit costs. Popups use narrowly projected posted expense
+  allocations, exclude verified Ormit costs when requested, and separate unknown
+  suppliers; full accounting records and timesheet descriptions are not exposed.
+- The new finance route reads exact project/analytic-account records using the
+  signed-in account and the existing Odoo guard. Lifetime consumption includes
+  signed posted expenses and recorded monetary Hours costs through Brussels
+  today, including late/early project entries with disclosure. It excludes
+  payments and balance-sheet movements, uses the monetary field's confirmed
+  currency binding, and never estimates rates. Annual 6xxx expenses remain
+  separate from 7xxx income, 9xxx adjustments and parent net totals. Billed and
+  committed overlap and are never added. Missing amounts, inaccessible lines,
+  currencies and reconciliation gaps remain explicit. Finance caching/retry,
+  refresh generations, panel/convention focus and responsive detail tables are
+  independent of the existing hours data and filters.
+
 - DiCo steering adds project/programme/unit macro summaries, meta coverage/source diagnostics, contributor drill-down, upcoming known deadlines and Summary/Resources/Budgets/Reliability project tabs. The connected-project-leader shortcut matches the session UID against a configured user relation and resets other filters.
 - Steering reads live using the signed-in account, without persisted history or source writes. Authoritative cumulative project hours, visible timesheets and reconciled Progress/WP evidence are distinct; annual/convention financial periods and currencies are kept separate. The confirmed DiCo filter and programme reference are server-side local configuration; steering remains disabled by default until that filter is confirmed.
 
@@ -55,6 +96,47 @@
 
 ## In Progress
 
+- The user requested **commit push** for the completed budget branch on
+  2026-10-09. Publication checks confirm the existing public
+  `ArnaudBBRI/odoo_time_analysis` destination and an absent remote
+  `codex/project-budgets` branch. A source-specific supplier display suffix was
+  replaced with fictional test identifiers; credentials/private configuration,
+  real bill descriptions and employee financial records are excluded. Final
+  verification, commit and normal branch push are in progress.
+- The bill-detail refinement approved with **go** on 2026-10-09 is complete
+  locally: scoped allocated expense popups, preserved supplier filter, 25%
+  taller annual plots and another 20% tighter macro card/metadata spacing.
+  All 408 offline tests, independent review, desktop/390px modal interactions,
+  source/privacy checks and a targeted live Extrai read pass. Runtime reload
+  is verified. The budget branch remains uncommitted; no Odoo writes occurred.
+- The user-approved annual-budget refinement is complete locally on 2026-10-09: thinner
+  per-code companion bars, a default-off Ormit Talent cost exclusion shared by
+  all annual graphs, a roughly 25% more compact top summary, and removal of
+  confirmed all-zero annual detail rows. All 386 offline tests, independent
+  review, desktop/mobile interactions and targeted live Extrai checks pass on
+  `codex/project-budgets`. Runtime reload is verified; changes remain uncommitted.
+  The cost preference is independent of hours inclusion and selected years.
+  Unavailable supplier/commitment attribution remains explicit. No Odoo writes
+  are approved.
+- Budget discovery completed on 2026-10-09 on the user-requested new branch
+  `codex/project-budgets`, created from published dashboard/state commit
+  `288ef6d`. The user now requests a top Heures/Budget switch, convention macro
+  information and lifetime consumption by rubric, plus all annual years as
+  adjacent Budgeted/Consumed/Committed vertical bars. The proposed first
+  implementation was approved by the user's **go** and is complete locally,
+  including recorded personnel costs in lifetime consumption. No new commit,
+  push, stash or Odoo write was performed for this iteration.
+- Guarded live metadata and exact-project reads verified convention/annual
+  budget workflow states, monetary line measures and project macro budget fields.
+  The user's **Project > Dashboard > Settlements New** URL identifies
+  `account.analytic.line`; its settlement, validation, invoice/payment statuses,
+  financial fields and project-account records are readable for the configured
+  account. Exact analytic-account scoping retains financial entries that lack
+  a direct `project_id`. A follow-up read confirmed existing monetary costs on
+  timesheet entries, although budget `achieved_amount` omits them. The lifetime
+  consumption now includes these recorded personnel costs alongside expenses;
+  annual charts retain the billed/invoiced measure. Personnel costs are never
+  inferred from hours or an invented hourly rate.
 - The approved **Mon temps** iteration and requested **Projets** grid/comparisons
   and stacked monthly/cumulative graph with employee isolation are committed in
   `724fde1` and pushed to `origin/codex/mon-temps-macro` on 2026-10-09,
@@ -87,6 +169,82 @@ A runnable dashboard, authenticated local connector and authentication integrati
 
 ## Last Verified
 
+- Bill-detail refinement on 2026-10-09: all **408 offline tests in 15 files**
+  passed with `node --test --test-isolation=none` (zero failures/skips). This
+  includes 51 pure finance, 40 budget UI, 35 project-renderer and 5 finance HTTP
+  tests. Independent review found no remaining actionable issue after fixing
+  filtered exact-zero allocations with unknown suppliers. Five JS sources and
+  the dashboard inline script parsed; whitespace and 33 changed-page local
+  documentation links passed. No separate build/lint/typecheck command exists.
+- Guarded configured-account live read of exact Extrai verified 126 accessible
+  annual expense lines reconcile across two budgets. All 16 matching posted
+  allocations have descriptions and document labels, with no personnel fields
+  projected. Only status/count/reconciliation flags were printed; no descriptions,
+  monetary values or credentials were persisted. Separate reads and record rules
+  still limit completeness beyond the account's visibility.
+- Fictional native-dialog browser checks passed at default desktop and 390px:
+  exact category/credit values, distinct Budgeted/Engaged measure context,
+  filtered bill rows, long-description/supplier wrapping, Tab containment,
+  Close/Escape/backdrop and exact-trigger return. No page/dialog overflow or
+  warning/error logs. Plot height 225px and macro padding 12px desktop/9.6px
+  mobile were measured. Screenshot proof is outside the repository; the viewport
+  was reset and temporary preview tab/process closed/stopped.
+- Restarted the verified workspace server as standard-user Node PID **8344**
+  in persistent terminal session `41992` at http://127.0.0.1:8765/ after stopping
+  PID 44188/session `90098`. Welcome returns 200; anonymous session/finance calls
+  return 401. Restart cleared in-memory sessions.
+
+- Budget implementation on 2026-10-09: all **357 offline tests in 15 files**
+  passed with `node --test --test-isolation=none` (zero failures/skips). Coverage
+  includes protected finance assets/routes, caller/session isolation, exact
+  project/account/category identities, pagination beyond 1,000 records, missing
+  and signed amounts, metadata currency binding, verified Hours/time category,
+  early/late costs, annual expense/income separation, future versions,
+  unavailable sources, panel caching/refresh/retry and focus. Independent finance
+  review passed. Initial sandbox-denied localhost test connections were resolved
+  using approved isolated-network execution; tests never contacted live Odoo.
+- Targeted guarded live verification of the new service succeeded for Extrai:
+  one convention and the 2026/2027 annual budgets are readable, both annual
+  controls reconcile, recorded personnel costs are included, exact-rubric
+  expense costs match billed amounts, and the expense/personnel decomposition
+  reconciles. Live metadata binds analytic `amount` to `currency_id` (project
+  company currency); move-linked `company_currency_id` is empty on time entries
+  and is not a substitute. Hours and its Working Time category are confirmed.
+  No new monetary values, employee costs or credentials are stored in docs.
+  Broader record-rule completeness and the exact Odoo dashboard filters remain
+  unverified; no Odoo data was modified.
+- Fictional full-app browser checks passed at normal desktop and 390px width:
+  project selection, Heures/Budget switching, hidden/restored year controls,
+  lifetime/rubric totals, all-year shared-scale bars, future status, expandable
+  horizontally contained tables and focus/expansion across responsive redraws.
+  No page overflow or warning/error logs. Labelled synthetic screenshots are
+  outside the repository. Inline/module/server syntax, whitespace and changed
+  documentation links passed; no dedicated build/lint/typecheck command exists.
+- Restarted the verified workspace server as standard-user Node PID **44696**
+  in persistent terminal session `34274` at http://127.0.0.1:8765/.
+  Welcome returned 200; anonymous session and finance calls returned 401.
+  Startup output is clean. Restart cleared the previous in-memory sessions.
+
+- Budget-source discovery on 2026-10-09 used existing guarded authentication,
+  `fields_get` and exact-project/account `search_read` operations only.
+  Extrai's referenced convention and annual budgets, including a future annual
+  budget under validation, were readable. Metadata confirms parent workflow
+  states distinct from monetary `on_approval`, and Settlement New's separate
+  deductibility, analytic validation, invoice posting and payment states.
+  The targeted analytic-account sample was below its explicit 1,000-row cap;
+  registry/action/view discovery was unavailable, but known-model metadata and
+  project records succeeded. No authenticated Odoo browser tab was available;
+  the exact dashboard UI filters, attachments and broader-account completeness
+  remain unverified. Application source is unchanged; tests were not rerun.
+  The previous 303-test offline baseline remains the latest result.
+- Budget semantics follow-up on 2026-10-09: live field help defines
+  `achieved_amount` as billed/invoiced, and `committed_amount` as already billed
+  plus confirmed purchases. Signed monetary timesheet costs are readable; they
+  lack explicit convention-rubric/account-type classification in the targeted
+  sample. Financial expense rubric totals match budget achieved amounts.
+  Asset/liability/cash/off-balance analytic movements also exist and cannot be
+  treated as consumption. No individual costs or credentials were displayed,
+  no scripts were retained, no Odoo write occurred and no tests were rerun.
 - Scoped project-date correction on 2026-10-09: all 303 offline tests in twelve
   files passed (zero failures/skips), including 33 personal-calendar, 31 renderer,
   48 controller/scope and 27 monthly-calculation cases. December starts, project
@@ -382,13 +540,30 @@ A runnable dashboard, authenticated local connector and authentication integrati
 
 ## Session handoff
 
+- Current bill-detail refinement is complete after explicit plan approval:
+  thin annual bars open native allocated-expense popups with source descriptions,
+  supplier filtering, signed credits and reconciliation disclosure. Annual plots
+  are 25% taller; macro cards/metadata use another 20% less spacing. All 408
+  offline tests, independent review, source/privacy and desktop/mobile checks
+  pass. Exact Extrai annual expense lines and all matching bill descriptions are
+  readable/reconciled for the configured account. Prior code-bar/Ormit exclusions
+  remain implemented. No separate build/lint/typecheck command exists. No Odoo
+  write, commit, push or PR creation occurred.
+- Current objective completed on 2026-10-09: implemented the Heures/Budget switch,
+  convention macro/lifetime consumption and annual grouped vertical bars on
+  local `codex/project-budgets` at `288ef6d`; no upstream is configured.
+  User **go** approved the plan and recommended lifetime inclusion of recorded
+  personnel costs. Code, tests and documentation remain local and uncommitted.
+  All 357 tests, desktop/390px checks and targeted live finance verification
+  pass. Annual budget consumption remains a billed/invoiced measure;
+  committed includes billed spending and must not be added to it.
 - Current refinement completed on 2026-10-09: scoped bar date references now
   intersect selected years with project start/end dates, show the effective
   period, and preserve recorded hours and independent lifetime/monthly scopes.
   Extrai's December 2025 start and empty own 2025 plan were confirmed by guarded
   reads for the configured account. Employee isolation remains implemented.
   All 303 offline tests and desktop/390px fictional browser checks pass.
-- Current objective completed locally: user-approved **Mon temps** personal
+- Previous dashboard objective completed: user-approved **Mon temps** personal
   macro chart, default view, named sections and sticky navigation on
   `codex/mon-temps-macro`, including scoped-list filtering, planned-first
   order, calendar reference ring and Hors planning group/divider. Mon temps 02
@@ -425,15 +600,19 @@ A runnable dashboard, authenticated local connector and authentication integrati
   The earlier 24-hour password-login work remains in `stash@{0}`
   (`password-login work before pulling main (2026-10-06)`). Private config is
   untouched, and sessions retain main's eight-hour default.
-- Last verified runtime before publication: http://127.0.0.1:8765/ ran the branch as PID 33396 in persistent
-  terminal session `25141`. Startup output is in that terminal. Earlier
+- Current verified runtime: http://127.0.0.1:8765/ runs this branch as PID 8344 in persistent
+  terminal session `41992`. The previous verified PID 44188/session `90098` was
+  stopped before restarting. Startup output is in the current terminal. Earlier
   background launches were observed stopped; their stop cause is unknown.
   Restart clears existing sessions.
   Isolated synthetic preview processes are no longer running.
-- Next action: refresh the dashboard and review the corrected project-date
-  reference with real accessible data; further feature priorities await the user's request.
-  Dashboard changes are committed/pushed and no PR was created. Configured-token authentication
+- Next action: complete the user-requested budget commit and push, then verify
+  the remote branch and working tree. The previous hours dashboard
+  is committed/pushed; this budget iteration is uncommitted and no PR was created.
+  Configured-token authentication
   and targeted Extrai budget/date/personal planning reads are verified;
   staffing-assignment, profile-photo access, broader personal/project access and
   deployment remain unverified.
-- Blockers: none for local implementation; real Odoo settings and deployment behavior remain verification limits.
+- Blockers: none for this implementation. Broader financial completeness,
+  precise settlement-dashboard filters, invoice allocation rules, attachment
+  access and deployment behavior remain verification limits.

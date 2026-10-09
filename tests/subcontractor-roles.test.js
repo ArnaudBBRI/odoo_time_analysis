@@ -25,6 +25,7 @@ function loadServer(respond) {
     require(name) {
       if (["crypto", "async_hooks"].includes(name)) return require(name);
       if (name === "./steering-service") return require("../steering-service");
+      if (name === "./project-finance-service") return require("../project-finance-service");
       if (name === "http") {
         return { createServer: () => ({ listen() {}, on() {} }) };
       }

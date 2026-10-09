@@ -9,6 +9,114 @@ const projects = () => [
   { id: 1, name: "Alpha project", manager: null }
 ];
 
+test("Heures/Budget switch replaces hours graphs, retains its focus and reuses the budget host", () => {
+  const container = domFixture(), panels = [], renders = [];
+  let panel = "hours", finance = { result: { project: { id: 2 } }, loading: false, selectedConventionId: 14, excludeOrmitterCosts: true };
+  const draw = () => render(container, { projects: projects(), selectedId: 2, detail: monthlyDetail(), panel, finance,
+    onViewChange(value) { panels.push(value); panel = value; draw(); },
+    onBudgetRetry() { panels.push("retry"); }, onConventionChange(id) { panels.push(id); },
+    onExcludeOrmitterCostsChange(value) { panels.push(value); },
+    budgetRenderer: { render(host, data, options) { renders.push({ host, data, options }); host.replaceChildren(host.ownerDocument.createElement("p")); } } });
+  draw();
+  assert.equal(container.querySelectorAll('[data-project-view="hours"]')[0].getAttribute("aria-pressed"), "true");
+  assert.equal(container.querySelectorAll('[data-project-view="budget"]')[0].getAttribute("aria-pressed"), "false");
+  assert.equal(renders.length, 0);
+  const budgetButton = container.querySelectorAll('[data-project-view="budget"]')[0];
+  budgetButton.focus(); budgetButton.dispatch("click");
+  assert.deepEqual(panels, ["budget"]);
+  assert.equal(container.ownerDocument.activeElement.getAttribute("data-project-view"), "budget");
+  assert.equal(container.querySelectorAll('[data-project-view="budget"]')[0].getAttribute("aria-pressed"), "true");
+  assert.equal(container.querySelectorAll(".project-comparison").length, 0);
+  assert.equal(container.querySelectorAll("[data-monthly-project]").length, 0);
+  assert.match(container.textContent, /Durée totale du projet/);
+  assert.equal(renders[0].data, finance.result);
+  assert.equal(renders[0].options.selectedConventionId, 14);
+  assert.equal(renders[0].options.excludeOrmitterCosts, true);
+  renders[0].options.onRetry(); renders[0].options.onConventionChange(15); renders[0].options.onExcludeOrmitterCostsChange(false);
+  assert.deepEqual(panels, ["budget", "retry", 15, false]);
+  const firstHost = renders[0].host;
+  draw();
+  assert.equal(renders[1].host, firstHost, "The source-backed renderer can preserve expanded tables and focus");
+  container.querySelectorAll('[data-project-view="hours"]')[0].dispatch("click");
+  assert.equal(container.querySelectorAll("[data-budget-host]").length, 0);
+  assert.ok(container.querySelectorAll("[data-monthly-project]").length > 0);
+});
+
+test("Budget control focus is restored after mounting a rerendered project detail", () => {
+  const container = domFixture();
+  for (const [attribute, value] of [["data-budget-convention-choice", "14"], ["data-budget-details", "annual:21"], ["data-budget-retry", ""], ["data-budget-exclude-ormitter-costs", ""], ["data-budget-code-detail", "21:consumed:6139"]]) {
+    const draw = () => render(container, { projects: projects(), selectedId: 2, panel: "budget", finance: { result: { project: { id: 2 } } },
+      budgetRenderer: { render(host) {
+        // Real DOM reparenting blurs the old node. Simulate that here so the
+        // parent must restore the captured identity after mounting the detail.
+        container.ownerDocument.activeElement = null;
+        const control = host.ownerDocument.createElement("button"); control.setAttribute(attribute, value); host.replaceChildren(control);
+      } } });
+    draw(); container.querySelectorAll(`[${attribute}]`)[0].focus(); draw();
+    assert.equal(container.ownerDocument.activeElement.getAttribute(attribute), value);
+    assert.ok(container.contains(container.ownerDocument.activeElement));
+  }
+});
+
+test("Budget modal cleanup occurs before host removal and restores its trigger after same-project rerender", () => {
+  const container = domFixture(), calls = [];
+  const renderer = {
+    render(host) {
+      const button = host.ownerDocument.createElement("button");
+      button.setAttribute("data-budget-code-detail", "60:consumed:903:1");
+      host.replaceChildren(button);
+    },
+    cleanup(host, returnFocus) {
+      calls.push({ connected: container.contains(host), returnFocus });
+      container.ownerDocument.activeElement = null;
+      return "60:consumed:903:1";
+    }
+  };
+  const draw = (selectedId, panel = "budget") => render(container, {
+    projects: projects(), selectedId, panel, finance: { result: { project: { id: selectedId } } }, budgetRenderer: renderer
+  });
+  draw(2); draw(2);
+  assert.equal(calls.length, 1); assert.deepEqual(calls[0], { connected: true, returnFocus: false });
+  assert.equal(container.ownerDocument.activeElement.getAttribute("data-budget-code-detail"), "60:consumed:903:1");
+  assert.ok(container.contains(container.ownerDocument.activeElement));
+  draw(2, "hours");
+  assert.equal(calls.length, 2); assert.equal(calls[1].connected, true);
+  assert.equal(container.querySelectorAll("[data-budget-host]").length, 0);
+  draw(2); draw(1);
+  assert.equal(calls.length, 3); assert.equal(calls[2].connected, true);
+  draw(null);
+  assert.equal(calls.length, 4); assert.equal(calls[3].connected, true);
+  assert.equal(container.querySelectorAll("[data-budget-host]").length, 0);
+});
+
+test("real budget bill modal closes across project refresh and Hours navigation without orphaned focus", async () => {
+  const budgetRenderer = require("../project-budget");
+  const { load } = require("../project-finance-service");
+  const { fixtureRpc, supplierRecords } = require("./project-finance-fixture");
+  const finance = await load(11, fixtureRpc({ records: supplierRecords() }), new Date("2026-10-09T12:00:00Z"));
+  const container = domFixture();
+  const draw = (panel = "budget") => render(container, { projects: [{ id: 11, name: "Projet Alpha" }], selectedId: 11,
+    panel, finance: { result: finance }, budgetRenderer });
+  draw();
+  const trigger = container.querySelectorAll("[data-budget-code-measure]")[1];
+  const key = trigger.getAttribute("data-budget-code-detail");
+  trigger.focus(); trigger.dispatch("click");
+  const modal = container.querySelectorAll("[data-budget-bills-modal]")[0];
+  assert.equal(container.ownerDocument.modalElement, modal);
+  draw();
+  assert.equal(modal.open, false); assert.equal(modal.parentElement, null);
+  assert.equal(container.ownerDocument.modalElement, null);
+  assert.equal(container.ownerDocument.activeElement.getAttribute("data-budget-code-detail"), key);
+  assert.ok(container.contains(container.ownerDocument.activeElement));
+  container.ownerDocument.activeElement.dispatch("click");
+  const next = container.querySelectorAll("[data-budget-bills-modal]")[0];
+  draw("hours");
+  assert.equal(next.open, false); assert.equal(next.parentElement, null);
+  assert.equal(container.ownerDocument.modalElement, null);
+  assert.equal(container.querySelectorAll("[data-budget-bills-modal]").length, 0);
+  assert.equal(container.ownerDocument.listeners.size, 0);
+});
+
 function monthlySummary() {
   return { status: "available", mode: "monthly", startDate: "2026-01-01", throughDate: "2026-03-05", endDate: "2026-12-31",
     months: [{ key: "2026-01", label: "janvier 2026" }, { key: "2026-02", label: "février 2026" }, { key: "2026-03", label: "mars 2026" }],

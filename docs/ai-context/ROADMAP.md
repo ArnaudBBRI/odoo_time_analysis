@@ -20,12 +20,16 @@
   animation and offline/browser verification, on 2026-10-09.
 - Corrected scoped Projets bar date references to use selected-year/project-date
   intersections, including partial first/last years, on 2026-10-09.
+- Implemented the top Heures/Budget switch, convention macro/lifetime costs by
+  rubric and all-year annual three-bar comparisons on `codex/project-budgets`,
+  with workflow states, currencies, source controls and recorded personnel
+  costs. Offline, responsive and targeted live verification passed on 2026-10-09.
 
 ## Next
 
+- Review the first budget-panel iteration with real accessible project data.
 - Review the completed employee filter and scoped project-date references with
   real accessible project data.
-  Further feature priorities await the user's next scoped request.
 
 ## Not Planned
 

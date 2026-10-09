@@ -12,7 +12,7 @@
   const employeeColors = new Map(), assignedEmployeeColors = new Set();
   const employeePalette = ["#008bab", "#1c9c8c", "#6368ae", "#cd8747", "#b65c7b", "#488c62", "#5b88b4", "#8865a5", "#bc7057", "#86933f", "#448d8d", "#637d94"];
   let extraEmployeeColor = 0;
-  const monthlyLifecycles = new WeakMap(), revealedMonthlyProjects = new Map();
+  const monthlyLifecycles = new WeakMap(), budgetLifecycles = new WeakMap(), revealedMonthlyProjects = new Map();
 
   function employeeColor(id) {
     const key = String(id);
@@ -478,6 +478,9 @@
       .filter(project => Number.isSafeInteger(Number(project.id)) && Number(project.id) > 0)
       .sort((a, b) => String(a.name).localeCompare(String(b.name), "fr", { numeric: true }) || Number(a.id) - Number(b.id));
     const selected = options.selectedId == null ? null : projects.find(project => String(project.id) === String(options.selectedId));
+    const priorBudget = budgetLifecycles.get(container);
+    const closedBudgetTrigger = priorBudget?.renderer?.cleanup?.(priorBudget.host, false) || null;
+    budgetLifecycles.delete(container);
     const content = node("div", "project-browser");
     container.setAttribute("aria-busy", String(Boolean(options.loading)));
 
@@ -486,6 +489,12 @@
         .find(element => element.getAttribute("data-selected-project") === String(selected.id));
       const hadHeadingFocus = Array.from(previous?.querySelectorAll(".project-browser-title") || []).includes(doc.activeElement);
       const hadBackFocus = Array.from(previous?.querySelectorAll("[data-project-back]") || []).includes(doc.activeElement);
+      const focusedPanel = previous?.contains(doc.activeElement) ? doc.activeElement?.getAttribute?.("data-project-view") : null;
+      const focusedBudgetControl = (previous?.contains(doc.activeElement) ?
+        ["data-budget-convention-choice", "data-budget-details", "data-budget-retry", "data-budget-exclude-ormitter-costs", "data-budget-code-detail"].map(attribute =>
+          ({ attribute, value: doc.activeElement?.getAttribute?.(attribute) })).find(control => control.value !== null) : null) ||
+        (closedBudgetTrigger && String(priorBudget.projectId) === String(selected.id) && options.panel === "budget"
+          ? { attribute: "data-budget-code-detail", value: closedBudgetTrigger } : null);
       const hadRetryFocus = Array.from(previous?.querySelectorAll(".project-hours-retry") || []).includes(doc.activeElement);
       const hadToggleFocus = Array.from(previous?.querySelectorAll("[data-include-ormitters]") || []).includes(doc.activeElement);
       const hadMonthlyToggleFocus = Array.from(previous?.querySelectorAll("[data-monthly-include-ormitters]") || []).includes(doc.activeElement);
@@ -508,10 +517,47 @@
       const heading = node("h2", "project-browser-title", selected.name);
       heading.setAttribute("tabindex", "-1");
       header.append(back, heading);
-      if (options.years && Array.from(options.years).length) {
+      const budgetMode = options.panel === "budget";
+      if (budgetMode) header.append(node("span", "project-hours-period", "Durée totale du projet"));
+      else if (options.years && Array.from(options.years).length) {
         header.append(node("span", "project-hours-period", Array.from(options.years).join(" · ")));
       }
       detail.append(header);
+      const switcher = node("div", "project-view-switch");
+      switcher.setAttribute("role", "group"); switcher.setAttribute("aria-label", "Vue du projet");
+      const panelButtons = ["hours", "budget"].map(panel => {
+        const button = node("button", "project-view-button", panel === "hours" ? "Heures" : "Budget");
+        button.type = "button"; button.setAttribute("data-project-view", panel);
+        button.setAttribute("aria-pressed", String((budgetMode ? "budget" : "hours") === panel));
+        button.addEventListener("click", () => options.onViewChange?.(panel));
+        switcher.append(button); return button;
+      });
+      detail.append(switcher);
+      if (budgetMode) {
+        const host = Array.from(previous?.querySelectorAll("[data-budget-host]") || [])[0] || node("div", "project-budget-host");
+        host.setAttribute("data-budget-host", "");
+        const renderer = options.budgetRenderer || doc.defaultView?.ProjectBudget ||
+          (typeof window === "object" ? window.ProjectBudget : null);
+        const finance = options.finance || {};
+        container.setAttribute("aria-busy", String(Boolean(finance.loading)));
+        if (renderer?.render) renderer.render(host, finance.result || null, {
+          loading: Boolean(finance.loading), error: finance.error || "",
+          selectedConventionId: finance.selectedConventionId,
+          excludeOrmitterCosts: finance.excludeOrmitterCosts === true,
+          onRetry: options.onBudgetRetry, onConventionChange: options.onConventionChange,
+          onExcludeOrmitterCostsChange: options.onExcludeOrmitterCostsChange
+        });
+        else host.append(node("p", "project-browser-status", "La vue Budget est indisponible. Rechargez le tableau de bord."));
+        detail.append(host);
+        budgetLifecycles.set(container, { host, renderer, projectId: selected.id });
+        content.append(detail); container.replaceChildren(content);
+        if (options.focusDetail || hadHeadingFocus) heading.focus();
+        else if (hadBackFocus) back.focus();
+        else if (focusedPanel != null) panelButtons.find(button => button.getAttribute("data-project-view") === focusedPanel)?.focus();
+        else if (focusedBudgetControl) Array.from(host.querySelectorAll(`[${focusedBudgetControl.attribute}]`))
+          .find(control => control.getAttribute(focusedBudgetControl.attribute) === focusedBudgetControl.value)?.focus();
+        return content;
+      }
       const data = options.detail || {};
       container.setAttribute("aria-busy", String(Boolean(data.loading)));
       const hasCalendarScope = Object.prototype.hasOwnProperty.call(data, "calendarScope");
@@ -789,6 +835,7 @@
       monthly.mount();
       if (options.focusDetail || hadHeadingFocus) heading.focus();
       else if (hadBackFocus) back.focus();
+      else if (focusedPanel != null) panelButtons.find(button => button.getAttribute("data-project-view") === focusedPanel)?.focus();
       else if (hadRetryFocus) (retryButton || heading).focus();
       else if (hadToggleFocus) (includeToggle || heading).focus();
       else if (hadMonthlyToggleFocus) (monthly.toggle || heading).focus();

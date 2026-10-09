@@ -162,6 +162,87 @@ Manual passwords are not persisted to disk/browser storage; configured API
 tokens stay in the private file and server memory. XML-RPC redirects are
 rejected. The server does not implement a persistent timesheet database or cache.
 
+## Selected project finances
+
+The selected project header switches between Heures and Budget. Browser maps
+remember the mode, explicit convention choice and annual supplier-cost exclusion
+by exact project ID. The annual exclusion defaults off and is independent of
+the employee-hours inclusion switch. Budget
+mode hides year controls and retains the selected project, independently of
+year changes; its first activation lazily posts only `projectId` to
+`/api/odoo/project-finance`. The separate finance cache deduplicates in-flight
+reads and rejects mismatched project responses. Personal refresh clears it and
+advances its generation, preventing stale results from replacing refreshed data.
+
+`project-finance-service.js` uses the existing guarded metadata/paginated-read
+adapters. It resolves exact accessible project identity, macro fields, its
+convention/annual source budgets and referenced lines. Every budget retains its
+own dates, currency, status and category system. Annual totals use expense 6xxx
+lines, while income 7xxx and adjustments 9xxx stay separate. Line measures remain
+signed and missing values remain unavailable. Parent totals and account-prefix
+controls produce explicit reconciliation states rather than replacing source
+values.
+
+The service reads the project's exact analytic account, including entries needed
+for all annual periods, and fails closed if the account is shared. Lifetime
+consumption applies its own cutoff through today in Brussels. Posted expense entries
+and confirmed monetary hour entries contribute negative analytic `amount` as
+cost; draft/canceled entries, income and future dates do not contribute. No rate
+is inferred from quantity/hours. Exact IDs deduplicate entries and convention
+rubric IDs supply the breakdown. Unassigned expense/time costs stay separate but
+included; costs before/after project dates also remain included and disclosed.
+Missing amounts, classification/unit uncertainty and incompatible currencies
+produce partial/unavailable outputs rather than invented totals.
+The monetary `amount` field's metadata selects its exact currency relation.
+Unknown/unreadable bindings do not fall back to another currency field, including
+an accounting-document currency that may be empty on time records.
+
+Annual supplier exclusion resolves only exact partner IDs and verified commercial
+parents. Canonical Ormit Talent identity determines attributable costs; financial
+account codes and descriptions do not substitute for identity. Posted expense
+amounts must reconcile with each annual line's exact dates/category/currency.
+Confirmed purchase evidence has an exact account domain and distribution
+postfilter. An affected line requires billed/committed equality and independently
+readable supplier evidence before its billed exclusion can also reduce committed
+costs; unknown outstanding supplier commitments remain unavailable. Aggregate
+filtered values and warnings accompany narrowly projected annual expense
+allocations for bill popups. The renderer selects exact line-ID replacements locally, preserving
+original allocations, pending values and reported balances.
+
+Each annual expense line also carries `billDetails`, using the exact child
+period/category/currency evidence and signed negative analytic amount. Optional
+description enrichment reads eligible posted expense IDs only; scope, category,
+date, status and currency are rechecked before attaching text. Failures preserve
+amounts and disclose missing descriptions. No employee timesheet descriptions,
+payment entries or invoice grand totals enter this projection. The code popup
+deduplicates exact analytic IDs, keeps distinct allocations of one document,
+filters verified Ormit costs and separates unknown supplier evidence. Overlaps
+and reconciliation gaps cannot become a complete list.
+
+Each annual chart groups a total and thinner code companions for each of the
+three measures. Exact category/currency identities govern grouping; compatible
+companion values participate in the shared signed axis. Code details support
+pointer, keyboard and tap interactions. Dense plots scroll inside their cards;
+only confirmed all-zero rows are removed from annual detail tables.
+Thin-bar clicks open a native modal with allocated amounts, references and
+Settlements New descriptions; Budgeted/Engaged selections retain their measure
+separately from billed entries. Close/Escape/backdrop return focus to the exact
+trigger. `ProjectBudget.cleanup` closes/removes native state, and ProjectBrowser
+calls it before detaching a budget host or refreshing its project detail. Plots
+and axes are 225px tall; macro card/metadata spacing is reduced another 20%.
+
+`ProjectBudget.render` displays macro fields separately from the selected
+convention's reference total. It automatically uses a single convention but
+requires an explicit choice for multiple versions. Lifetime total/remaining and
+per-rubric comparisons require compatible confirmed currency. Annual cards show
+budgeted, billed consumption and engaged amounts as adjacent signed bars; known
+currency groups share an axis, unknown/different currencies stay separate.
+Expense details, income/adjustments and annual parent net are independently
+visible. Changes reuse the cached DTO and do not call Odoo. The persistent
+budget host retains detail expansion, while the shared project renderer restores
+control focus. Hours preferences remain independent and monthly observers are
+not mounted while Budget is visible.
+
 ## DiCo steering
 
 DiCo steering uses authenticated scoped portfolio reads, then additional one-project detail reads. The main Projets tab routes to the personal grid even when DiCo is disabled; programme/unit and leader/contributor shortcuts retain the internal steering portfolio. The pure calculation module is shared with the browser for filtered consolidation; refresh replaces in-memory data and invalidates pending detail responses. No snapshots or source writes are made. See [steering data lifecycle](PILOTAGE.md#navigation-and-data-lifecycle).
@@ -169,5 +250,5 @@ DiCo steering uses authenticated scoped portfolio reads, then additional one-pro
 ## Refresh
 
 - Last refreshed: 2026-10-09
-- Source basis: personal-time.js, project-monthly.js, project-browser.js, steering-client.js, login.html, index.html personal/lifetime-fetch/scope/render functions and chart preference maps, server.js identity/contributor/assignment/convention/date/authentication/transport handlers and summary helpers.
+- Source basis: personal-time.js, project-monthly.js, project-browser.js, project-budget.js, project-finance-service.js, steering-client.js, login.html, index.html personal/lifetime/finance-fetch/scope/render functions and preference maps, server.js identity/contributor/assignment/convention/date/finance/authentication/transport handlers and summary helpers.
 - Limitations: broad live schema/permission coverage remains unverified; automated and browser checks use fictional data.

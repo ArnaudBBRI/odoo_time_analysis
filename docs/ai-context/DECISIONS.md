@@ -1,5 +1,77 @@
 # Decisions
 
+## 2026-10-09: Annual category bill drill-down
+
+- Approval: the user's **go** approved bill/entry popups on thin annual code
+  bars, a 25% taller plot and another 20% reduction in macro card/metadata
+  spacing. Preserve readable typography and the existing annual supplier filter.
+- A popup lists signed posted Settlements New expense allocations for the exact
+  category, line period and currency. Show the allocated category amount, line
+  description and optional supplier/document labels; do not repeat invoice grand
+  totals or expose employee timesheet descriptions. Document labels alone do not
+  prove an entry is an invoice.
+- Budgeted and Engaged clicks show the same billed entries with the selected
+  measure separately labelled. Planned allocations and unbilled orders are not
+  invented bill records. Gaps and incomplete source/supplier evidence remain
+  explicit, and credits remain negative.
+- Reuse the authenticated exact-project finance cache for immediate popups.
+  Optional description reads are restricted to eligible exact financial IDs and
+  isolated from monetary-source failures. Native modal behavior supplies keyboard
+  focus containment; close, Escape and backdrop dismissal restore the trigger.
+  Panel/project rerenders explicitly release the modal before removing its host.
+- No Odoo mutation, publication or automatic commit/push is authorized.
+
+## 2026-10-09: Annual code companions and supplier-cost exclusion
+
+- Approval: the user approved the refinement plan before implementation.
+  Each annual Budgeted/Billed/Committed total gets thinner companion bars for
+  its own expense categories. Exact category identities and compatible
+  currencies govern grouping; colors and ordering stay stable across years.
+- The unchecked **Exclude Ormitter costs** choice applies to all annual
+  periods of the selected project, independently of hours inclusion and year
+  chips. Identify supplier payments through the confirmed **Ormit Talent**
+  partner name, with description/financial codes only as corroboration.
+  Annual category codes and six-digit financial accounts are distinct;
+  never infer their mapping from a prefix or exclude unrelated suppliers.
+- Preserve budget allocations, pending approval and source-reported balances.
+  Filter billed and committed costs only with exact period/category/currency
+  evidence. Reconcile settlements to billed lines first. Committed attribution
+  also requires independently readable project purchase evidence; unavailable
+  supplier commitments must remain unavailable rather than appear as zero.
+- Compact the top summary mainly through spacing, maintaining readable text.
+  Annual details omit only lines whose five monetary measures are all known
+  zero; retain negative, pending-only and unknown amounts.
+- No Odoo mutation, automatic commit, push or publication is authorized.
+
+## 2026-10-09: Separate lifetime and annual project budgets
+
+- Approval: the user's **go** approved the proposed first budget iteration and
+  the recommended inclusion of recorded personnel costs in global consumption.
+- Interface: Heures/Budget is a top selected-project switch. Budget has its own
+  convention macro/lifetime section and all-year annual cards; scoped-year chips
+  are hidden there. Multiple convention versions require explicit selection,
+  rather than taking the largest or combining versions.
+- Lifetime definition: use signed recorded project analytic costs through today,
+  combining posted expense types and distinct employee Hours entries whose time
+  unit/category and lack of financial-movement linkage are verified. Credits
+  reduce costs. Include early/late entries and disclose them. Never add repeated
+  invoice totals, payment/balance-sheet movements or billed measures to these
+  costs, and never infer a rate from hours.
+- Identity and money: exact project analytic-account scoping retains expenses
+  lacking direct project IDs. Exact rubric IDs determine matches; unassigned
+  personnel costs remain visible without a fabricated personnel-rubric mapping.
+  The monetary field's metadata-confirmed currency relation governs its amounts;
+  unrelated invoice/move currency fields are not substitutes. Missing binding,
+  unreadable amounts or incompatible currencies remain unavailable/partial.
+- Annual definition: preserve all accessible periods and source workflow states.
+  Compare 6xxx expense budgets, billed consumption and committed amounts;
+  disclose 7xxx income, 9xxx adjustments and parent net totals separately.
+  Committed already includes billed plus confirmed purchases, so it overlaps
+  consumption and is never added to it. Its values may equal billed spending.
+- Verification limits: targeted live source checks succeeded for one project;
+  available source data does not prove company-wide record-rule completeness.
+  D001 remains in force; no Odoo writes or automatic publication are authorized.
+
 ## 2026-10-09: Clip scoped bar projections to the project dates
 
 - Request: selecting a project's partial first year must not treat pre-start

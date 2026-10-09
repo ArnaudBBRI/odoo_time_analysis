@@ -83,6 +83,71 @@ label/staffing substitutes, incompatible/missing/blank/zero/invalid values,
 available/empty/unavailable status, invalid dates and independently readable
 dates when the optional budget read is denied.
 
+## Project finance panel
+
+```powershell
+node --test tests/project-finance.test.js tests/project-finance-http.test.js tests/project-budget.test.js tests/sticky-scope.test.js tests/project-browser.test.js tests/auth.test.js
+```
+
+The budget pure/DOM fixture covers signed positive/negative axes, common exact
+currency scales, isolated unknown currencies, zero versus unavailable amounts,
+convention macro/source distinction, recorded lifetime cost without billed-total
+double counting, exact-ID rubric matching and unassigned personnel costs. It
+also verifies explicit multiple-convention selection, future/repeated annual
+years, distinct expense/income/adjustment rows, independent annual measures,
+partial/reconciliation notices, out-of-date/unvalued-hour disclosure, safe text,
+retry, detail expansion/focus and immutable source DTOs.
+
+Annual refinements cover exact-category/currency code grouping, shared code
+colors and signed scales, companion amounts larger than net totals, thin-bar
+keyboard/tap details and Escape handling, contained scrolling and axis-label
+collisions. Supplier exclusion tests preserve allocations/pending/balances,
+keep missing filtered values unavailable, retain focus and remove only confirmed
+all-five-zero detail rows.
+
+Bill drill-down cases verify exact financial-ID grouping, signed credits,
+distinct allocations of one document, duplicate/overlapping entries, source
+currency conflicts, unavailable/empty/partial lists, verified supplier filtering
+and exact-zero unknown-supplier handling. Native-dialog fixture cases cover
+safe literal descriptions, focus containment, Close/Escape/cancel/backdrop,
+rerender cleanup and exact-trigger focus return. ProjectBrowser integration
+also opens the real budget renderer from a financial fixture and verifies modal
+cleanup before refresh or Hours navigation.
+
+Controller/project-renderer cases cover the default Hours view, remembered
+Heures/Budget choice, lazy independent exact-project finance cache, in-flight
+deduplication, wrong-project/stale-generation rejection, refresh/retry, hidden
+year controls and year-independent selected budget view. Hours preferences and
+their cache remain separate. Authentication fixtures check that budget assets
+and the finance route require a session and that the service source is not served.
+All automated data is fictional; these checks do not establish live financial
+completeness.
+
+`tests/project-finance.test.js` uses a synthetic fixed-model RPC fixture to
+verify exact project/account/reference scope and read-only methods, independent
+source failures, all versions/future years, signed and unavailable measures,
+expense/income/adjustment reconciliation, posted expenses and monetary hour costs,
+exact units/categories, metadata-bound currencies/conflicts, source deduplication, out-of-period
+inclusion and sensitive-field omission. It makes no live Odoo calls.
+
+Supplier fixtures additionally verify canonical commercial roots, misleading
+display/contact names, unavailable/contradictory supplier identities, exact
+child periods and signed credits, zero/missing amounts, annual billed
+reconciliation, scoped confirmed-purchase absence and unavailable outstanding
+Ormit commitments. Future cost records remain available to annual comparisons
+without changing lifetime's today cutoff or hour-unit coverage.
+Bill fixtures additionally cover optional exact financial description reads,
+missing/denied/changed descriptions, inaccessible monetary sources, child periods,
+duplicate categories and conflicting entries. Personnel, payments, draft and
+foreign-scope descriptions are excluded.
+
+`tests/project-finance-http.test.js` runs the server against an isolated fake RPC
+source to verify authentication/origin/method checks, early ID validation,
+session identity and ignored caller overrides, exact project/account scoping,
+pagination, eligible allocated bill descriptions and privacy, safe asset serving
+and sanitized source faults. No live credentials
+or private config are used.
+
 ## Syntax and configuration
 
 `tests/project-monthly.test.js` covers exact project/employee/resource identities,
@@ -112,6 +177,8 @@ node --check server.js
 node --check personal-time.js
 node --check project-monthly.js
 node --check project-browser.js
+node --check project-budget.js
+node --check project-finance-service.js
 docker compose config --quiet
 ```
 
@@ -126,6 +193,7 @@ Run `node --test tests/steering.test.js tests/steering-http.test.js` for calcula
 ## Additional manual checks
 
 - Verify welcome-page layout at desktop and mobile widths, field labels, keyboard focus and password visibility toggle.
+- In a selected project, switch Heures/Budget and check remembered choices, hidden year controls, retained Hours settings and retry/focus. Inspect convention macro fields versus the selected source; multiple versions must require a choice. Confirm posted expense/time costs are counted once, unmatched costs remain visible, incomplete sources are disclosed and incompatible currencies cannot imply a ratio. Compare all annual years/versions with shared compatible-currency axes and three separate bars, including signed corrections and zero/unavailable values. Check expense versus income/adjustment tables, source statuses, one-second gradient fills, reduced motion and contained mobile scrolling.
 - With fictional personal data, check Hors planning subtotals, Projets year scope, radio keyboard navigation, manager-photo fallbacks and return focus. Selection should load one exact-project response and show personal/all-employee pairs with 75% planned bars and linear date ticks; year changes should make no additional request. Check unknown planning, signed credits, consultant warnings, retry and asynchronous focus. Mon temps · 02 remains hidden.
 - Check the project-only Ormitter checkbox starts unchecked and appears for full-history nonzero hours or confirmed assignments, even outside selected years. Toggling it should update both project comparisons and the stacked-area chart without a request, preserve focus and leave Mes heures unchanged. Check stacked contributor totals/colors, photo/name bubbles inside wide bar segments and avatar-only bubbles on narrower ones, the always-visible keyed list at mobile widths, signed negative net-bar explanations and safe photo fallbacks.
 - Check the third convention pair retains the full project-date caption, actual total and date tick when selected years change. Confirm actuals exclude dates outside the project and after Brussels today. With an empty/nonpositive budget, verify the MIS message; with an unreadable field, verify the unavailable-field message. Both cases omit the upper row and retain a distribution-only lower bar without a tick. With invalid dates, verify unavailable actuals. Check the smaller title and thinner bars at desktop/mobile widths, including actual-only callouts and comparison-specific contributor focus.
@@ -144,7 +212,7 @@ There is no dedicated lint/typecheck setup or CI workflow. Legacy XLSX parsing a
 ## Refresh
 
 - Last refreshed: 2026-10-09
-- Source basis: tests/personal-time.test.js, tests/project-monthly.test.js, tests/project-browser.test.js, tests/sticky-scope.test.js, tests/auth.test.js (including local config-login/manager/contributor/assignment/lifetime fixtures), server.js, personal-time.js, project-monthly.js, project-browser.js/css, index.html, login.html and Docker configuration.
+- Source basis: tests/personal-time.test.js, tests/project-monthly.test.js, tests/project-browser.test.js, tests/project-budget.test.js, tests/sticky-scope.test.js, tests/auth.test.js (including local config-login/manager/contributor/assignment/lifetime/finance fixtures), server.js, project-finance-service.js, personal-time.js, project-monthly.js, project-browser.js/css, project-budget.js/css, index.html, login.html and Docker configuration.
 - Limitations: simulated authentication is not proof of compatibility with real Buildwise accounts.
 
 ## Merge verification (2026-10-06)

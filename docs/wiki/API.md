@@ -136,6 +136,85 @@ guards are shared with other protected routes. The browser caches the response
 by project ID; years and inclusion recalculate locally, while refresh/retry can
 reload it.
 
+## Project finance
+
+`POST /api/odoo/project-finance` accepts JSON `{ "projectId": 123 }` with a
+positive integer ID and uses the authenticated session's Odoo identity. Caller
+credential, schema, domain and year overrides are not consumed. It returns:
+
+- `project`: exact ID/name and optional start/end dates; `asOf`: read timestamp;
+- `macro`: convention total, personnel money/hours, maximum funding,
+  funding type/body, external reference and currency;
+- `conventions`: each source budget's ID/name/period, raw workflow code and
+  metadata label, currency, totals, exact-ID rubric lines and reconciliation;
+- `annual`: all annual source parents, including future years and versions,
+  expense totals, separate income/adjustments, parent net, lines and quality;
+  `ormitterExclusion` contains independently verified filtered billed/committed
+  totals and exact line-ID replacements, the excluded billed amount, status and
+  warnings. It does not replace the original source budget. Each expense line
+  also has `billDetails`: `status` (`reconciled`, `partial`, `unavailable`),
+  `sourceConsumed`, `visibleConsumed`, signed `gap`, `warnings` and `items`.
+  Items contain analytic-entry `id`, `date`, optional `description`, signed
+  category-allocated `consumed`, `currencyId`/`currency`, optional
+  `documentLabel`/`supplierLabel` and verified `isOrmitTalent` (true/false/null);
+- `lifetime`: posted expense costs plus recorded monetary hour costs through
+  Brussels today, source status/currency, expense/personnel components, exact
+  convention-rubric breakdown, unmapped costs, zero-valued hours count and
+  before-start/after-end diagnostics;
+- source `warnings`, without credentials, personnel descriptions or raw
+  accounting-document/employee payloads.
+
+The fixed-source service reads metadata-confirmed `project.project`,
+`budget.analytic`, referenced `budget.line`, scoped `account.analytic.line` and
+optional hour-unit metadata through the existing guard. Annual exclusion also
+reads exact referenced `res.partner` identities/commercial parents and confirmed
+`purchase.order.line` records scoped by the exact project analytic account.
+Financial reads use the
+exact project analytic account and refuse shared accounts rather than reporting
+another project's costs. The analytic `amount` uses only the exact currency
+relation named by that monetary field's `currency_field` metadata. A missing,
+unsupported or unreadable binding leaves currency unavailable; an unrelated
+transaction/accounting-document currency is not a substitute. No exchange-rate
+conversion is performed.
+
+Annual expense totals use 6xxx categories; 7xxx income and 9xxx adjustments stay
+separate. Convention rubrics use `x_plan7_id`; annual categories use
+`x_plan8_id`. Budget measures preserve sign and missing-versus-zero semantics.
+`committed_amount` and `achieved_amount` remain separate overlapping measures,
+never a summed consumption estimate. Lifetime costs use negative analytic
+`amount` for posted expense types and confirmed monetary hour entries; no hourly
+rate is estimated. Costs outside project dates remain included and disclosed.
+Partial/unknown sources and incompatible currencies do not become invented zeros.
+
+Ormit Talent is matched by canonical supplier name. Annual exclusion uses the
+line's confirmed dates, exact `x_plan8_id` and monetary currency binding, after
+settlements reconcile to billed amounts. Descriptions and financial-account
+prefixes do not establish supplier identity. Verified absence of accessible Ormit
+purchase orders and equality of an affected line's billed/committed measures
+permit subtracting its attributed billed costs from committed costs. Unknown
+suppliers, ambiguous periods/categories, unreconciled amounts or unexplained
+outstanding supplier commitments remain unavailable. Record rules still apply;
+these reads cannot prove completeness beyond the connected account's visibility.
+Budget allocations, pending approvals and reported balances are unchanged.
+
+Bill items use the same exact child period/category/monetary-currency evidence,
+restricted to posted expense allocations. They contain allocated analytic
+amounts rather than invoice grand totals; document labels alone do not prove
+invoice type. Optional metadata-confirmed `account.analytic.line.name` enrichment
+reads only eligible exact financial IDs and rechecks scope/status/currency.
+Description failures leave known monetary totals intact. Personnel hour rows,
+payments and balance-sheet entries do not enter bill lists. The renderer groups
+and deduplicates exact entry IDs, applies the existing supplier filter locally
+and discloses overlaps, unknown suppliers and reconciliation gaps. Popups use
+the existing cached response; no bill-specific route or source action exists.
+
+Invalid JSON/IDs return 400 before source reads, anonymous calls return 401,
+unsupported methods return 405, inaccessible exact projects return 404 and
+critical source failures return a sanitized 502. Optional source failures can
+return 200 with explicit unavailable/partial sections. Budget controls and
+selected years reuse the exact-project browser cache; refresh/retry invalidate
+it separately from the hours cache.
+
 ## Connected Lead Unit portfolio
 
 - POST /api/odoo/my-lead-unit: resolves the session user's unit and returns leadUnit id/name.
@@ -173,14 +252,14 @@ Three authenticated POST routes are available under `/api/odoo/pilotage/`: `meta
 - /, /login and /login.html serve the public welcome page, or redirect signed-in users to /dashboard.
 - /dashboard and /index.html serve the protected dashboard.
 - /assets/buildwise-logo.svg is public; /favicon.ico returns 204.
-- /personal-time.js, /personal-time.css, /project-monthly.js, /project-browser.js and /project-browser.css are authenticated dashboard assets.
+- /personal-time.js, /personal-time.css, /project-monthly.js, /project-browser.js, /project-browser.css, /project-budget.js and /project-budget.css are authenticated dashboard assets. The server-side /project-finance-service.js is not served.
 - Other files/routes return 404 after login. Anonymous non-API requests redirect to /login.
 - Responses use no-store, nosniff, same-origin referrer policy and a CSP blocking framing and off-origin connections. Inline scripts/styles remain allowed for the current single-file pages.
 
 ## Refresh
 
-- Last refreshed: 2026-10-08
-- Source basis: server.js, login.html, index.html/steering-client.js browser callers, personal-time.js, project-browser.js and tests/auth.test.js.
+- Last refreshed: 2026-10-09
+- Source basis: server.js, project-finance-service.js, login.html, index.html/steering-client.js browser callers, personal-time.js, project-browser.js, project-budget.js and tests/auth.test.js.
 - Limitations: automated integration tests use simulated Odoo; broad account/schema compatibility is not established.
 
 ## APIs retained from main

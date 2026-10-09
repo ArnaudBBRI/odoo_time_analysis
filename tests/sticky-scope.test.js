@@ -37,6 +37,7 @@ function loadDashboard(mockFetch, { allowedRoutes = ["/api/odoo/project-timeshee
       refreshYears, toggleSelectedYear, selectAllYears,
       getScopedPersonalProjects, renderPersonalProjects, choosePersonalProject, clearPersonalProject,
       summarizePersonalProjectHours, summarizeLifetimeProjectHours, loadPersonalProjectHours, setPersonalProjectOrmitters, hasProjectOrmitters,
+      loadPersonalProjectFinance, setPersonalProjectView, setPersonalProjectConvention, setPersonalProjectExcludeOrmitterCosts, updatePersonalProjectFilterVisibility,
       applyViewChange(event) { ${viewChange} },
       captureRenderFeeds() {
         globalThis.renderFeeds = {};
@@ -185,6 +186,153 @@ function projectHoursResult(id = 101) {
     planningError: null, warnings: []
   };
 }
+
+function projectFinanceResult(id = 101) {
+  return { ok: true, project: { id, name: id === 101 ? projectName : emptyProjectName },
+    macro: {}, conventions: [{ id: 501, budgetedTotal: 12000 }],
+    annual: [{ id: 601, startDate: "2027-01-01", endDate: "2027-12-31", totals: { budgeted: 4000 } }],
+    lifetime: { status: "available", consumed: 3000 } };
+}
+
+test("project Budget switch reads lazily, hides irrelevant years and retains independent cached hours", async () => {
+  const { dashboard, requests, context } = loadDashboard(({ url }) => response(
+    url.endsWith("project-finance") ? projectFinanceResult() : projectHoursResult()),
+  { personalTime: true, allowedRoutes: ["/api/odoo/project-hours", "/api/odoo/project-finance"] });
+  dashboard.state.personalTimeResult = personalResult();
+  dashboard.state.dashboardView = "projects";
+  dashboard.renderPersonalProjects();
+  assert.equal(requests.length, 0);
+  dashboard.choosePersonalProject(101);
+  await new Promise(setImmediate);
+  assert.deepEqual(requests.map(request => request.url), ["/api/odoo/project-hours"]);
+  const hours = dashboard.state.personalProjectHoursCache.get("101").result;
+  dashboard.setPersonalProjectView("budget");
+  dashboard.setPersonalProjectView("budget");
+  await new Promise(setImmediate);
+  assert.deepEqual(requests.map(request => request.url), ["/api/odoo/project-hours", "/api/odoo/project-finance"]);
+  assert.deepEqual(requests[1].payload, { projectId: 101 }, "No selected years or credential override enter the finance request");
+  assert.equal(dashboard.els.filterBar.hidden, true);
+  const finance = dashboard.state.personalProjectFinanceCache.get("101").result;
+  assert.equal(context.projectBrowserRenders.at(-1).options.finance.result, finance);
+  dashboard.state.selectedYears = new Set([2025]);
+  dashboard.renderPersonalProjects();
+  assert.equal(dashboard.state.selectedPersonalProjectId, 101, "An open lifetime budget survives year changes");
+  assert.equal(context.projectBrowserRenders.at(-1).options.finance.result, finance);
+  dashboard.state.selectedYears = new Set([2026]);
+  dashboard.setPersonalProjectView("hours");
+  await new Promise(setImmediate);
+  assert.equal(dashboard.els.filterBar.hidden, false);
+  assert.equal(dashboard.state.personalProjectHoursCache.get("101").result, hours);
+  assert.equal(requests.length, 2);
+  dashboard.setPersonalProjectView("budget");
+  await new Promise(setImmediate);
+  dashboard.setPersonalProjectConvention(501);
+  dashboard.setPersonalProjectConvention(999);
+  assert.equal(dashboard.state.personalProjectConvention.get("101"), "501");
+  assert.equal(context.projectBrowserRenders.at(-1).options.finance.selectedConventionId, "501");
+  dashboard.clearPersonalProject();
+  assert.equal(dashboard.els.filterBar.hidden, false);
+  assert.equal(requests.length, 2, "Panel and convention changes reuse the exact-project cache");
+});
+
+test("finance in-flight reads share an exact ID, isolate another selection and discard obsolete generations", async () => {
+  const pending = new Map();
+  const { dashboard, requests, context } = loadDashboard(({ payload }) => new Promise(resolve => pending.set(payload.projectId, resolve)),
+    { personalTime: true, allowedRoutes: ["/api/odoo/project-finance"] });
+  dashboard.state.personalTimeResult = personalResult();
+  dashboard.state.personalTimeResult.projects.push({ id: 102, name: emptyProjectName });
+  dashboard.state.personalTimeResult.timesheets.lines.push(line(11, 1, false, employeeName, emptyProjectName));
+  dashboard.state.selectedPersonalProjectId = 101;
+  dashboard.state.personalProjectView.set("101", "budget");
+  const first = dashboard.loadPersonalProjectFinance(101);
+  await dashboard.loadPersonalProjectFinance(101);
+  await dashboard.loadPersonalProjectFinance(999);
+  assert.equal(requests.length, 1);
+  dashboard.state.selectedPersonalProjectId = 102;
+  dashboard.state.personalProjectView.set("102", "budget");
+  const second = dashboard.loadPersonalProjectFinance(102);
+  pending.get(101)(response(projectFinanceResult(101)));
+  await first;
+  assert.equal(dashboard.state.selectedPersonalProjectId, 102);
+  assert.equal(context.projectBrowserRenders.at(-1).options.finance.result, null);
+  dashboard.state.personalProjectFinanceGeneration += 1;
+  dashboard.state.personalProjectFinanceCache.clear();
+  pending.get(102)(response(projectFinanceResult(102)));
+  await second;
+  assert.equal(dashboard.state.personalProjectFinanceCache.size, 0);
+});
+
+test("wrong-project finance stays unavailable, retry recovers, and personal refresh reloads the selected panel", async () => {
+  let wrong = true;
+  const { dashboard, requests } = loadDashboard(({ url }) => response(url.endsWith("my-time") ? personalResult() :
+    projectFinanceResult(wrong ? 999 : 101)),
+  { personalTime: true, allowedRoutes: ["/api/odoo/project-finance", "/api/odoo/my-time"] });
+  dashboard.state.personalTimeResult = personalResult();
+  dashboard.state.dashboardView = "projects";
+  dashboard.state.selectedPersonalProjectId = 101;
+  dashboard.state.personalProjectView.set("101", "budget");
+  await dashboard.loadPersonalProjectFinance(101);
+  assert.equal(dashboard.state.personalProjectFinanceCache.get("101").result, null);
+  assert.match(dashboard.state.personalProjectFinanceCache.get("101").error, /ne correspond pas/);
+  wrong = false;
+  await dashboard.loadPersonalProjectFinance(101, true);
+  assert.equal(dashboard.state.personalProjectFinanceCache.get("101").result.project.id, 101);
+  const previousGeneration = dashboard.state.personalProjectFinanceGeneration;
+  await dashboard.fetchPersonalTime();
+  await new Promise(setImmediate);
+  assert.ok(dashboard.state.personalProjectFinanceGeneration > previousGeneration);
+  assert.deepEqual(requests.map(request => request.url), ["/api/odoo/project-finance", "/api/odoo/project-finance",
+    "/api/odoo/my-time", "/api/odoo/project-finance"]);
+  assert.equal(dashboard.state.personalProjectFinanceCache.get("101").result.project.id, 101);
+});
+
+test("finance refresh clears a convention preference removed from the source", async () => {
+  const data = projectFinanceResult();
+  const { dashboard } = loadDashboard(() => response(data), { personalTime: true, allowedRoutes: ["/api/odoo/project-finance"] });
+  dashboard.state.personalTimeResult = personalResult();
+  dashboard.state.selectedPersonalProjectId = 101;
+  await dashboard.loadPersonalProjectFinance(101);
+  dashboard.setPersonalProjectConvention(501);
+  assert.equal(dashboard.state.personalProjectConvention.get("101"), "501");
+  data.conventions = [{ id: 502, budgetedTotal: 1000 }];
+  await dashboard.loadPersonalProjectFinance(101, true);
+  assert.equal(dashboard.state.personalProjectConvention.has("101"), false);
+});
+
+test("annual Ormitter costs exclusion is local, remembered per project and independent of hours and years", async () => {
+  const { dashboard, requests, context } = loadDashboard(({ payload }) => response(projectFinanceResult(payload.projectId)),
+    { personalTime: true, allowedRoutes: ["/api/odoo/project-finance"] });
+  dashboard.state.personalTimeResult = personalResult();
+  dashboard.state.personalTimeResult.projects.push({ id: 102, name: emptyProjectName });
+  dashboard.state.personalTimeResult.timesheets.lines.push(line(11, 1, false, employeeName, emptyProjectName));
+  dashboard.state.dashboardView = "projects";
+  dashboard.state.selectedPersonalProjectId = 101;
+  dashboard.state.personalProjectView.set("101", "budget");
+  dashboard.setPersonalProjectExcludeOrmitterCosts(true);
+  assert.equal(dashboard.state.personalProjectExcludeOrmitterCosts.size, 0, "A missing finance result cannot set a cost preference");
+  await dashboard.loadPersonalProjectFinance(101);
+  const source = dashboard.state.personalProjectFinanceCache.get("101").result;
+  assert.equal(context.projectBrowserRenders.at(-1).options.finance.excludeOrmitterCosts, false);
+  context.projectBrowserRenders.at(-1).options.onExcludeOrmitterCostsChange(true);
+  assert.equal(context.projectBrowserRenders.at(-1).options.finance.excludeOrmitterCosts, true);
+  assert.equal(dashboard.state.personalProjectOrmitters.has("101"), false, "The hours inclusion control remains independent");
+  dashboard.setPersonalProjectExcludeOrmitterCosts("true");
+  dashboard.state.selectedYears = new Set([2025, 2026]);
+  dashboard.renderPersonalProjects();
+  assert.equal(context.projectBrowserRenders.at(-1).options.finance.excludeOrmitterCosts, true);
+  assert.equal(dashboard.state.personalProjectFinanceCache.get("101").result, source);
+  assert.equal(requests.length, 1, "A filter reuses supplier attribution already present in the finance cache");
+  dashboard.state.selectedPersonalProjectId = 102;
+  dashboard.state.personalProjectView.set("102", "budget");
+  await dashboard.loadPersonalProjectFinance(102);
+  assert.equal(context.projectBrowserRenders.at(-1).options.finance.excludeOrmitterCosts, false);
+  dashboard.state.selectedPersonalProjectId = 101;
+  dashboard.renderPersonalProjects();
+  assert.equal(context.projectBrowserRenders.at(-1).options.finance.excludeOrmitterCosts, true);
+  dashboard.setPersonalProjectExcludeOrmitterCosts(false);
+  assert.equal(context.projectBrowserRenders.at(-1).options.finance.excludeOrmitterCosts, false);
+  assert.equal(requests.length, 2);
+});
 
 test("persistent sticky navigation starts on Mon temps and hides legacy population controls", () => {
   const { dashboard } = loadDashboard(undefined, { legacyScope: false });
