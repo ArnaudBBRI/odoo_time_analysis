@@ -1,6 +1,8 @@
 {
   "odooUrl": "https://odoo.buildwise.be/",
   "database": "buildwiseprd",
+  "username": "",
+  "apiKey": "",
   "pilotage": {
     "unitConfirmed": false,
     "unitDomain": [],

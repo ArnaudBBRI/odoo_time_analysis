@@ -1,5 +1,234 @@
 # Decisions
 
+## 2026-10-09: Clip scoped bar projections to the project dates
+
+- Request: selecting a project's partial first year must not treat pre-start
+  months as elapsed project time. Extrai's confirmed start is 1 December 2025.
+- Decision: the first two Projets bar comparisons intersect selected calendar
+  years with inclusive project start/end dates for their linear date tick.
+  Count eligible Brussels calendar days, exclude unselected gaps, and retain
+  zero/full first/last-day anchors. Show the effective reference dates.
+- Unknown dates: missing, invalid, reversed or out-of-scope project dates leave
+  the reference unavailable; do not silently restore a full-year baseline.
+- Hours: retain authoritative selected-year planning and actual records. Adding
+  a year with no planning may legitimately leave the planned total unchanged.
+  The independent lifetime/monthly views and Mon temps macro retain their scopes.
+- Verification: a targeted guarded read-only diagnostic confirmed Extrai's
+  project dates and no own planning in 2025 for the configured account, with
+  actual work in December. That account was not independently compared with
+  the active browser login. No Odoo write or configuration change occurred.
+
+## 2026-10-09: Isolate an employee in the project history graph
+
+- Request: clicking an employee name shows only their actual-hours line in the
+  current monthly/cumulative mode and a linear extrapolation of their planned hours.
+- Reference: reuse cached raw planning for the exact project/employee, include
+  future allocations within inclusive project dates, and prorate intervals
+  crossing those boundaries. Spread the resulting signed hours evenly over
+  project calendar days, through today; cumulative mode prefixes the reference
+  and plateaus at project end. Selected-year chips do not alter this history.
+- Identity/completeness: explicit employee IDs outrank resources. Resource-only
+  planning needs safe exact ownership; names cannot identify an employee. Missing,
+  malformed, ambiguous or unresolved planning remains unavailable instead of a
+  guessed zero. An accessible empty plan yields a zero reference.
+- Interaction: retain all employee-name buttons for switching. Clicking the
+  selected name again or **Tous les employés** restores stacked areas and the
+  project total/convention. Selected mode shows only actual/planned lines and
+  matching tooltip/table values. Remember selection per project, clear excluded
+  or stale identities, replay the one-second reveal and retain keyboard focus.
+- Boundary: reuse existing data without another Odoo request or dependency.
+  Bars retain their existing scopes. No source write, private-config access,
+  commit, push or stash was requested or performed.
+
+## 2026-10-08: Stack employee areas and offer cumulative project history
+
+- Request: replace employee lines with stacked areas, retain the independent
+  dotted convention line, and place **Par mois / Cumulé** beside the optional
+  Ormitter checkbox. Monthly remains the default; remember the mode by project
+  for the current browser session.
+- Calculation: cumulative mode prefixes each employee's signed monthly hours,
+  the net total and the daily-prorated convention allowance. Actuals continue
+  through today; convention accumulation stops at the project end. Existing
+  project dates, exact identities, colors and inclusion rules stay authoritative.
+- Signed values: stack positive hours above zero and negative corrections below
+  it. Keep a thick net-total line and exact details, with a brief correction note
+  when the positive boundary differs from the net total.
+- Animation: replay the shared one-second reveal on every actual mode or
+  inclusion change, including returning to an earlier setting. Year changes,
+  resize and unchanged rerenders do not replay. Honor reduced motion and restore
+  focus to the control that triggered the update.
+- Read boundary: derive all modes locally from cached raw history; no new Odoo
+  read, write, private configuration access or dependency is needed. This updates
+  the earlier monthly-line presentation and inclusion-animation decision below.
+
+## 2026-10-08: Monthly employee consumption in the project view
+
+- Request: add **Projets · 02 — Évolution mensuelle** below **Projets · 01 —
+  Vue d’ensemble**, with one monthly actual-hours line per employee, a thicker
+  total and a dotted convention reference. Retain employee colors from the bars.
+- Default interpretation: each point is that month's hours, not a running total,
+  following the user's explicit per-month request.
+- Period: actuals start at the exact project start and stop at inclusive Brussels
+  today, independently of selected-year chips. Recorded actuals after the project
+  end remain in this start-to-today graph. The convention distributes its precise
+  scalar evenly across inclusive project calendar days; each month shows only
+  its overlap with that period through today. Current-month actuals and allowance
+  are partial. No convention allowance is invented when budget/dates are unknown.
+- Identity/population: group by exact employee ID, then resource ID when no
+  employee exists. Preserve signed monthly corrections and continuous zero-hour
+  months. The graph shares the existing per-project default-off Ormitter choice;
+  both synchronized controls update cached data without another request.
+- Presentation: reveal all lines together from left to right over one second
+  when the graph first becomes visible, respect reduced motion, and avoid replay
+  on local year/inclusion changes. Show exact monthly values through accessible
+  tooltips and keep readable axes/legend at narrow widths.
+- Read boundary: reuse the authenticated full-history response. No new Odoo
+  operation, configuration access or dependency installation is needed.
+
+## 2026-10-08: Compare convention and actual hours over project dates
+
+- Context: the user requested a smaller project title, thinner bars and a third
+  comparison showing the whole project duration, independent of selected years.
+- Convention source: read only metadata-confirmed numeric
+  `project.project.budget_staffing_convention_hours` for **Budget personnel BW**.
+  The initial French-label lookup missed the real English API label, **Budget
+  Staffing Convention (Hours)**. A read-only check of Extrai (code `54252043`,
+  project ID `2083`) confirmed the float value `3890.3967484570226`, equivalent
+  to `3890:24` when rounded to hours/minutes. Preserve decimal precision for
+  calculations; labels, monetary fields and staffing/planning sums cannot
+  select a substitute source.
+- Period: use exact project `date_start` and `date` boundaries, including both
+  endpoint calendar dates. Actual employee hours stop at inclusive Brussels
+  today and omit entries outside the project dates. Selected-year controls do
+  not alter this comparison. Missing/invalid/reversed dates leave actuals
+  unavailable with a date notice rather than inventing an all-history period.
+- Display: retain the 75% convention baseline, proportional/capped actuals and
+  linear project-calendar tick when the budget is positive. An explicitly empty,
+  zero or negative budget replaces the upper bar with a short MIS update message.
+  Missing metadata, denied reads and invalid/omitted values show an unavailable
+  field message instead. Positive actuals retain a full-width contributor
+  distribution explicitly labelled without a convention scale or date tick.
+- Population: the existing project-only Ormitter checkbox controls both
+  project-wide actual comparisons, while the scalar convention budget stays
+  unchanged. Reuse exact employee colors/photos, signed-net handling and
+  one-second animation. Scope focus/tooltips to their comparison.
+- Read boundary: budget/date enrichment is optional and separated so budget
+  denial preserves accessible dates and hours. Preserve all read-only guards,
+  session identity, private config and unrelated local changes.
+
+## 2026-10-08: Optional Ormitter hours and employee project contributions
+
+- Context: the user requested optional Ormitter inclusion in the project-wide
+  comparison and an actual-hours bar divided by employee.
+- Population: retain the unchecked default exclusion. Show the project-only
+  checkbox when full-history nonzero actual/planned records or a confirmed
+  assignment identifies an Ormitter. Scope its in-memory choice by project ID;
+  changing it recalculates cached data without fetching or changing personal
+  hours, Mon temps or the legacy inclusion control.
+- Assignment evidence: use only metadata-confirmed direct project/employee
+  relations in the established `bw.staffing.convention` model and exact-ID
+  postfilters. Missing permissions, metadata or functions cannot confirm an
+  assignment; disclose incomplete presence checks while preserving hours.
+- Contributions: group scoped actuals by exact employee ID, resource ID only
+  when no employee ID exists, and a labelled unknown group otherwise. Stable
+  unique colors identify employees. Positive net contributions share one
+  proportional bar; their rounded two-decimal hours sum exactly to its total.
+  Preserve the existing 75% planned scale, 100% actual cap and one-second fill.
+- Signed corrections: if any employee has negative net hours, show a neutral
+  net actual bar and a signed contributor list that reconciles to the total.
+  Do not depict negative contributions as positive surfaces.
+- Identity display: show employee photo/name above a segment when space allows
+  and keep a matching contributor list for narrow/mobile segments. Read optional
+  HR/user photos by exact validated IDs; allow only bounded raster data URLs and
+  retain initials when photos are absent. Optional enrichment cannot fail hours.
+- Safety: all reads use the signed-in account and existing read-only guard.
+  No source write, dependency, private-config access, commit or push is required.
+
+## 2026-10-08: Compare personal and whole-project employee hours
+
+- Context: the user requested the first two graphs in the selected project
+  view: personal employee hours followed by all employees aggregated, both
+  scoped to the shared selected years.
+- Decision: show full-period planned hours above actual hours through inclusive
+  today in Europe/Brussels. Planned totals occupy 75% of the available track;
+  actual totals share that hour scale and cap at 100%, retaining full signed
+  numbers and explicit overrun/cap information.
+- Date reference: assume uniform planned consumption across the selected
+  calendar years. Position the vertical tick linearly along the planned bar,
+  using the same selected-day endpoints/gap handling as the macro, without its
+  square-root radial transformation.
+- Population: exclude known AI Consultant/AI Consultant Ormit records from
+  both comparisons by default; the later project-only checkbox above permits
+  explicit inclusion in the whole-project comparison. Preserve unknown-function and
+  planning-role fallback policy. Match personal employee IDs exactly, using
+  resource IDs only when a record has no employee ID.
+- Read boundary: add one authenticated exact-project hours route using existing
+  session credentials and read-only RPC protection. Keep Mon temps inclusive
+  personal totals unchanged. No private config, Odoo write, dependency,
+  commit, push or stash is required by this feature.
+- Missing or corrected data: unavailable planning remains null, signed credits
+  retain their numeric value, and actual-only zero-plan work is labelled
+  Hors planning without a fictitious proportional scale or date tick.
+
+## 2026-10-08: Build the personal Mon temps macro first
+
+- Context: the user approved clear shared French section names and the first
+  interactive macro in **Mon temps**, with planned sector shares and actual
+  radial filling. Further dashboard redesign is outside this first step.
+- Decision: use the authenticated person's exact employee/resource identities,
+  independently of Lead Unit project ownership. Keep unit-wide and DiCo
+  steering totals separate from personal data.
+- Display: a full disk with equal outer radii; planned selected-year hours set
+  sector angles, and colored area represents actual/planned consumption through
+  inclusive today in Europe/Brussels. Use square-root radii so filled area has
+  the correct proportion, with five light-to-dark radial tints.
+- Interaction: responsive side legend, stable unique project colors, local
+  hide/show with a reformed full circle, hover/focus/tap detail, and an all-hidden
+  restore action. Zero/unknown plans, signed credits and overruns remain visible
+  numerically; time consumption is not described as delivery progress.
+- Scope: shared names are **Vue macro**, **Suivi par projet** and **Fiche projet**.
+  Reuse selected-year controls and read-only RPC protection; no dependency,
+  private-config change, Odoo write, commit or push is authorized by this feature.
+- Scoped list clarification: omit a project when both its selected-year planned
+  hours and actual hours through today are zero. Mere zero-hour records or
+  future-only actual entries must not keep it in the side list.
+- List/date refinement: put positive-planning projects first. Add a thick
+  uniform calendar ring across selected years, with exact first-January-1 and
+  last-December-31 anchors. Match the actual-fill area scale, count leap days,
+  skip unselected gaps and label the reference separately from slot scheduling.
+- Approved follow-up: group known unplanned projects with nonzero actual
+  hours under **Hors planning**, separated by a horizontal divider, and show
+  their signed visible-project actual subtotal. Keep unknown planning distinct.
+  Hide **Mon temps 02 / Suivi par projet**.
+- Projets follow-up: start with a native-radio project grid using the same
+  personal involvement and year scope, independently of macro hide/show and
+  DiCo configuration. Show project names and optional manager photos; selecting
+  a project opens its name and an intentionally empty view, with a way back.
+  Use exact metadata-confirmed manager relations and bounded raster images;
+  inaccessible manager data must preserve hours and fall back to initials.
+
+## 2026-10-08: Restore optional local config-token sign-in
+
+- Context: the user requested a **Use config file** welcome-page option after
+  merging exact commit `52e377e` into `main`; the earlier 24-hour password-login
+  work remains stashed and is not part of this implementation.
+- Decision: keep manual email/password login and add an explicit local action
+  that authenticates the account named by private config `username` and
+  `apiKey` (alias `api_key`). Do not accept caller credentials or target
+  overrides on this route. Subsequent reads stay bound to the resulting
+  session account and its Odoo permissions.
+- Boundary: require a direct loopback socket and loopback Host for configured
+  account login. Forwarded headers cannot grant access. Remote/proxy users
+  retain the manual flow, avoiding public access to the configured identity.
+- Session lifetime: reuse the existing fixed eight-hour default and
+  `SESSION_TTL_SECONDS` override; do not reapply the stashed 24-hour design.
+- Privacy: a token in `config.local.json` is plaintext. Git/HTTP/Docker
+  exclusions do not encrypt it. Never send the token to the browser, responses,
+  or logs. Do not read or rewrite the user's private file during development.
+- Verification: use only simulated/offline Odoo responses for this change;
+  real token validity and account permissions remain unverified. The mandatory
+  Odoo read-only policy remains unchanged and no Odoo write is approved.
+
 ## 2026-10-05: DiCo project/programme/unit steering
 
 - The user approved the project/programme/unit macro and meta plan, selecting business programmes (not impact pathways), DiCo first and live reads without persisted history. A connected-project-leader shortcut was requested during implementation.

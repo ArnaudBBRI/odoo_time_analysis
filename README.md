@@ -1,6 +1,6 @@
 # Odoo Time Dashboard
 
-The dashboard compares Odoo timesheets and planning. Run the server, open the Buildwise welcome page, and sign in with your Odoo email and password. The underlying XLSX readers remain available in index.html; the top-level workbook upload controls are currently commented out.
+The dashboard compares Odoo timesheets and planning. Run the server, open the Buildwise welcome page, and sign in with your Odoo email and password, or use the optional local config login described below. The underlying XLSX readers remain available in index.html; the top-level workbook upload controls are currently commented out.
 
 ## Local Server Quick Start
 
@@ -59,9 +59,15 @@ Compose publishes the port without a loopback-only binding. The dashboard and it
 
 The home page uses the Buildwise visual style and asks for your Odoo email and password. A successful login opens `/dashboard`; use **Se déconnecter** to end the session. The server authenticates against the configured Odoo instance, defaulting to `https://odoo.buildwise.be/` and database `buildwiseprd`.
 
-All dashboard API requests use the signed-in user's Odoo credentials and permissions. Request fields and private-config API keys cannot replace that identity. No local dashboard account database is created.
+On the local welcome page, **Use config file** signs in with the username and
+API token stored in `config.local.json`. This option is available only through
+a direct loopback connection with a loopback Host header; proxied and remote
+access must use manual email/password login. Missing or invalid configuration
+and a rejected/expired token show a compact message on the welcome page.
 
-Sessions expire after eight hours by default and are stored in server memory. Restarting the server signs everyone out. The browser receives a random session cookie with `HttpOnly` and `SameSite=Lax`; the password remains in server memory for authenticated XML-RPC calls and is not persisted to disk or browser storage.
+All dashboard API requests use the signed-in account's Odoo credentials and permissions. After either login method, request fields and private-config values cannot replace that session identity. No local dashboard account database is created.
+
+Sessions expire after eight hours by default and are stored in server memory. Restarting the server signs everyone out. Both login methods use a random session cookie with `HttpOnly` and `SameSite=Lax`. Session credentials remain in server memory for XML-RPC calls; manual passwords are not persisted to disk or browser storage. A configured API token remains in the private file and server memory and is never returned to the browser.
 
 For an HTTPS deployment, set `SESSION_COOKIE_SECURE=true` on the server/container. TLS must be provided by the deployment or reverse proxy. If a proxy is used, preserve the public `Host` header so POST origin checks match the browser origin. Set `SESSION_TTL_SECONDS` to change the fixed session lifetime (default `28800`). Invalid/nonpositive lifetimes stop startup.
 
@@ -80,17 +86,152 @@ To select an Odoo instance, copy `config.example.json` to `config.local.json`:
 }
 ```
 
-The server reads the instance URL and database for sign-in. Existing username, API key and employee defaults do not override the signed-in user. Employee and project queries are entered in the dashboard.
+The server reads the instance URL and database for sign-in. To enable **Use
+config file** locally, also set `username` to the Odoo login and `apiKey` to its
+API token (`api_key` is accepted as an alias). These values are used only when
+that button is selected; manual email/password login remains available. The
+config route does not accept browser-supplied account or target overrides.
+Employee and project queries are entered in the dashboard.
 
 `config.local.json` is ignored by Git, excluded from new Docker build contexts and inaccessible through the HTTP server. If older images were built with private configuration, rebuild them using the updated exclusions; the change does not remove files from existing images.
 
+The file is plaintext: Git ignore and HTTP/Docker exclusions do not encrypt
+its API token or protect it from software that can read the file. Keep it
+private. The example contains empty optional credential fields, not a token.
+
 ## Running With The Odoo Connector
 
-Start the server and sign in before fetching data. No separate API key entry is needed. Fetch actions reuse the Odoo session credentials. The API retains Odoo's permissions; a dashboard login does not grant additional access.
+Start the server and sign in before fetching data. Fetch actions reuse the Odoo session credentials; no token is entered into the browser. The API retains Odoo's permissions; a dashboard login does not grant additional access.
 
-## My Lead Unit Portfolio
+## Mon temps — Vue macro
 
-Projects load automatically for the signed-in person's **Lead Unit**. There is no field or team selector. Use **Refresh** to reload the portfolio. The time view shows only the connected Lead Unit and useful loading/error messages, without a connection-test panel or a Ready banner.
+**Mon temps** loads the signed-in person's own timesheets and planning across
+their accessible projects. Employee/resource identities are resolved from the
+Odoo session UID; no employee-name or Lead Unit selection is needed. Select the
+years to compare and use **Actualiser** to refresh.
+
+In **Vue macro**, each project's full-radius sector represents its share of
+planned hours for the selected years. The colored area represents actual hours
+through inclusive today in Europe/Brussels. Hover, focus, or tap a sector for
+the project's planned/actual hours. Select projects in the side legend to
+hide/show them; the visible sectors reform a full circle. Colors remain stable.
+Projects with positive planned hours come first in the side list; each group
+is alphabetical. **Hors planning** sits below a divider and totals the signed
+actual hours of its displayed projects with known nonpositive planning.
+Unavailable planning has a separate labelled group, and planning corrections
+remain inspectable. Hiding projects updates this subtotal and the top totals.
+The thick dark circle is
+a linear calendar reference for today across the selected years: it starts at
+the center on the first 1 January and reaches the rim on the final 31 December.
+It counts selected calendar days, including leap days, and skips unselected
+years. It uses the same area scale as the actual fill, independently of when
+individual planning slots are scheduled.
+Projects with both planned and actual scoped totals at zero are omitted from
+the chart and side list; future actual entries do not count as time done.
+
+Actual credits remain signed. Overruns fill the sector and retain their exact
+hours in the legend/tooltip. Projects without planned hours stay in the legend
+when they have nonzero actual hours;
+unavailable planning is labelled rather than treated as zero. These are hours
+consumed, not delivery progress. The retained **Mon temps · 02 / Suivi par
+projet** section is hidden in the personal view.
+
+## Projets
+
+**Projets** shows an alphabetical grid of the signed-in person's projects with
+nonzero planned or actual hours in the same selected years as **Mon temps**.
+Macro legend visibility does not remove projects from this grid. Each tile has
+a native radio button, the project name, and its manager's photo when available;
+initials or a question mark provide a fallback.
+
+Selecting a tile opens **Projets · 01 — Vue d’ensemble** with **Mes heures**, **Heures du projet · tous les employés
+(hors Ormitters)**, then **Convention · durée du projet (hors Ormitters)**.
+Known consultant hours are excluded by default; unknown functions remain included
+with a warning.
+The project pair and monthly graph offer synchronized, initially unchecked
+**Inclure les heures des Ormitters** checkboxes when full history contains
+nonzero classified hours or a confirmed staffing assignment. Enabling either
+includes their planned and actual hours locally in the
+selected-year project pair, their actuals in the convention comparison and their chart areas,
+without another request or changing **Mes heures**. The personal macro continues
+to include all personal roles.
+
+In the first two pairs, the upper bar shows full selected-year planning at 75% of
+the track. The lower bar shows actual hours through today in Brussels on the same scale, capped at
+the track width with exact signed totals retained. The vertical date mark uses
+a linear calendar reference across selected days within the project's start/end
+dates. For a project starting in December 2025, adding 2025 counts only December
+in this reference. Its effective dates are shown; missing or invalid project
+dates leave the reference unavailable. Recorded scoped hours remain unchanged.
+Missing planning,
+negative corrections and **Hors planning** remain explicit.
+
+The third pair uses the project's **Budget personnel BW** convention hours from
+`budget_staffing_convention_hours` and its full start/end dates, independently
+of the year filter. Actuals include only
+those dates through today in Brussels. A positive convention uses the same 75%
+baseline and its own linear date mark. Without a positive budget, the convention
+bar is omitted. An empty field prompts MIS to update it; an unreadable field
+instead reports that the budget is unavailable in Odoo. Positive net actuals
+still fill the track as a distribution, with no convention scale or date mark.
+Missing/invalid project dates leave these actuals unavailable.
+
+Both project actual bars stack positive employee contributions with stable
+colors. Photo/name bubbles sit inside their segments when space allows, with
+avatar-only bubbles on narrower segments;
+a keyed list always shows every nonzero contribution and its signed hours.
+Negative contributions use a neutral net bar and an explicit signed breakdown,
+so corrections are not presented as positive areas. Contributor totals retain
+up to two decimal places and reconcile with the displayed actual total.
+
+**Projets · 02 — Évolution mensuelle** stacks employee actual hours as colored
+areas from the exact project start through today in Brussels, independently of
+selected years. Employee colors match the bars; a thicker line shows the signed
+net total. Negative corrections stack below zero, keeping credits distinct from
+positive consumption. Zero-hour months remain visible and the current month is
+partial.
+
+The **Par mois / Cumulé** control beside the Ormitter checkbox starts in monthly
+mode and remembers the choice separately for each project during the session.
+Cumulative mode adds each month's signed employee hours and total to the preceding
+months. The independent dotted convention line spreads the precise budget evenly
+across inclusive project days: monthly mode shows each month's allowance through
+today; cumulative mode adds these allowances and plateaus at the project end.
+Actuals after the project end remain included. An unavailable budget or invalid
+end date omits only the reference; an invalid start date leaves the graph
+unavailable. Exact values are available through month details and the table.
+
+Click an employee's name in the chart legend to show only their actual-hours
+line and a dotted **Prévu · projection linéaire** reference, keeping the current
+monthly/cumulative choice. All employee names remain available to switch people;
+click the selected name again or **Tous les employés** to restore the stacked
+project view. The employee reference uses their planned hours over the full
+inclusive project dates, including future planning, then spreads this total
+evenly across project days. It is a linear comparison, rather than their slot
+schedule or the whole-project convention budget. Known zero planning remains
+explicit; inaccessible planning, invalid dates or unresolved/ambiguous identity omit the
+reference and show a short explanation. Month details and the exact-value table
+follow the selected employee. The choice is remembered separately per project
+and resets when that employee is no longer available, including when an
+Ormitter is excluded.
+
+Areas and reference lines reveal together over one second on first display and
+after each mode, employee selection or Ormitter inclusion switch, respecting
+reduced motion. Year changes, resizing and unchanged rerenders do not replay the reveal.
+
+One read-only project request supplies all comparisons and chart series; loaded history is
+cached by project, so year changes and each project's inclusion, employee or
+chart-mode choice recalculate locally. Loading uses placeholders; errors offer
+retry and preserve available comparisons. **Tous les projets** returns
+to the grid and restores focus. This view works without DiCo configuration;
+Programmes, Unité DiCo and the leader/contributor shortcuts retain their
+separate steering portfolio.
+
+## Lead Unit portfolio reads
+
+The connector retains its separate connected-person Lead Unit portfolio route.
+It uses all contributors on owned projects; its totals are distinct from the
+personal **Mon temps** view.
 
 The project ownership field is `project.project.lead_unit_id`. The server reads the authenticated user by exact UID, using its Lead Unit/Unit relation when available, or an employee record linked through `user_id`. If only department membership is available, it follows the department's explicit unit relation, unit flag or parent hierarchy to a department named as a Unit. It does not look up people by name or accept client overrides of the unit.
 
@@ -230,7 +371,7 @@ Used for:
 - Project matching prefers the numeric Odoo project code inside brackets, for example `[54252043]`.
 - If no code is available, the dashboard falls back to normalized project names.
 - When a project appears in both actual and planned personal pies, both pies use the same color.
-- In per-project line-chart legends, clicking an employee name toggles that employee on or off across the monthly, cumulative, and planned-vs-actual charts.
+- In the legacy workbook project charts, clicking an employee name toggles that employee on or off across the monthly, cumulative, and planned-vs-actual charts. The current **Projets · 02** legend isolates one employee as described above.
 
 ## Year Filtering
 
@@ -240,7 +381,7 @@ Used for:
 
 ## Data Interpretation And Runtime Limits
 
-- Portfolio actual/planned charts reflect loaded records within the selected year scope; there is no separate cutoff excluding future-dated records.
+- Existing portfolio/monthly charts reflect loaded records within the selected year scope. The personal **Vue macro** separately limits actuals to inclusive today while retaining the full selected-year plan.
 - Portfolio remaining hours equal planned minus actual for the selected years; negative values indicate actual hours exceeding that plan.
 - API planning slots are distributed across months in proportion to elapsed time. This is not a working-day or holiday-calendar calculation.
 - XLSX imports run in browser memory and are not uploaded to the server. Reloading requires importing or fetching again.
@@ -253,4 +394,4 @@ See the [technical wiki](docs/wiki/INDEX.md) for architecture, API routes, confi
 
 ## Project details and hour scopes
 
-Unit portfolios aggregate all contributors in the connected Lead Unit. Project rows open shared work-package, milestone and budget details. The consultant-hours toggle includes or excludes AI Consultant / AI Consultant Ormit records. Personal datasets retain Me and Whole Project scopes; unit portfolios use Whole Project and disable Me. Odoo calls are strictly read-only, including aggregate reads; writes and unknown RPC operations are rejected.
+Unit portfolios aggregate all contributors in the connected Lead Unit. Project rows open shared work-package, milestone and budget details. The primary Mon temps view includes the signed-in person's hours regardless of function and hides scope/inclusion switches. Legacy import and unit loaders retain consultant-hour filtering and their Me/Whole Project controls; unit portfolios use Whole Project and disable Me. Odoo calls are strictly read-only, including aggregate reads; writes and unknown RPC operations are rejected.

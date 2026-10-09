@@ -68,6 +68,10 @@ const server = http.createServer((request, response) => {
         await handleLogin(request, response);
         return;
       }
+      if (url.pathname === "/api/auth/login-config") {
+        await handleLogin(request, response, true);
+        return;
+      }
       if (url.pathname === "/api/auth/logout") {
         if (request.method !== "POST") {
           sendJson(response, 405, { ok: false, error: "Use POST for this endpoint" });
@@ -112,8 +116,16 @@ const server = http.createServer((request, response) => {
         await handleSteering(request, response, url.pathname);
         return;
       }
-      if (["/steering.js", "/steering-client.js", "/steering-client.css"].includes(url.pathname)) {
+      if (["/steering.js", "/steering-client.js", "/steering-client.css", "/personal-time.js", "/personal-time.css", "/project-monthly.js", "/project-browser.js", "/project-browser.css"].includes(url.pathname)) {
         await serveStaticFile(url.pathname, response);
+        return;
+      }
+      if (url.pathname === "/api/odoo/my-time") {
+        await handleMyTime(request, response);
+        return;
+      }
+      if (url.pathname === "/api/odoo/project-hours") {
+        await handleProjectHours(request, response);
         return;
       }
       if (["/api/odoo/my-lead-unit", "/api/odoo/team-projects"].includes(url.pathname)) {
@@ -186,9 +198,26 @@ function isSameOrigin(request) {
   } catch (_) { return false; }
 }
 
-async function handleLogin(request, response) {
+function isLocalConfigLogin(request) {
+  const address = request.socket.remoteAddress;
+  if (!["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(address)) return false;
+  try {
+    const host = new URL(`http://${request.headers.host}`).hostname;
+    return ["localhost", "127.0.0.1", "[::1]"].includes(host);
+  } catch (_) { return false; }
+}
+
+function sendConfigLoginError(response, status, code, error) {
+  sendJson(response, status, { ok: false, code, error });
+}
+
+async function handleLogin(request, response, useConfig = false) {
   if (request.method !== "POST") {
     sendJson(response, 405, { ok: false, error: "Use POST for this endpoint" });
+    return;
+  }
+  if (useConfig && !isLocalConfigLogin(request)) {
+    sendConfigLoginError(response, 403, "CONFIG_LOCAL_ONLY", "Config-file sign-in is available only on this computer via localhost.");
     return;
   }
   const now = Date.now();
@@ -207,29 +236,56 @@ async function handleLogin(request, response) {
   let body;
   try { body = await readJsonBody(request); }
   catch (_) {
-    sendJson(response, 400, { ok: false, error: "Please provide a valid email and password" });
+    sendJson(response, 400, { ok: false, error: useConfig ? "Request body must be valid JSON" : "Please provide a valid email and password" });
     return;
   }
-  const email = typeof body?.email === "string" ? body.email.trim() : "";
-  const password = typeof body?.password === "string" ? body.password : "";
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254 || !password || password.length > 4096) {
+  let email = typeof body?.email === "string" ? body.email.trim() : "";
+  let password = typeof body?.password === "string" ? body.password : "";
+  if (!useConfig && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254 || !password || password.length > 4096)) {
     sendJson(response, 400, { ok: false, error: "Please provide a valid email and password" });
     return;
   }
   let odooUrl, database, uid;
+  if (useConfig) {
+    let info;
+    try { info = readDashboardConfigInfo(); }
+    catch (_) {
+      sendConfigLoginError(response, 400, "CONFIG_INVALID", "The local config file could not be read. Check its JSON and token settings.");
+      return;
+    }
+    if (!info.source) {
+      sendConfigLoginError(response, 400, "CONFIG_MISSING", "No config.local.json file is present.");
+      return;
+    }
+    const config = info.values;
+    email = typeof config.username === "string" ? config.username.trim() : "";
+    password = [config.apiKey, config.api_key].find(value => typeof value === "string" && value.trim()) || "";
+    try {
+      if (!email || email.length > 254 || !password || password.length > 4096) throw new Error("Invalid config credentials");
+      odooUrl = normalizeOdooUrl(firstNonBlank(config.odooUrl, config.url, DEFAULT_CONFIG.odooUrl));
+      database = cleanRequired(firstNonBlank(config.database, DEFAULT_CONFIG.database), "Database");
+    } catch (_) {
+      sendConfigLoginError(response, 400, "CONFIG_INVALID", "The local config file needs a valid username, API token and Odoo connection settings.");
+      return;
+    }
+  }
   try {
-    const config = readDashboardConfigInfo().values;
-    odooUrl = normalizeOdooUrl(firstNonBlank(config.odooUrl, config.url, DEFAULT_CONFIG.odooUrl));
-    database = cleanRequired(firstNonBlank(config.database, DEFAULT_CONFIG.database), "Database");
+    if (!useConfig) {
+      const config = readDashboardConfigInfo().values;
+      odooUrl = normalizeOdooUrl(firstNonBlank(config.odooUrl, config.url, DEFAULT_CONFIG.odooUrl));
+      database = cleanRequired(firstNonBlank(config.database, DEFAULT_CONFIG.database), "Database");
+    }
     uid = await authenticateOdoo(odooUrl, database, email, password);
   } catch (error) {
     if (/access.?denied|invalid credentials/i.test(error.message || "")) {
-      sendJson(response, 401, { ok: false, error: "Email or password not recognized by Odoo" });
+      if (useConfig) sendConfigLoginError(response, 401, "CONFIG_TOKEN_REJECTED", "The configured token was rejected by Odoo. It may be invalid or expired.");
+      else sendJson(response, 401, { ok: false, error: "Email or password not recognized by Odoo" });
     } else sendJson(response, 502, { ok: false, error: "Odoo sign-in is unavailable. Please try again later." });
     return;
   }
-  if (!uid) {
-    sendJson(response, 401, { ok: false, error: "Email or password not recognized by Odoo" });
+  if (!Number.isSafeInteger(uid) || uid <= 0) {
+    if (useConfig) sendConfigLoginError(response, 401, "CONFIG_TOKEN_REJECTED", "The configured token was rejected by Odoo. It may be invalid or expired.");
+    else sendJson(response, 401, { ok: false, error: "Email or password not recognized by Odoo" });
     return;
   }
   if (sessions.size >= 1000) {
@@ -1169,7 +1225,7 @@ function getAuthSettings(body) {
     odooUrl: normalizeOdooUrl(settings.odooUrl),
     database: cleanRequired(settings.database, "Database"),
     username: cleanRequired(settings.username, "Username"),
-    apiKey: cleanRequired(settings.apiKey, "API key")
+    apiKey: cleanCredential(settings.apiKey)
   };
 }
 
@@ -1224,8 +1280,8 @@ function readDashboardConfigInfo() {
       throw new Error("the file must contain a JSON object");
     }
     return { values, source: CONFIG_FILE_NAME };
-  } catch (error) {
-    throw new Error(`${CONFIG_FILE_NAME} could not be read: ${error.message}`);
+  } catch (_) {
+    throw new Error(`${CONFIG_FILE_NAME} could not be read. Check that it contains a valid JSON object.`);
   }
 }
 
@@ -1288,6 +1344,11 @@ function cleanRequired(value, label) {
     throw new Error(`${label} is required`);
   }
   return text;
+}
+
+function cleanCredential(value) {
+  if (typeof value !== "string" || !value.length) throw new Error("API key is required");
+  return value;
 }
 
 function cleanProjectCode(value) {
@@ -3579,10 +3640,10 @@ async function xmlRpcCall(endpoint, methodName, params) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
 
-  let result;
   try {
-    result = await fetch(endpoint, {
+    const result = await fetch(endpoint, {
       method: "POST",
+      redirect: "error",
       headers: {
         "Content-Type": "text/xml",
         "User-Agent": "odoo-time-dashboard/1.0"
@@ -3590,20 +3651,25 @@ async function xmlRpcCall(endpoint, methodName, params) {
       body,
       signal: controller.signal
     });
+    const xml = await result.text();
+    if (!result.ok) {
+      throw new Error(`Odoo returned HTTP ${result.status}`);
+    }
+    return parseXmlRpcResponse(xml);
   } catch (error) {
     if (error.name === "AbortError") {
       throw new Error("Odoo did not respond within 15 seconds");
+    }
+    if (methodName === "authenticate" || methodName === "execute_kw") {
+      if (/access.?denied|invalid credentials/i.test(error.message || "")) {
+        throw new Error("Access denied by Odoo.");
+      }
+      throw new Error("Odoo request failed. Check the connection and account permissions.");
     }
     throw new Error(`Could not reach Odoo: ${error.message}`);
   } finally {
     clearTimeout(timeout);
   }
-
-  const xml = await result.text();
-  if (!result.ok) {
-    throw new Error(`Odoo returned HTTP ${result.status}`);
-  }
-  return parseXmlRpcResponse(xml);
 }
 
 function buildXmlRpcRequest(methodName, params) {
@@ -3981,4 +4047,644 @@ async function handleTeamPortfolio(request, response, route) {
       monthly: buildMonthlyPlanningSummary(slots), slots },
     planningError
   });
+}
+
+function personalRelationId(value) {
+  const id = relationalId(value);
+  return Number.isSafeInteger(id) && id > 0 ? id : null;
+}
+
+function isPersonalEmployeeRelation(field) {
+  return field?.type === "many2one" && ["hr.employee", "hr.employee.public"].includes(field.relation);
+}
+
+function isPersonalRelation(field, relation) {
+  return field?.type === "many2one" && field.relation === relation;
+}
+
+async function resolvePersonalEmployee(args, uid, username) {
+  const ids = new Set();
+  const resourceIds = new Set();
+  const employeesWithResource = new Set();
+  let name = "";
+  for (const model of ["hr.employee", "hr.employee.public"]) {
+    try {
+      const definitions = await getModelFields(...args, model);
+      if (!isPersonalRelation(definitions.user_id, "res.users")) continue;
+      const hasResource = isPersonalRelation(definitions.resource_id, "resource.resource");
+      const fields = ["id", "user_id", ...(definitions.name ? ["name"] : []), ...(hasResource ? ["resource_id"] : [])];
+      const employees = await searchReadAll(...args, model, [["user_id", "=", uid]], fields, { context: { active_test: false } });
+      for (const employee of employees) {
+        if (!Number.isSafeInteger(employee.id) || employee.id <= 0 || personalRelationId(employee.user_id) !== uid) continue;
+        ids.add(employee.id);
+        if (!name && typeof employee.name === "string") name = employee.name;
+        const resourceId = hasResource ? personalRelationId(employee.resource_id) : null;
+        if (resourceId) {
+          resourceIds.add(resourceId);
+          employeesWithResource.add(employee.id);
+        }
+      }
+    } catch (_) {
+      // Some accounts can read only the public employee model. Never fall back
+      // to a name or an unfiltered employee search.
+    }
+  }
+  if (!ids.size) throw new Error("Your Odoo account could not be linked to an accessible employee.");
+  if (employeesWithResource.size < ids.size) {
+    try {
+      const definitions = await getModelFields(...args, "resource.resource");
+      if (isPersonalRelation(definitions.user_id, "res.users")) {
+        const resources = await searchReadAll(...args, "resource.resource", [["user_id", "=", uid]], ["id", "user_id"], { context: { active_test: false } });
+        for (const resource of resources) {
+          if (Number.isSafeInteger(resource.id) && resource.id > 0 && personalRelationId(resource.user_id) === uid) resourceIds.add(resource.id);
+        }
+      }
+    } catch (_) {
+      // Employee-linked planning can still be available without resource access.
+    }
+  }
+  return { ids: [...ids].sort((a, b) => a - b), resourceIds: [...resourceIds].sort((a, b) => a - b), name: name || username };
+}
+
+function parsePersonalUtcDateTime(value) {
+  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?)?Z?$/);
+  if (!match) return null;
+  const parts = match.slice(1, 7).map(part => Number(part || 0));
+  const [year, month, day, hour, minute, second] = parts;
+  const milliseconds = Number((match[7] || "").padEnd(3, "0"));
+  const date = new Date(Date.UTC(year, month - 1, day, hour, minute, second, milliseconds));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
+    && date.getUTCHours() === hour && date.getUTCMinutes() === minute && date.getUTCSeconds() === second ? date : null;
+}
+
+function normalizePersonalPlanningSlot(slot) {
+  const start = parsePersonalUtcDateTime(slot.start_datetime);
+  const end = parsePersonalUtcDateTime(slot.end_datetime);
+  if (!start || !end || end <= start) throw new Error("Planning interval is unavailable");
+  const allocated = slot.allocated_hours;
+  const percentage = slot.allocated_percentage;
+  const hasHours = allocated !== false && allocated != null && allocated !== "" && Number.isFinite(Number(allocated));
+  const hasPercentage = percentage !== false && percentage != null && percentage !== "" && Number.isFinite(Number(percentage));
+  if (!hasHours && !hasPercentage) throw new Error("Planning hours are unavailable");
+  const hours = hasHours ? Number(allocated) : (end - start) / 36e5 * Number(percentage) / 100;
+  const projectId = personalRelationId(slot.project_id);
+  return {
+    id: slot.id, start: start.toISOString(), end: end.toISOString(),
+    startMonth: start.toISOString().slice(0, 7), endMonth: end.toISOString().slice(0, 7),
+    hours: roundHours(hours), allocatedPercentage: hasPercentage ? Number(percentage) : null,
+    employee: relationalName(slot.employee_id) || relationalName(slot.resource_id),
+    employeeId: personalRelationId(slot.employee_id), resourceId: personalRelationId(slot.resource_id),
+    projectId, project: projectId ? relationalName(slot.project_id) || `Project ${projectId}` : "",
+    task: relationalName(slot.task_id), taskId: personalRelationId(slot.task_id),
+    description: String(slot.name || "")
+  };
+}
+
+function buildPersonalPlanningMonthly(slots) {
+  const months = new Map();
+  for (const slot of slots) {
+    const start = new Date(slot.start), end = new Date(slot.end);
+    let cursor = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1));
+    while (cursor < end) {
+      const next = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 1));
+      const overlap = Math.min(end.getTime(), next.getTime()) - Math.max(start.getTime(), cursor.getTime());
+      if (overlap > 0) {
+        const key = cursor.toISOString().slice(0, 7);
+        if (!months.has(key)) months.set(key, { month: key, totalHours: 0, slotCount: 0, projects: new Map() });
+        const month = months.get(key);
+        const hours = slot.hours * overlap / (end - start);
+        month.totalHours += hours;
+        month.slotCount += 1;
+        const name = slot.project || "(No project)";
+        month.projects.set(name, (month.projects.get(name) || 0) + hours);
+      }
+      cursor = next;
+    }
+  }
+  return [...months.values()].sort((a, b) => a.month.localeCompare(b.month)).map(month => ({
+    month: month.month, totalHours: roundHours(month.totalHours), slotCount: month.slotCount,
+    projects: [...month.projects].sort((a, b) => b[1] - a[1]).map(([name, hours]) => ({ name, hours: roundHours(hours) }))
+  }));
+}
+
+async function readPersonalPlanning(args, employee) {
+  const definitions = await getModelFields(...args, "planning.slot");
+  const hasEmployee = isPersonalEmployeeRelation(definitions.employee_id);
+  const hasResource = isPersonalRelation(definitions.resource_id, "resource.resource") && employee.resourceIds.length > 0;
+  const conditions = [];
+  if (hasEmployee) conditions.push(["employee_id", "in", employee.ids]);
+  if (hasResource) conditions.push(["resource_id", "in", employee.resourceIds]);
+  if (!conditions.length || !definitions.start_datetime || !definitions.end_datetime
+    || !definitions.allocated_hours && !definitions.allocated_percentage) throw new Error("Personal planning fields are unavailable");
+  const domain = conditions.length === 2 ? ["|", ...conditions] : conditions;
+  const hasProject = isPersonalRelation(definitions.project_id, "project.project");
+  let taskModel = null;
+  if (!hasProject && definitions.task_id?.type === "many2one" && definitions.task_id.relation) {
+    const taskDefinitions = await getModelFields(...args, definitions.task_id.relation);
+    if (isPersonalRelation(taskDefinitions.project_id, "project.project")) taskModel = definitions.task_id.relation;
+  }
+  if (!hasProject && !taskModel) throw new Error("Personal planning has no supported project relation");
+  const fields = ["id", ...["name", "start_datetime", "end_datetime", "allocated_hours", "allocated_percentage", "task_id"]
+    .filter(field => definitions[field]), ...(hasEmployee ? ["employee_id"] : []), ...(hasResource ? ["resource_id"] : []), ...(hasProject ? ["project_id"] : [])];
+  const ownIds = new Set(employee.ids), ownResources = new Set(employee.resourceIds);
+  const rows = (await searchReadAll(...args, "planning.slot", domain, fields, { context: { active_test: false } }))
+    .filter(slot => {
+      const employeeId = hasEmployee ? personalRelationId(slot.employee_id) : null;
+      return employeeId ? ownIds.has(employeeId) : hasResource && ownResources.has(personalRelationId(slot.resource_id));
+    });
+  const taskProjects = new Map();
+  if (taskModel) {
+    const taskIds = [...new Set(rows.map(slot => personalRelationId(slot.task_id)).filter(Boolean))];
+    if (taskIds.length) {
+      const tasks = await searchReadAll(...args, taskModel, [["id", "in", taskIds]], ["id", "project_id"], { context: { active_test: false } });
+      for (const task of tasks) {
+        if (taskIds.includes(task.id)) taskProjects.set(task.id, task.project_id);
+      }
+    }
+  }
+  const slots = rows.map(slot => normalizePersonalPlanningSlot({ ...slot,
+    employee_id: hasEmployee ? slot.employee_id : false, resource_id: hasResource ? slot.resource_id : false,
+    project_id: hasProject ? slot.project_id : taskProjects.get(personalRelationId(slot.task_id)) || false
+  }));
+  const monthly = buildPersonalPlanningMonthly(slots);
+  return { ok: true, employeeName: employee.name, slotCount: slots.length,
+    totalHours: roundHours(slots.reduce((sum, slot) => sum + slot.hours, 0)), slots, monthly, employeeMonthly: monthly, domain };
+}
+
+function safeManagerPhotoDataUrl(value) {
+  const maxBytes = 128 * 1024;
+  const maxEncodedLength = Math.ceil(maxBytes / 3) * 4;
+  if (typeof value !== "string" || !value.length || value.length > maxEncodedLength + 1024) return null;
+  const encoded = value.replace(/[\t\r\n ]/g, "");
+  if (!encoded.length || encoded.length > maxEncodedLength || encoded.length % 4
+    || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(encoded)) return null;
+  const bytes = Buffer.from(encoded, "base64");
+  if (!bytes.length || bytes.length > maxBytes || bytes.toString("base64") !== encoded) return null;
+  const validSize = (width, height) => width > 0 && height > 0 && width <= 512 && height <= 512;
+  let mime = null;
+  if (bytes.length >= 45 && bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) {
+    if (bytes.readUInt32BE(8) !== 13 || bytes.toString("ascii", 12, 16) !== "IHDR"
+      || !validSize(bytes.readUInt32BE(16), bytes.readUInt32BE(20))) return null;
+    let offset = 8, hasPixels = false, complete = false;
+    while (offset + 12 <= bytes.length) {
+      const length = bytes.readUInt32BE(offset), end = offset + length + 12;
+      if (end > bytes.length) return null;
+      const chunk = bytes.toString("ascii", offset + 4, offset + 8);
+      if (chunk === "IDAT" && length > 0) hasPixels = true;
+      if (chunk === "IEND") { complete = length === 0 && end === bytes.length; break; }
+      offset = end;
+    }
+    if (hasPixels && complete) mime = "image/png";
+  } else if (bytes.length >= 14 && bytes[0] === 0xff && bytes[1] === 0xd8
+    && bytes[bytes.length - 2] === 0xff && bytes[bytes.length - 1] === 0xd9) {
+    const frameMarkers = new Set([0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf]);
+    let offset = 2, sized = false;
+    while (offset < bytes.length - 2) {
+      if (bytes[offset++] !== 0xff) return null;
+      while (bytes[offset] === 0xff) offset++;
+      const marker = bytes[offset++];
+      if (marker === 0xda) { if (sized) mime = "image/jpeg"; break; }
+      if (marker === 0x01 || marker >= 0xd0 && marker <= 0xd7) continue;
+      if (offset + 2 > bytes.length) return null;
+      const length = bytes.readUInt16BE(offset);
+      if (length < 2 || offset + length > bytes.length) return null;
+      if (frameMarkers.has(marker)) {
+        if (length < 8 || !validSize(bytes.readUInt16BE(offset + 5), bytes.readUInt16BE(offset + 3))) return null;
+        sized = true;
+      }
+      offset += length;
+    }
+  } else if (bytes.length >= 30 && bytes.toString("ascii", 0, 4) === "RIFF"
+    && bytes.readUInt32LE(4) === bytes.length - 8 && bytes.toString("ascii", 8, 12) === "WEBP") {
+    let offset = 12, hasPixels = false;
+    while (offset + 8 <= bytes.length) {
+      const chunk = bytes.toString("ascii", offset, offset + 4), length = bytes.readUInt32LE(offset + 4);
+      const data = offset + 8, end = data + length;
+      if (end > bytes.length || chunk === "ANIM" || chunk === "ANMF") return null;
+      if (chunk === "VP8X") {
+        if (length < 10 || bytes[data] & 0x02
+          || !validSize(bytes.readUIntLE(data + 4, 3) + 1, bytes.readUIntLE(data + 7, 3) + 1)) return null;
+      } else if (chunk === "VP8 ") {
+        if (length < 10 || bytes[data + 3] !== 0x9d || bytes[data + 4] !== 0x01 || bytes[data + 5] !== 0x2a
+          || !validSize(bytes.readUInt16LE(data + 6) & 0x3fff, bytes.readUInt16LE(data + 8) & 0x3fff)) return null;
+        hasPixels = true;
+      } else if (chunk === "VP8L") {
+        if (length < 5 || bytes[data] !== 0x2f) return null;
+        const dimensions = bytes.readUInt32LE(data + 1);
+        if (!validSize((dimensions & 0x3fff) + 1, (dimensions >>> 14 & 0x3fff) + 1)) return null;
+        hasPixels = true;
+      }
+      offset = end + length % 2;
+    }
+    if (hasPixels && offset === bytes.length) mime = "image/webp";
+  }
+  return mime ? `data:${mime};base64,${encoded}` : null;
+}
+
+async function enrichPersonalProjectManagers(args, projects) {
+  for (const project of projects.values()) project.manager = null;
+  const projectIds = [...projects.keys()];
+  if (!projectIds.length) return;
+  const managers = new Map();
+  try {
+    const definitions = await getModelFields(...args, "project.project");
+    if (!isPersonalRelation(definitions.user_id, "res.users")) return;
+    const rows = await searchReadAll(...args, "project.project", [["id", "in", projectIds]], ["id", "user_id"], { context: { active_test: false } });
+    for (const row of rows) {
+      if (!projects.has(row.id)) continue;
+      const managerId = personalRelationId(row.user_id);
+      if (!managerId) continue;
+      if (!managers.has(managerId)) managers.set(managerId, { id: managerId, name: relationalName(row.user_id), photoDataUrl: null });
+      projects.get(row.id).manager = managers.get(managerId);
+    }
+  } catch (_) { return; }
+  if (!managers.size) return;
+  try {
+    const definitions = await getModelFields(...args, "res.users");
+    const hasName = definitions.name?.type === "char";
+    const hasPhoto = definitions.image_128?.type === "binary";
+    if (!hasName && !hasPhoto) return;
+    const rows = await searchReadAll(...args, "res.users", [["id", "in", [...managers.keys()]]],
+      ["id", ...(hasName ? ["name"] : []), ...(hasPhoto ? ["image_128"] : [])], { context: { active_test: false } });
+    for (const row of rows) {
+      if (!managers.has(row.id)) continue;
+      const manager = managers.get(row.id);
+      if (hasName && typeof row.name === "string" && row.name.trim()) manager.name = row.name;
+      if (hasPhoto) manager.photoDataUrl = safeManagerPhotoDataUrl(row.image_128);
+    }
+  } catch (_) {
+    // Photos and optional manager metadata must never make personal time fail.
+  }
+}
+
+async function handleMyTime(request, response) {
+  if (!authContext.getStore()) {
+    sendJson(response, 401, { ok: false, error: "Please sign in to continue", authenticationRequired: true });
+    return;
+  }
+  if (request.method !== "POST") {
+    sendJson(response, 405, { ok: false, error: "Use POST for this endpoint" });
+    return;
+  }
+  try { await readJsonBody(request); }
+  catch (_) { sendJson(response, 400, { ok: false, error: "Request body must be valid JSON" }); return; }
+  let settings, uid;
+  try {
+    settings = getAuthSettings({});
+    uid = await authenticateOdoo(settings.odooUrl, settings.database, settings.username, settings.apiKey);
+  } catch (error) {
+    const rejected = /access.?denied|invalid credentials/i.test(error.message || "");
+    sendJson(response, rejected ? 401 : 502, rejected
+      ? { ok: false, error: "Odoo rejected your credentials", authenticationRequired: true }
+      : { ok: false, error: "Personal time is unavailable. Please try again later." });
+    return;
+  }
+  if (!Number.isSafeInteger(uid) || uid <= 0 || uid !== authContext.getStore().uid) {
+    sendJson(response, 401, { ok: false, error: "Odoo rejected your credentials", authenticationRequired: true });
+    return;
+  }
+  const args = [settings.odooUrl, settings.database, uid, settings.apiKey];
+  let employee;
+  try { employee = await resolvePersonalEmployee(args, uid, settings.username); }
+  catch (_) { sendJson(response, 422, { ok: false, error: "Your Odoo account could not be linked to an accessible employee." }); return; }
+  let timesheets;
+  try {
+    const definitions = await getModelFields(...args, "account.analytic.line");
+    if (!isPersonalEmployeeRelation(definitions.employee_id) || !isPersonalRelation(definitions.project_id, "project.project")
+      || !definitions.date || !definitions.unit_amount) throw new Error("Personal timesheet fields are unavailable");
+    const fields = ["id", "date", "unit_amount", "employee_id", "project_id", ...["name", "task_id"].filter(field => definitions[field])];
+    const domain = [["employee_id", "in", employee.ids]];
+    const ownIds = new Set(employee.ids);
+    const rows = await searchReadAll(...args, "account.analytic.line", domain, fields, { order: "date asc, id asc", context: { active_test: false } });
+    const lines = rows.filter(line => ownIds.has(personalRelationId(line.employee_id))).map(line => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(line.date)) || !parsePersonalUtcDateTime(line.date)
+        || !Number.isFinite(Number(line.unit_amount))) throw new Error("Personal timesheet values are unavailable");
+      const normalized = normalizeTimesheetLine(line);
+      normalized.projectId = personalRelationId(line.project_id);
+      normalized.project = normalized.projectId ? relationalName(line.project_id) || `Project ${normalized.projectId}` : "";
+      return normalized;
+    });
+    const monthly = buildMonthlyTimesheetSummary(lines);
+    timesheets = { ok: true, employeeName: employee.name, lineCount: lines.length,
+      totalHours: roundHours(lines.reduce((sum, line) => sum + line.hours, 0)), lines, monthly, employeeMonthly: monthly, domain };
+  } catch (_) {
+    sendJson(response, 502, { ok: false, error: "Personal timesheets are unavailable with your current Odoo access or schema." });
+    return;
+  }
+  let planning = null, planningError = null;
+  try { planning = await readPersonalPlanning(args, employee); }
+  catch (_) { planningError = "Personal planning is unavailable with your current Odoo access or schema."; }
+  const projects = new Map();
+  for (const record of [...timesheets.lines, ...(planning?.slots || [])]) {
+    if (record.projectId && !projects.has(record.projectId)) projects.set(record.projectId, { id: record.projectId, name: record.project });
+  }
+  const nameCounts = new Map();
+  for (const project of projects.values()) nameCounts.set(project.name, (nameCounts.get(project.name) || 0) + 1);
+  for (const project of projects.values()) {
+    if (nameCounts.get(project.name) > 1) project.name = `${project.name} (ID ${project.id})`;
+  }
+  for (const record of [...timesheets.lines, ...(planning?.slots || [])]) {
+    if (projects.has(record.projectId)) record.project = projects.get(record.projectId).name;
+  }
+  timesheets.monthly = buildMonthlyTimesheetSummary(timesheets.lines);
+  timesheets.employeeMonthly = timesheets.monthly;
+  if (planning) {
+    planning.monthly = buildPersonalPlanningMonthly(planning.slots);
+    planning.employeeMonthly = planning.monthly;
+  }
+  await enrichPersonalProjectManagers(args, projects);
+  sendJson(response, 200, { ok: true, uid, employee, projects: [...projects.values()].sort((a, b) => a.name.localeCompare(b.name) || a.id - b.id),
+    timesheets, planning, planningError });
+}
+
+async function readScopedProjectHoursPlanning(args, project) {
+  const definitions = await getModelFields(...args, "planning.slot");
+  const hasEmployee = isPersonalEmployeeRelation(definitions.employee_id);
+  const hasResource = isPersonalRelation(definitions.resource_id, "resource.resource");
+  if ((!hasEmployee && !hasResource) || !definitions.start_datetime || !definitions.end_datetime
+    || !definitions.allocated_hours && !definitions.allocated_percentage) throw new Error("Project planning fields are unavailable");
+  const hasProject = isPersonalRelation(definitions.project_id, "project.project");
+  let taskModel = null;
+  if (!hasProject && definitions.task_id?.type === "many2one" && definitions.task_id.relation) {
+    const taskDefinitions = await getModelFields(...args, definitions.task_id.relation);
+    if (isPersonalRelation(taskDefinitions.project_id, "project.project")) taskModel = definitions.task_id.relation;
+  }
+  if (!hasProject && !taskModel) throw new Error("Project planning has no supported project relation");
+  const domain = [[hasProject ? "project_id" : "task_id.project_id", "=", project.id]];
+  const hasRole = definitions.role_id?.type === "many2one";
+  const fields = ["id", ...["name", "start_datetime", "end_datetime", "allocated_hours", "allocated_percentage", "task_id"]
+    .filter(field => definitions[field]), ...(hasEmployee ? ["employee_id"] : []), ...(hasResource ? ["resource_id"] : []),
+    ...(hasProject ? ["project_id"] : []), ...(hasRole ? ["role_id"] : [])];
+  const rawSlots = await searchReadAll(...args, "planning.slot", domain, fields, { context: { active_test: false } });
+  const taskProjects = new Map();
+  if (taskModel) {
+    const taskIds = new Set(rawSlots.map(slot => personalRelationId(slot.task_id)).filter(Boolean));
+    if (taskIds.size) {
+      const tasks = await searchReadAll(...args, taskModel, [["id", "in", [...taskIds]]], ["id", "project_id"], { context: { active_test: false } });
+      for (const task of tasks) {
+        if (taskIds.has(task.id) && personalRelationId(task.project_id) === project.id) taskProjects.set(task.id, task.project_id);
+      }
+    }
+  }
+  const slots = rawSlots.map(slot => ({ ...slot,
+    employee_id: hasEmployee ? slot.employee_id : false, resource_id: hasResource ? slot.resource_id : false,
+    project_id: hasProject ? slot.project_id : taskProjects.get(personalRelationId(slot.task_id)) || false
+  })).filter(slot => personalRelationId(slot.project_id) === project.id).map(slot => ({
+    ...normalizePersonalPlanningSlot(slot), project: project.name,
+    role: hasRole ? relationalName(slot.role_id) : ""
+  }));
+  return { slots, domain };
+}
+
+async function readScopedProjectAssignments(args, projectId) {
+  // Staffing conventions are an established project/employee assignment source.
+  // Do not infer assignment semantics from arbitrary project membership fields.
+  const definitions = await getModelFields(...args, "bw.staffing.convention");
+  if (!isPersonalRelation(definitions.project_id, "project.project")
+    || !isPersonalEmployeeRelation(definitions.employee_id)) throw new Error("Project assignments are unavailable");
+  const rows = await searchReadAll(...args, "bw.staffing.convention", [["project_id", "=", projectId]],
+    ["id", "project_id", "employee_id"], { context: { active_test: false } });
+  const assignments = new Map();
+  for (const row of rows) {
+    const employeeId = personalRelationId(row.employee_id);
+    if (personalRelationId(row.project_id) !== projectId || !employeeId) continue;
+    if (!assignments.has(employeeId)) assignments.set(employeeId, {
+      employeeId, employee: relationalName(row.employee_id), hours: 0
+    });
+  }
+  return [...assignments.values()];
+}
+
+async function buildProjectContributors(args, records) {
+  const contributors = new Map();
+  const positiveId = value => Number.isSafeInteger(value) && value > 0 ? value : null;
+  for (const record of records) {
+    const employeeId = positiveId(record.employeeId), resourceId = positiveId(record.resourceId);
+    const key = employeeId ? `employee:${employeeId}` : resourceId ? `resource:${resourceId}` : "unknown";
+    if (!contributors.has(key)) contributors.set(key, {
+      employeeId, resourceIds: [], name: typeof record.employee === "string" ? record.employee : "",
+      photoDataUrl: null, isSubcontractor: false
+    });
+    const contributor = contributors.get(key);
+    if (resourceId && !contributor.resourceIds.includes(resourceId)) contributor.resourceIds.push(resourceId);
+    if (!contributor.name && typeof record.employee === "string") contributor.name = record.employee;
+    // Record-level classification remains authoritative for hour filtering.
+    contributor.isSubcontractor ||= record.isSubcontractor === true;
+  }
+  const byEmployee = new Map([...contributors.values()].filter(item => item.employeeId)
+    .map(item => [item.employeeId, item]));
+  const employeeIds = [...byEmployee.keys()];
+  const usersByEmployee = new Map();
+  const resolvedNames = new Set();
+  if (employeeIds.length) {
+    for (const model of ["hr.employee", "hr.employee.public"]) {
+      try {
+        const definitions = await getModelFields(...args, model);
+        const hasName = definitions.name?.type === "char";
+        const hasPhoto = definitions.image_128?.type === "binary";
+        const hasUser = isPersonalRelation(definitions.user_id, "res.users");
+        const hasResource = isPersonalRelation(definitions.resource_id, "resource.resource");
+        if (!hasName && !hasPhoto && !hasUser && !hasResource) continue;
+        const fields = ["id", ...(hasName ? ["name"] : []), ...(hasPhoto ? ["image_128"] : []),
+          ...(hasUser ? ["user_id"] : []), ...(hasResource ? ["resource_id"] : [])];
+        const rows = await searchReadAll(...args, model, [["id", "in", employeeIds]], fields,
+          { context: { active_test: false } });
+        for (const row of rows) {
+          const contributor = byEmployee.get(row.id);
+          if (!contributor) continue;
+          if (hasName && !resolvedNames.has(row.id) && typeof row.name === "string" && row.name.trim()) {
+            contributor.name = row.name;
+            resolvedNames.add(row.id);
+          }
+          if (hasPhoto && !contributor.photoDataUrl) contributor.photoDataUrl = safeManagerPhotoDataUrl(row.image_128);
+          const resourceId = hasResource ? personalRelationId(row.resource_id) : null;
+          if (resourceId && !contributor.resourceIds.includes(resourceId)) contributor.resourceIds.push(resourceId);
+          const userId = hasUser ? personalRelationId(row.user_id) : null;
+          if (userId && !usersByEmployee.has(row.id)) usersByEmployee.set(row.id, userId);
+        }
+      } catch (_) {
+        // Optional accessible names/photos cannot turn known hours into a failure.
+      }
+    }
+    const userIds = new Set([...usersByEmployee].filter(([id]) => !byEmployee.get(id).photoDataUrl)
+      .map(([, userId]) => userId));
+    if (userIds.size) {
+      try {
+        const definitions = await getModelFields(...args, "res.users");
+        if (definitions.image_128?.type === "binary") {
+          const rows = await searchReadAll(...args, "res.users", [["id", "in", [...userIds]]], ["id", "image_128"],
+            { context: { active_test: false } });
+          const photos = new Map();
+          for (const row of rows) {
+            if (userIds.has(row.id)) photos.set(row.id, safeManagerPhotoDataUrl(row.image_128));
+          }
+          for (const [employeeId, userId] of usersByEmployee) {
+            const contributor = byEmployee.get(employeeId);
+            if (!contributor.photoDataUrl) contributor.photoDataUrl = photos.get(userId) || null;
+          }
+        }
+      } catch (_) {
+        // Missing user-photo permission retains the employee's name and initials.
+      }
+    }
+  }
+  return [...contributors.values()].map(contributor => ({ ...contributor,
+    name: contributor.name || (contributor.employeeId ? `Employee ${contributor.employeeId}` : "Unknown employee"),
+    resourceIds: contributor.resourceIds.sort((a, b) => a - b)
+  }));
+}
+
+async function readProjectLifetimeMetadata(args, projectId, warnings) {
+  const lifetime = { conventionHours: null, conventionField: null, conventionStatus: "unavailable", startDate: null, endDate: null };
+  let definitions;
+  try {
+    definitions = await getModelFields(...args, "project.project");
+    if (!definitions || typeof definitions !== "object" || Array.isArray(definitions)) throw new Error("Optional project metadata is unavailable");
+  }
+  catch (_) {
+    warnings.push("Project lifetime metadata is unavailable with your current Odoo access.");
+    return lifetime;
+  }
+  // Confirmed project-form hours source; translated/view labels and monetary
+  // or staffing/planning alternatives cannot select another field.
+  const conventionField = "budget_staffing_convention_hours";
+  if (["float", "integer"].includes(definitions[conventionField]?.type)) lifetime.conventionField = conventionField;
+  const dateFields = ["date_start", "date"].filter(field => ["date", "datetime"].includes(definitions[field]?.type));
+  const domain = [["id", "=", projectId]];
+  const readProject = async fields => {
+    const rows = await searchReadAll(...args, "project.project", domain, ["id", ...fields], { context: { active_test: false } });
+    const row = rows.find(item => item.id === projectId);
+    if (!row) throw new Error("Optional project fields are unavailable");
+    return row;
+  };
+  // Isolate the budget read so a field-specific denial cannot hide valid dates
+  // or make the required project/hour reads fail.
+  if (lifetime.conventionField) {
+    try {
+      const row = await readProject([lifetime.conventionField]);
+      const value = row[lifetime.conventionField];
+      if (!Object.hasOwn(row, lifetime.conventionField)) {
+        lifetime.conventionStatus = "unavailable";
+      } else if (value === false || value === null || typeof value === "string" && !value.trim()) {
+        lifetime.conventionStatus = "empty";
+      } else if ((typeof value === "number" || typeof value === "string") && Number.isFinite(Number(value))) {
+        lifetime.conventionHours = Number(value);
+        lifetime.conventionStatus = lifetime.conventionHours > 0 ? "available" : "empty";
+      }
+    } catch (_) { warnings.push("Project convention budget is unavailable with your current Odoo access."); }
+  }
+  if (dateFields.length) {
+    try {
+      const row = await readProject(dateFields);
+      for (const field of dateFields) {
+        const value = row[field];
+        if (typeof value !== "string" || definitions[field].type === "date" && !/^\d{4}-\d{2}-\d{2}$/.test(value)) continue;
+        const parsed = parsePersonalUtcDateTime(value);
+        if (parsed) lifetime[field === "date_start" ? "startDate" : "endDate"] = parsed.toISOString().slice(0, 10);
+      }
+    } catch (_) { warnings.push("Project dates are unavailable with your current Odoo access."); }
+  }
+  return lifetime;
+}
+
+async function handleProjectHours(request, response) {
+  const session = authContext.getStore();
+  if (!session) {
+    sendJson(response, 401, { ok: false, error: "Please sign in to continue", authenticationRequired: true });
+    return;
+  }
+  if (request.method !== "POST") {
+    sendJson(response, 405, { ok: false, error: "Use POST for this endpoint" });
+    return;
+  }
+  let body;
+  try { body = await readJsonBody(request); }
+  catch (_) { sendJson(response, 400, { ok: false, error: "Request body must be valid JSON" }); return; }
+  if (!Number.isSafeInteger(body?.projectId) || body.projectId <= 0) {
+    sendJson(response, 400, { ok: false, error: "A positive integer projectId is required" });
+    return;
+  }
+  const projectId = body.projectId;
+  let settings, uid;
+  try {
+    settings = getAuthSettings({});
+    uid = await authenticateOdoo(settings.odooUrl, settings.database, settings.username, settings.apiKey);
+  } catch (error) {
+    const rejected = /access.?denied|invalid credentials/i.test(error.message || "");
+    sendJson(response, rejected ? 401 : 502, rejected
+      ? { ok: false, error: "Odoo rejected your credentials", authenticationRequired: true }
+      : { ok: false, error: "Project hours are unavailable. Please try again later." });
+    return;
+  }
+  if (!Number.isSafeInteger(uid) || uid <= 0 || uid !== session.uid) {
+    sendJson(response, 401, { ok: false, error: "Odoo rejected your credentials", authenticationRequired: true });
+    return;
+  }
+  const args = [settings.odooUrl, settings.database, uid, settings.apiKey];
+  let project;
+  try {
+    const projects = await searchReadAll(...args, "project.project", [["id", "=", projectId]], ["id", "name"], { context: { active_test: false } });
+    const selected = projects.find(record => record.id === projectId);
+    if (selected) project = { id: projectId, name: typeof selected.name === "string" && selected.name ? selected.name : `Project ${projectId}` };
+  } catch (_) {
+    sendJson(response, 502, { ok: false, error: "The selected project is unavailable with your current Odoo access." });
+    return;
+  }
+  if (!project) {
+    sendJson(response, 404, { ok: false, error: "The selected project is unavailable with your current Odoo access." });
+    return;
+  }
+  let employee;
+  try { employee = await resolvePersonalEmployee(args, uid, settings.username); }
+  catch (_) { sendJson(response, 422, { ok: false, error: "Your Odoo account could not be linked to an accessible employee." }); return; }
+  let lines;
+  const actualDomain = [["project_id", "=", projectId]];
+  try {
+    const definitions = await getModelFields(...args, "account.analytic.line");
+    if (!isPersonalRelation(definitions.project_id, "project.project") || !isPersonalEmployeeRelation(definitions.employee_id)
+      || !definitions.date || !definitions.unit_amount) throw new Error("Project timesheet fields are unavailable");
+    const fields = ["id", "date", "unit_amount", "employee_id", "project_id", ...["name", "task_id"].filter(field => definitions[field])];
+    const rows = await searchReadAll(...args, "account.analytic.line", actualDomain, fields, { order: "date asc, id asc", context: { active_test: false } });
+    lines = rows.filter(line => personalRelationId(line.project_id) === projectId).map(line => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(line.date)) || !parsePersonalUtcDateTime(line.date)
+        || !Number.isFinite(Number(line.unit_amount))) throw new Error("Project timesheet values are unavailable");
+      return { ...normalizeTimesheetLine(line), employeeId: personalRelationId(line.employee_id), projectId, project: project.name };
+    });
+  } catch (_) {
+    sendJson(response, 502, { ok: false, error: "Project timesheets are unavailable with your current Odoo access or schema." });
+    return;
+  }
+  let planning = null, planningError = null;
+  try {
+    const result = await readScopedProjectHoursPlanning(args, project);
+    planning = { ok: true, slots: result.slots, domain: result.domain };
+  } catch (_) { planningError = "Project planning is unavailable with your current Odoo access or schema."; }
+  const warnings = [];
+  const hourRecords = [...lines, ...(planning?.slots || [])];
+  await enrichEmployeeFunctions(...args, hourRecords, warnings);
+  let assignments = [];
+  try {
+    assignments = await readScopedProjectAssignments(args, projectId);
+    const assignmentWarnings = [];
+    await enrichEmployeeFunctions(...args, assignments, assignmentWarnings);
+    if (assignments.some(record => record.subcontractorClassification === "unknown")) {
+      warnings.push("Project assignment functions are unavailable; Ormitter presence is based on confirmed records only.");
+    }
+  } catch (_) {
+    warnings.push("Project assignments are unavailable; Ormitter presence is based on confirmed hour records only.");
+  }
+  const contributors = await buildProjectContributors(args, [...hourRecords, ...assignments]);
+  const hasOrmitters = hourRecords.some(record => record.isSubcontractor === true && Number.isFinite(record.hours) && record.hours !== 0)
+    || assignments.some(record => record.isSubcontractor === true);
+  const lifetime = await readProjectLifetimeMetadata(args, projectId, warnings);
+  const timesheets = { ok: true, lines, domain: actualDomain, lineCount: lines.length,
+    totalHours: roundHours(lines.reduce((sum, line) => sum + line.hours, 0)),
+    monthly: buildMonthlyTimesheetSummary(lines), employeeMonthly: buildMonthlyTimesheetSummary(lines.filter(line => !line.isSubcontractor)) };
+  if (planning) {
+    planning.slotCount = planning.slots.length;
+    planning.totalHours = roundHours(planning.slots.reduce((sum, slot) => sum + slot.hours, 0));
+    planning.monthly = buildPersonalPlanningMonthly(planning.slots);
+    planning.employeeMonthly = buildPersonalPlanningMonthly(planning.slots.filter(slot => !slot.isSubcontractor));
+  }
+  sendJson(response, 200, { ok: true, uid, project, employee, timesheets, planning, planningError, warnings, contributors, hasOrmitters, lifetime });
 }

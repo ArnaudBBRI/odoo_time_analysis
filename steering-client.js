@@ -73,13 +73,17 @@ function options(element, entries) {
 function filters() { return { programme: $("pilotage-programme").value, owner: $("pilotage-owner").value, stage: $("pilotage-stage").value, period: $("pilotage-period").value, leader: $("pilotage-leader").checked }; }
 function visible() { return filterProjects(state.portfolio?.projects || [], filters()).filter(p => state.contributorIds === null || state.contributorIds.includes(p.id)); }
 function setView(view) {
-  if (view === "time") ++state.detailGeneration;
-  if (pageTitle) pageTitle.textContent = view === "time" ? originalTitle : "Pilotage DiCo";
-  if (pageSubtitle) pageSubtitle.textContent = view === "time" ? originalSubtitle : "Projets, programmes et unité · ressources, budgets et fiabilité des données Odoo.";
+  if (["time", "projects"].includes(view)) ++state.detailGeneration;
+  if (pageTitle) pageTitle.textContent = view === "time" ? originalTitle : view === "projects" ? "Projets" : "Pilotage DiCo";
+  if (pageSubtitle) pageSubtitle.textContent = ["time", "projects"].includes(view) ? originalSubtitle : "Projets, programmes et unité · ressources, budgets et fiabilité des données Odoo.";
   state.view = view;
-  $("time-view").hidden = view !== "time"; $("pilotage-view").hidden = view === "time";
+  $("time-view").hidden = view !== "time"; $("pilotage-view").hidden = ["time", "projects"].includes(view);
+  $("personal-projects-view").hidden = view !== "projects";
+  document.title = `${({ time: "Mon temps", projects: "Projets", programmes: "Programmes", unit: "Unité DiCo" })[view] || "Odoo"} · Odoo Dashboard`;
+  window.dispatchEvent(new CustomEvent("dashboard:viewchange", { detail: { view } }));
   document.querySelectorAll("#pilotage-nav [data-view]").forEach(button => { if (button.dataset.view === view) button.setAttribute("aria-current", "page"); else button.removeAttribute("aria-current"); });
-  if (view !== "time" && !state.portfolio && !state.loading) refresh(); else render();
+  if (["programmes", "unit", "portfolio"].includes(view) && !state.portfolio && !state.loading) refresh();
+  else if (view !== "projects") render();
 }
 async function refresh() {
   const generation = ++state.generation; ++state.detailGeneration;
@@ -105,9 +109,9 @@ async function refresh() {
   finally { if (generation === state.generation) { state.loading = false; $("pilotage-refresh").disabled = false; } }
 }
 function render() {
-  if (state.view === "time" || !state.portfolio) return;
+  if (["time", "projects"].includes(state.view) || !state.portfolio) return;
   const projects = visible(), summary = S.consolidate(projects), programmes = state.portfolio.programmes;
-  $("pilotage-title").textContent = ({ projects: "Projets · DiCo", programmes: "Programmes métier · DiCo", unit: "Unité · Digital Construction" })[state.view];
+  $("pilotage-title").textContent = ({ portfolio: "Projets · DiCo", programmes: "Programmes métier · DiCo", unit: "Unité · Digital Construction" })[state.view];
   if (state.detail && !projects.some(p => p.id === state.detail.id)) { state.detail = null; ++state.detailGeneration; $("pilotage-detail").hidden = true; }
   const heading = `<p>${projects.length} projets dans la sélection${state.contributorIds !== null ? ' · <button type="button" class="pilotage-link" data-clear-contributors>Revenir à tous les contributeurs</button>' : ""}</p>`;
   if (!projects.length) { $("pilotage-content").innerHTML = heading + `<p class="pilotage-empty">Aucun projet accessible ne correspond à ces filtres.</p>`; return; }
@@ -115,7 +119,7 @@ function render() {
   const groups = [...programmes.map(programme => ({ ...programme, projects: projects.filter(p => p.assignment.programmeId === programme.id) })), { id: "__unassigned", name: "Non affecté", projects: projects.filter(p => p.assignment.status === "unassigned") }, { id: "__multiple", name: "Affectations multiples · hors programmes", projects: projects.filter(p => p.assignment.status === "multiple") }];
   const max = Math.max(1, ...groups.map(group => Math.abs(S.consolidate(group.projects).metrics.actual.value || 0)));
   const bars = `<section class="panel pilotage-panel"><h3>Répartition du réalisé par programme</h3><p class="pilotage-note">Longueur des barres : valeur absolue en heures ; les valeurs signées restent affichées.</p><div class="pilotage-bars">${groups.filter(group => group.projects.length).map(group => { const total = S.consolidate(group.projects).metrics.actual; return `<div class="pilotage-bar"><button type="button" class="pilotage-link" data-programme="${escape(group.id)}">${escape(group.name)}</button><div class="pilotage-track"><span style="width:${Math.abs(total.value || 0) / max * 100}%"></span></div><span>${format(total.value)}<br><small>${total.covered}/${total.total} couverts</small></span></div>`; }).join("")}</div></section>`;
-  const body = state.view === "projects" ? `<section class="panel pilotage-panel"><h3>Projets contributeurs</h3>${projectTable(projects, programmes)}</section>` : state.view === "programmes" ? groups.filter(group => group.projects.length).map(group => `<section class="panel pilotage-panel"><h3>${escape(group.name)} · ${group.projects.length} projets</h3>${cards(S.consolidate(group.projects))}${deadlines(group.projects)}${projectTable(group.projects, programmes)}</section>`).join("") : bars + `<section class="panel pilotage-panel">${deadlines(projects)}<h3>Portefeuille de l’unité</h3>${projectTable(projects, programmes)}</section>`;
+  const body = state.view === "portfolio" ? `<section class="panel pilotage-panel"><h3>Projets contributeurs</h3>${projectTable(projects, programmes)}</section>` : state.view === "programmes" ? groups.filter(group => group.projects.length).map(group => `<section class="panel pilotage-panel"><h3>${escape(group.name)} · ${group.projects.length} projets</h3>${cards(S.consolidate(group.projects))}${deadlines(group.projects)}${projectTable(group.projects, programmes)}</section>`).join("") : bars + `<section class="panel pilotage-panel">${deadlines(projects)}<h3>Portefeuille de l’unité</h3>${projectTable(projects, programmes)}</section>`;
   $("pilotage-content").innerHTML = heading + cards(summary) + meta + body + `<section class="panel pilotage-panel"><h3>Planning opérationnel · horizon disponible</h3>${cards(summary, ["planned", "remainingPlan", "elapsedPlan", "futurePlan"])}</section><section class="panel pilotage-panel"><h3>Enveloppes financières par période et devise</h3>${monetaryTable(summary.budgets, true)}</section><section class="panel pilotage-panel"><h3>Points à examiner</h3>${warnings(projects)}</section>`;
 }
 async function openProject(projectId) {
@@ -140,10 +144,10 @@ function renderDetail() {
 document.addEventListener("click", event => {
   const button = event.target.closest("button"); if (!button) return;
   if (button.dataset.view) setView(button.dataset.view);
-  if (button.id === "pilotage-my-projects") { document.querySelectorAll(".pilotage-filters select").forEach(select => { select.value = ""; }); $("pilotage-leader").checked = true; state.contributorIds = null; setView("projects"); }
+  if (button.id === "pilotage-my-projects") { document.querySelectorAll(".pilotage-filters select").forEach(select => { select.value = ""; }); $("pilotage-leader").checked = true; state.contributorIds = null; setView("portfolio"); }
   if (button.id === "pilotage-refresh") refresh();
   if (button.hasAttribute("data-project")) openProject(Number(button.dataset.project));
-  if (button.hasAttribute("data-contributors")) { state.contributorIds = button.dataset.contributors ? button.dataset.contributors.split(",").map(Number) : []; state.view = "projects"; setView("projects"); }
+  if (button.hasAttribute("data-contributors")) { state.contributorIds = button.dataset.contributors ? button.dataset.contributors.split(",").map(Number) : []; setView("portfolio"); }
   if (button.hasAttribute("data-clear-contributors")) { state.contributorIds = null; render(); }
   if (button.hasAttribute("data-programme")) { $("pilotage-programme").value = button.dataset.programme; state.contributorIds = null; setView("programmes"); }
   if (button.dataset.tab) { state.tab = button.dataset.tab; renderDetail(); $(`pilotage-tab-${state.tab}`).focus(); }
@@ -160,7 +164,7 @@ post("metadata").then(meta => {
   state.metadata = meta;
   $("pilotage-activation").hidden = true;
   $("pilotage-activation").textContent = "";
-  document.querySelectorAll("#pilotage-nav [data-view]:not([data-view=time])").forEach(button => { button.disabled = !meta.enabled; });
+  document.querySelectorAll("#pilotage-nav [data-view]:not([data-view=time]):not([data-view=projects])").forEach(button => { button.disabled = !meta.enabled; });
   $("pilotage-my-projects").disabled = !meta.enabled || !meta.leader.available;
   $("pilotage-my-projects").title = meta.leader.available ? `Source : project.project.${meta.leader.field} (${meta.leader.label})` : "Relation project leader vers res.users indisponible";
   $("pilotage-leader").disabled = !meta.leader.available;

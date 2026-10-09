@@ -15,11 +15,17 @@
 - Added sticky year/Ormitters controls and a shared Me / Whole Project hour
   scope, with lazy read-only caching, disclosed baselines, independent review
   fixes, and offline verification, on 2026-10-05.
+- Made Projets · 02 filterable by employee name, retaining monthly/cumulative
+  actuals and adding an individual linear planned-hours reference, with reset,
+  animation and offline/browser verification, on 2026-10-09.
+- Corrected scoped Projets bar date references to use selected-year/project-date
+  intersections, including partial first/last years, on 2026-10-09.
 
 ## Next
 
-- No additional feature priorities have been provided. Follow the user's next
-  scoped request and keep project memory current.
+- Review the completed employee filter and scoped project-date references with
+  real accessible project data.
+  Further feature priorities await the user's next scoped request.
 
 ## Not Planned
 

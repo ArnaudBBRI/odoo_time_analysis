@@ -35,9 +35,14 @@
     .submit { width: 100%; padding: 15px 20px; border: 1px solid #007fae; background: #007fae; color: #fff; font: inherit; font-weight: 600; border-radius: 3px; cursor: pointer; }
     .submit:hover { background: #006e97; }
     button:focus-visible, a:focus-visible { outline: 3px solid #00bfb6; outline-offset: 4px; }
-    .submit:disabled { opacity: .65; cursor: wait; }
+    .submit:disabled, .config-button:disabled { opacity: .65; cursor: wait; }
     #status { margin: 18px 0 0; line-height: 1.5; font-size: 14px; color: #a32929; }
     #status:empty { display: none; }
+    .config-login { margin-top: 18px; }
+    .config-button { width: 100%; padding: 12px 20px; border: 1px solid #007fae; background: #fff; color: #007fae; font: inherit; font-weight: 600; border-radius: 3px; cursor: pointer; }
+    .config-button:hover { background: #edf7fa; }
+    #configStatus { margin: 10px 0 0; line-height: 1.5; font-size: 13px; color: #626262; }
+    #configStatus:empty { display: none; }
     .help { margin-top: 26px; padding-top: 22px; border-top: 1px solid #e6e6e6; color: #7d7d7d; font-size: 13px; line-height: 1.6; }
     footer { max-width: 1200px; margin: 0 auto; padding: 28px 0; border-top: 1px solid #e6e6e6; color: #7d7d7d; display: flex; justify-content: space-between; font-size: 13px; }
     footer a { color: #007fae; text-decoration: none; }
@@ -61,6 +66,10 @@
         <button class="submit" id="submitButton" type="submit">Se connecter <span aria-hidden="true">→</span></button>
         <p id="status" role="alert" aria-live="polite"></p>
       </form>
+      <div class="config-login">
+        <button class="config-button" id="configButton" type="button" aria-describedby="configStatus">Use config file</button>
+        <p id="configStatus" role="status" aria-live="polite" aria-atomic="true"></p>
+      </div>
       <div class="help">Utilisez vos identifiants Odoo habituels. Pour toute difficulté de connexion, contactez votre support interne.</div>
     </section>
   </main>
@@ -71,6 +80,15 @@
     const toggle = document.getElementById("togglePassword");
     const status = document.getElementById("status");
     const button = document.getElementById("submitButton");
+    const configButton = document.getElementById("configButton");
+    const configStatus = document.getElementById("configStatus");
+    let signingIn = false;
+    function setSigningIn(pending, mode) {
+      signingIn = pending;
+      button.disabled = pending;
+      configButton.disabled = pending;
+      button.textContent = pending && mode === "manual" ? "Connexion en cours…" : "Se connecter →";
+    }
     toggle.addEventListener("click", () => {
       const visible = password.type === "password";
       password.type = visible ? "text" : "password";
@@ -79,9 +97,10 @@
     });
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
+      if (signingIn) return;
       status.textContent = "";
-      button.disabled = true;
-      button.textContent = "Connexion en cours…";
+      configStatus.textContent = "";
+      setSigningIn(true, "manual");
       try {
         const response = await fetch("/api/auth/login", {
           method: "POST", headers: { "Content-Type": "application/json" },
@@ -95,7 +114,35 @@
         password.value = "";
         window.location.replace("/dashboard");
       } catch (error) { status.textContent = error.message || "Connexion impossible. Vérifiez votre connexion réseau."; }
-      finally { button.disabled = false; button.textContent = "Se connecter →"; }
+      finally { setSigningIn(false); }
+    });
+    configButton.addEventListener("click", async () => {
+      if (signingIn) return;
+      status.textContent = "";
+      configStatus.textContent = "Connexion avec le fichier de configuration…";
+      setSigningIn(true, "config");
+      try {
+        const response = await fetch("/api/auth/login-config", {
+          method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({})
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.ok) {
+          const messages = new Map([
+            ["CONFIG_MISSING", "Aucun fichier de configuration local n’est disponible. Utilisez vos identifiants Odoo."],
+            ["CONFIG_INVALID", "Le fichier de configuration est invalide ou incomplet. Vérifiez l’utilisateur et le jeton, ou utilisez vos identifiants Odoo."],
+            ["CONFIG_TOKEN_REJECTED", "Le jeton du fichier de configuration est obsolète ou refusé par Odoo. Mettez-le à jour ou utilisez vos identifiants Odoo."],
+            ["CONFIG_LOCAL_ONLY", "La connexion par fichier de configuration est réservée à un accès local. Utilisez vos identifiants Odoo."]
+          ]);
+          const unavailable = { 429: "Trop de tentatives. Réessayez dans quelques minutes.", 503: "La connexion est temporairement indisponible. Réessayez plus tard." };
+          configStatus.textContent = messages.get(result.code) || unavailable[response.status] || "La connexion à Odoo est indisponible. Réessayez plus tard.";
+          return;
+        }
+        password.value = "";
+        window.location.replace("/dashboard");
+      } catch (_) {
+        configStatus.textContent = "Connexion impossible. Vérifiez votre connexion réseau.";
+      } finally { setSigningIn(false); }
     });
   </script>
 </body>

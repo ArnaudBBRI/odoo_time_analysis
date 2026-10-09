@@ -38,7 +38,7 @@ async function startRuntime(options = {}) {
   });
   mock.listen(0, "127.0.0.1"); await once(mock, "listening");
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "bw-pilotage-fixture-"));
-  for (const file of ["server.js", "index.html", "login.html", "steering.js", "steering-service.js", "steering-client.js", "steering-client.css"]) fs.copyFileSync(path.join(__dirname, "..", file), path.join(directory, file));
+  for (const file of ["server.js", "index.html", "login.html", "steering.js", "steering-service.js", "steering-client.js", "steering-client.css", "personal-time.js", "personal-time.css", "project-monthly.js", "project-browser.js", "project-browser.css"]) fs.copyFileSync(path.join(__dirname, "..", file), path.join(directory, file));
   // Only the isolated test copy is labelled. Fixtures are never included in the real dashboard.
   const index = path.join(directory, "index.html");
   fs.writeFileSync(index, fs.readFileSync(index, "utf8").replace("<body>", '<body><p style="text-align:center;background:#e9f4f7;padding:8px">Données simulées · contrôle local</p>'));
@@ -52,7 +52,7 @@ async function startRuntime(options = {}) {
     child.stdout.on("data", () => { const match = /http:\/\/127\.0\.0\.1:\d+/.exec(output); if (match) { clearTimeout(timer); resolve(match[0]); } });
   });
   const request = (route, init = {}) => fetch(base + route, { redirect: "manual", ...init });
-  return { base, calls, failures, request,
+  return { base, directory, calls, failures, request,
     login: (email = "person@example.com") => request("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password: "correct password" }) }),
     async close() {
       child.kill(); if (child.exitCode === null) await once(child, "exit");
