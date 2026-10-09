@@ -96,25 +96,28 @@
 
 ## In Progress
 
-- The user requested **commit push** for the completed budget branch on
-  2026-10-09. Publication checks confirm the existing public
-  `ArnaudBBRI/odoo_time_analysis` destination and an absent remote
-  `codex/project-budgets` branch. A source-specific supplier display suffix was
-  replaced with fictional test identifiers; credentials/private configuration,
-  real bill descriptions and employee financial records are excluded. Final
-  verification, commit and normal branch push are in progress.
+- Publication completed on 2026-10-09 after the user's **commit push** request:
+  feature commit `482271c` (**Add project budget dashboard with bill drill-down**)
+  was pushed normally to the confirmed public `ArnaudBBRI/odoo_time_analysis`
+  repository on `codex/project-budgets`. The branch tracks its matching origin
+  branch; the remote feature SHA and clean working tree were verified. A
+  source-specific supplier display suffix was replaced with fictional test
+  identifiers, then all 408 offline tests passed again. Private configuration,
+  credentials and real bill/personnel records are excluded. No PR was created.
 - The bill-detail refinement approved with **go** on 2026-10-09 is complete
   locally: scoped allocated expense popups, preserved supplier filter, 25%
   taller annual plots and another 20% tighter macro card/metadata spacing.
   All 408 offline tests, independent review, desktop/390px modal interactions,
   source/privacy checks and a targeted live Extrai read pass. Runtime reload
-  is verified. The budget branch remains uncommitted; no Odoo writes occurred.
+  is verified. The budget feature is committed/pushed as `482271c`; no Odoo
+  writes occurred.
 - The user-approved annual-budget refinement is complete locally on 2026-10-09: thinner
   per-code companion bars, a default-off Ormit Talent cost exclusion shared by
   all annual graphs, a roughly 25% more compact top summary, and removal of
   confirmed all-zero annual detail rows. All 386 offline tests, independent
   review, desktop/mobile interactions and targeted live Extrai checks pass on
-  `codex/project-budgets`. Runtime reload is verified; changes remain uncommitted.
+  `codex/project-budgets`. Runtime reload is verified; this refinement is included
+  in published feature commit `482271c`.
   The cost preference is independent of hours inclusion and selected years.
   Unavailable supplier/commitment attribution remains explicit. No Odoo writes
   are approved.
@@ -169,6 +172,12 @@ A runnable dashboard, authenticated local connector and authentication integrati
 
 ## Last Verified
 
+- Budget publication on 2026-10-09: independent publication review and staged
+  whitespace checks passed. After replacing the source-specific supplier fixture
+  suffix, all 408 offline tests passed again. Feature commit `482271c` was pushed
+  to `origin/codex/project-budgets`; its remote SHA matches exactly. The feature
+  push left a clean working tree. This factual publication record is committed
+  separately; no production code changed after the final test run.
 - Bill-detail refinement on 2026-10-09: all **408 offline tests in 15 files**
   passed with `node --test --test-isolation=none` (zero failures/skips). This
   includes 51 pure finance, 40 budget UI, 35 project-renderer and 5 finance HTTP
@@ -548,14 +557,16 @@ A runnable dashboard, authenticated local connector and authentication integrati
   pass. Exact Extrai annual expense lines and all matching bill descriptions are
   readable/reconciled for the configured account. Prior code-bar/Ormit exclusions
   remain implemented. No separate build/lint/typecheck command exists. No Odoo
-  write, commit, push or PR creation occurred.
+  write or PR creation occurred. Feature commit `482271c` is published on
+  `origin/codex/project-budgets`; all 408 tests passed again after fixture cleanup.
 - Current objective completed on 2026-10-09: implemented the Heures/Budget switch,
   convention macro/lifetime consumption and annual grouped vertical bars on
-  local `codex/project-budgets` at `288ef6d`; no upstream is configured.
+  `codex/project-budgets`, created from `288ef6d` and now tracking its matching
+  origin branch after publication of feature commit `482271c`.
   User **go** approved the plan and recommended lifetime inclusion of recorded
-  personnel costs. Code, tests and documentation remain local and uncommitted.
-  All 357 tests, desktop/390px checks and targeted live finance verification
-  pass. Annual budget consumption remains a billed/invoiced measure;
+  personnel costs. Code, tests and documentation are committed and pushed.
+  Initial 357-test, desktop/390px and targeted live finance checks passed; the
+  latest full suite now passes all 408 tests. Annual consumption remains billed;
   committed includes billed spending and must not be added to it.
 - Current refinement completed on 2026-10-09: scoped bar date references now
   intersect selected years with project start/end dates, show the effective
@@ -606,9 +617,9 @@ A runnable dashboard, authenticated local connector and authentication integrati
   background launches were observed stopped; their stop cause is unknown.
   Restart clears existing sessions.
   Isolated synthetic preview processes are no longer running.
-- Next action: complete the user-requested budget commit and push, then verify
-  the remote branch and working tree. The previous hours dashboard
-  is committed/pushed; this budget iteration is uncommitted and no PR was created.
+- Next action: user review of the published budget branch or explicit PR/merge
+  instructions. The hours and budget work are committed/pushed; no budget PR
+  was created.
   Configured-token authentication
   and targeted Extrai budget/date/personal planning reads are verified;
   staffing-assignment, profile-photo access, broader personal/project access and
