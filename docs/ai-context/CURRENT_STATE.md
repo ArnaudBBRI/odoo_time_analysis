@@ -56,11 +56,17 @@
 ## In Progress
 
 - The approved **Mon temps** iteration and requested **Projets** grid/comparisons
-  and stacked monthly/cumulative graph with employee isolation are complete locally on `codex/mon-temps-macro` at
-  `bf7d5f0`, including the project-date-clipped scoped references. All 303 offline tests and desktop/mobile browser checks pass. The
+  and stacked monthly/cumulative graph with employee isolation are committed in
+  `724fde1` and pushed to `origin/codex/mon-temps-macro` on 2026-10-09,
+  including the project-date-clipped scoped references. All 303 offline tests and desktop/mobile browser checks pass. The
   reported Extrai budget lookup remains corrected and verified against its
   live read-only value. Broader live-account verification remains pending.
-- Completed config-token login, tests and documentation remain preserved as uncommitted changes on this new branch. No commit, push or stash was requested for this dashboard iteration.
+- Completed config-token login, dashboard changes, tests and documentation are
+  included in `724fde1` (**Add personal and project time dashboards**). The user
+  requested commit/push and explicitly approved publishing this payload,
+  including recorded Extrai budget/date facts, to the public
+  `ArnaudBBRI/odoo_time_analysis` repository on `codex/mon-temps-macro`.
+  No PR was created, and remote `main` was not pushed.
 - The user-requested merge of exact commit `52e377e` is complete as `bf7d5f0`. That commit is the empty index parent of the earlier password-login stash, so the merge records ancestry without applying the stashed feature work.
 - Main already includes PR #1's Docker/authentication/steering integration at `5d5aa26`. Real DiCo configuration, programme mapping and live Odoo validation remain pending. See [Pilotage](../wiki/PILOTAGE.md).
 
@@ -411,19 +417,22 @@ A runnable dashboard, authenticated local connector and authentication integrati
   removed. All 31 renderer tests and desktop/390px browser checks pass.
 - Previous objective completed locally: exact `52e377e` merge and config-token
   login with compact welcome-page information; those changes are preserved.
-- Local state on 2026-10-09: `codex/mon-temps-macro` at `bf7d5f0`, whose parents
-  are `5d5aa26` and `52e377e`. Changes remain uncommitted; nothing
-  was pushed. The earlier 24-hour password-login work remains in `stash@{0}`
+- Publication on 2026-10-09: dashboard commit `724fde1` was pushed to
+  `origin/codex/mon-temps-macro` after explicit approval of the public destination
+  and payload. Local `main` was also observed fast-forwarded to that commit;
+  remote `main` was not pushed. The feature branch tracks its matching remote.
+  The parent merge `bf7d5f0` retains `5d5aa26` and `52e377e` ancestry.
+  The earlier 24-hour password-login work remains in `stash@{0}`
   (`password-login work before pulling main (2026-10-06)`). Private config is
   untouched, and sessions retain main's eight-hour default.
-- Runtime: http://127.0.0.1:8765/ runs the branch as PID 33396 in persistent
+- Last verified runtime before publication: http://127.0.0.1:8765/ ran the branch as PID 33396 in persistent
   terminal session `25141`. Startup output is in that terminal. Earlier
   background launches were observed stopped; their stop cause is unknown.
   Restart clears existing sessions.
   Isolated synthetic preview processes are no longer running.
 - Next action: refresh the dashboard and review the corrected project-date
   reference with real accessible data; further feature priorities await the user's request.
-  Changes are uncommitted and no PR was created. Configured-token authentication
+  Dashboard changes are committed/pushed and no PR was created. Configured-token authentication
   and targeted Extrai budget/date/personal planning reads are verified;
   staffing-assignment, profile-photo access, broader personal/project access and
   deployment remain unverified.
