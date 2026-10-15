@@ -5,6 +5,7 @@ const crypto = require("crypto");
 const { AsyncLocalStorage } = require("async_hooks");
 const steeringService = require("./steering-service");
 const projectFinanceService = require("./project-finance-service");
+const unitDicoService = require("./unit-dico-service");
 
 const HOST = process.env.HOST || "127.0.0.1";
 const PORT = Number(process.env.PORT || 8765);
@@ -117,12 +118,16 @@ const server = http.createServer((request, response) => {
         await handleSteering(request, response, url.pathname);
         return;
       }
-      if (["/steering.js", "/steering-client.js", "/steering-client.css", "/personal-time.js", "/personal-time.css", "/project-monthly.js", "/project-browser.js", "/project-browser.css", "/project-budget.js", "/project-budget.css", "/project-card.js", "/project-card.css", "/unit-dico.js", "/unit-dico.css", "/programme-browser.js", "/programme-browser.css", "/work-capacity.js", "/personal-capacity.js", "/personal-capacity.css", "/project-planning.js"].includes(url.pathname)) {
+      if (["/steering.js", "/steering-client.js", "/steering-client.css", "/personal-time.js", "/personal-time.css", "/work-capacity.js", "/personal-capacity.js", "/personal-capacity.css", "/project-card.js", "/project-card.css", "/project-monthly.js", "/project-planning.js", "/project-browser.js", "/project-browser.css", "/project-budget.js", "/project-budget.css", "/unit-dico.js", "/unit-dico.css", "/programme-browser.js", "/programme-browser.css"].includes(url.pathname)) {
         await serveStaticFile(url.pathname, response);
         return;
       }
       if (url.pathname === "/api/odoo/my-time") {
         await handleMyTime(request, response);
+        return;
+      }
+      if (url.pathname === "/api/odoo/my-work-capacity") {
+        await handleMyWorkCapacity(request, response);
         return;
       }
       if (url.pathname === "/api/odoo/project-hours") {
@@ -131,6 +136,18 @@ const server = http.createServer((request, response) => {
       }
       if (url.pathname === "/api/odoo/project-finance") {
         await handleProjectFinance(request, response);
+        return;
+      }
+      if (url.pathname === "/api/odoo/unit-dico-projects") {
+        await handleUnitDicoProjects(request, response);
+        return;
+      }
+      if (url.pathname === "/api/odoo/programmes-catalogue") {
+        await handleProgrammesCatalogue(request, response);
+        return;
+      }
+      if (url.pathname === "/api/odoo/programme-projects") {
+        await handleProgrammeProjects(request, response);
         return;
       }
       if (["/api/odoo/my-lead-unit", "/api/odoo/team-projects"].includes(url.pathname)) {
@@ -1385,7 +1402,7 @@ async function executeKw(odooUrl, database, uid, apiKey, model, method, args = [
 
 async function getModelFields(odooUrl, database, uid, apiKey, model) {
   return executeKw(odooUrl, database, uid, apiKey, model, "fields_get", [], {
-    attributes: ["string", "type", "relation", "selection"]
+    attributes: ["string", "type", "relation", "selection", "currency_field"]
   });
 }
 
@@ -3115,7 +3132,7 @@ function employeeFunctionDetails(employee, model) {
 
 // Resolve only employees/resources already present in fetched records. Both
 // metadata and record requests use the existing read-only RPC boundary.
-async function enrichEmployeeFunctions(odooUrl, database, uid, apiKey, records, warnings) {
+async function enrichEmployeeFunctions(odooUrl, database, uid, apiKey, records, warnings, options = {}) {
   if (!records.length) {
     return;
   }
@@ -3125,10 +3142,12 @@ async function enrichEmployeeFunctions(odooUrl, database, uid, apiKey, records, 
     .map((record) => positiveId(record.resourceId)).filter(Boolean));
   const byEmployee = new Map();
   const byResource = new Map();
+  const strictFunctions = options.strictFunctionMetadata === true;
+  const invalidEmployeeIds = new Set();
 
   for (const model of ["hr.employee", "hr.employee.public"]) {
     const pendingEmployeeIds = new Set(Array.from(employeeIds)
-      .filter((id) => !byEmployee.get(id)?.employeeFunction));
+      .filter((id) => !byEmployee.get(id)?.employeeFunction && !invalidEmployeeIds.has(id)));
     const pendingResourceIds = new Set(Array.from(resourceIds)
       .filter((id) => !byResource.get(id)?.employeeFunction));
     // A resource may have resolved an employee whose function was inaccessible.
@@ -3143,8 +3162,14 @@ async function enrichEmployeeFunctions(odooUrl, database, uid, apiKey, records, 
     }
     try {
       const fieldDefs = await getModelFields(odooUrl, database, uid, apiKey, model);
-      const fields = ["id", "name", "job_title", "job_id", "resource_id"]
-        .filter((field) => field === "id" || Object.hasOwn(fieldDefs, field));
+      // The opt-in convention-consumption path requires unique, typed HR
+      // evidence. Legacy graph/planning callers retain their existing behavior.
+      const fields = strictFunctions ? ["id",
+        ...(["char", "text"].includes(fieldDefs?.job_title?.type) ? ["job_title"] : []),
+        ...(isPersonalRelation(fieldDefs?.job_id, "hr.job") ? ["job_id"] : [])]
+        : ["id", "name", "job_title", "job_id", "resource_id"]
+          .filter((field) => field === "id" || Object.hasOwn(fieldDefs, field));
+      if (strictFunctions && fields.length === 1) continue;
       const conditions = [];
       if (pendingEmployeeIds.size) {
         conditions.push(["id", "in", Array.from(pendingEmployeeIds)]);
@@ -3160,14 +3185,30 @@ async function enrichEmployeeFunctions(odooUrl, database, uid, apiKey, records, 
         order: "id asc",
         context: { active_test: false }
       });
+      if (strictFunctions) {
+        const seen = new Set();
+        for (const employee of employees) {
+          const id = Number.isSafeInteger(employee?.id) && employee.id > 0 ? employee.id : null;
+          if (!id || !pendingEmployeeIds.has(id)) continue;
+          if (seen.has(id)) invalidEmployeeIds.add(id);
+          seen.add(id);
+          if (fields.includes("job_title") && (!Object.hasOwn(employee, "job_title") ||
+            employee.job_title !== false && employee.job_title !== null && typeof employee.job_title !== "string")) invalidEmployeeIds.add(id);
+          if (fields.includes("job_id") && (!Object.hasOwn(employee, "job_id") ||
+            employee.job_id !== false && employee.job_id !== null &&
+            !(Array.isArray(employee.job_id) && personalRelationId(employee.job_id) && typeof employee.job_id[1] === "string" && employee.job_id[1].trim()))) invalidEmployeeIds.add(id);
+        }
+      }
       for (const employee of employees) {
-        const id = positiveId(employee.id);
+        const id = strictFunctions ? Number.isSafeInteger(employee?.id) && employee.id > 0 ? employee.id : null : positiveId(employee.id);
         const resourceId = positiveId(relationalId(employee.resource_id));
         // Do not accept unrequested identities returned by a malformed source.
-        if (!id || (!pendingEmployeeIds.has(id) && !pendingResourceIds.has(resourceId))) {
+        if (!id || (!pendingEmployeeIds.has(id) && !pendingResourceIds.has(resourceId)) || invalidEmployeeIds.has(id)) {
           continue;
         }
-        const details = { id, name: String(employee.name || ""), ...employeeFunctionDetails(employee, model) };
+        const functionRecord = strictFunctions ? { job_title: fields.includes("job_title") ? employee.job_title : false,
+          job_id: fields.includes("job_id") ? employee.job_id : false } : employee;
+        const details = { id, name: strictFunctions ? "" : String(employee.name || ""), ...employeeFunctionDetails(functionRecord, model) };
         if (!byEmployee.get(id)?.employeeFunction) {
           byEmployee.set(id, details);
         }
@@ -4286,6 +4327,151 @@ function safeManagerPhotoDataUrl(value) {
   return mime ? `data:${mime};base64,${encoded}` : null;
 }
 
+async function enrichPersonalProjectDates(args, projects) {
+  for (const project of projects.values()) {
+    project.startDate = null;
+    project.endDate = null;
+  }
+  const projectIds = [...projects.keys()].filter(id => Number.isSafeInteger(id) && id > 0);
+  if (!projectIds.length) return;
+  let definitions;
+  try { definitions = await getModelFields(...args, "project.project"); }
+  catch (_) { return; }
+  const dateFields = ["date_start", "date"].filter(field => ["date", "datetime"].includes(definitions?.[field]?.type));
+  if (!dateFields.length) return;
+  const requestedIds = new Set(projectIds);
+  const readDates = async fields => {
+    const rows = await searchReadAll(...args, "project.project", [["id", "in", projectIds]], ["id", ...fields],
+      { context: { active_test: false } });
+    if (!Array.isArray(rows)) throw new Error("Optional project dates are unavailable");
+    const seen = new Set();
+    for (const row of rows) {
+      if (!row || !requestedIds.has(row.id) || seen.has(row.id)) continue;
+      seen.add(row.id);
+      for (const field of fields) {
+        projects.get(row.id)[field === "date_start" ? "startDate" : "endDate"] =
+          unitDicoService.projectDate(row[field], definitions[field].type);
+      }
+    }
+  };
+  try { await readDates(dateFields); }
+  catch (_) {
+    // A denied optional date must not erase a readable counterpart or hours.
+    for (const field of dateFields) {
+      try { await readDates([field]); }
+      catch (_) { /* Unknown dates remain null; never broaden the project scope. */ }
+    }
+  }
+}
+
+async function enrichPersonalProjectBudgets(args, projects) {
+  await unitDicoService.enrichProjectBudgets({
+    fields: model => getModelFields(...args, model),
+    read: (model, domain, fields, options) => searchReadAll(...args, model, domain, fields, options)
+  }, projects);
+}
+
+// Optional lifetime convention comparison for personally involved projects.
+// This cohort is identified employee-linked time imputations, excluding known
+// Ormitters. Nonemployee analytic expense/quantity rows are not personnel hours.
+// Colleague identities and records remain backend-only; only totals/statuses
+// are attached to the catalogue. Optional failures must never hide own hours.
+async function enrichPersonalPersonnelBudgets(args, projects, now = new Date()) {
+  const projectIds = [...projects.keys()].filter(id => Number.isSafeInteger(id) && id > 0);
+  for (const project of projects.values()) project.personnelBudget = {
+    status: "unavailable", conventionHours: null, actualHours: null, actualStatus: "unavailable"
+  };
+  if (!projectIds.length) return;
+  const numeric = value => (typeof value === "number" || typeof value === "string" && value.trim()) &&
+    Number.isFinite(Number(value)) ? Number(value) : null;
+  const calendarDate = value => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+    parsePersonalUtcDateTime(value) ? value : null;
+  const budgetField = "budget_staffing_convention_hours";
+  try {
+    const definitions = await getModelFields(...args, "project.project");
+    if (!["float", "integer"].includes(definitions?.[budgetField]?.type)) return;
+    const requested = new Set(projectIds), seen = new Set(), duplicates = new Set();
+    const rows = await searchReadAll(...args, "project.project", [["id", "in", projectIds]], ["id", budgetField],
+      { context: { active_test: false } });
+    for (const row of rows) {
+      if (!row || !requested.has(row.id)) continue;
+      if (seen.has(row.id)) { duplicates.add(row.id); continue; }
+      seen.add(row.id);
+      const budget = projects.get(row.id).personnelBudget;
+      if (!Object.hasOwn(row, budgetField)) continue;
+      const value = numeric(row[budgetField]);
+      if (value > 0) { budget.status = "available"; budget.conventionHours = value; }
+      else if (value !== null || row[budgetField] === false || row[budgetField] === null ||
+        typeof row[budgetField] === "string" && !row[budgetField].trim()) budget.status = "empty";
+    }
+    for (const id of duplicates) {
+      projects.get(id).personnelBudget.status = "unavailable";
+      projects.get(id).personnelBudget.conventionHours = null;
+    }
+  } catch (_) { return; }
+
+  let today;
+  try {
+    const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Brussels", year: "numeric", month: "2-digit", day: "2-digit" })
+      .formatToParts(new Date(now));
+    const part = type => parts.find(item => item.type === type)?.value;
+    today = calendarDate(`${part("year")}-${part("month")}-${part("day")}`);
+  } catch (_) { return; }
+  if (!today) return;
+  const eligible = new Map();
+  for (const id of projectIds) {
+    const project = projects.get(id), start = calendarDate(project.startDate), budget = project.personnelBudget;
+    if (budget.status !== "available" || !start) continue;
+    if (start > today) { budget.actualHours = 0; budget.actualStatus = "available"; }
+    else eligible.set(id, start);
+  }
+  if (!eligible.size) return;
+  try {
+    const definitions = await getModelFields(...args, "account.analytic.line");
+    if (!isPersonalRelation(definitions?.project_id, "project.project") || !isPersonalEmployeeRelation(definitions?.employee_id)
+      || definitions?.date?.type !== "date" || !["float", "integer"].includes(definitions?.unit_amount?.type)) return;
+    const earliest = [...eligible.values()].sort()[0];
+    const domain = [["project_id", "in", [...eligible.keys()]], ["employee_id", "!=", false], ["date", ">=", earliest], ["date", "<=", today]];
+    const rows = await searchReadAll(...args, "account.analytic.line", domain, ["id", "date", "unit_amount", "employee_id", "project_id"],
+      { order: "id asc", context: { active_test: false } });
+    const invalid = new Set(), seen = new Map(), records = [];
+    for (const row of rows) {
+      const projectId = personalRelationId(row?.project_id);
+      if (!eligible.has(projectId)) continue;
+      // Nonemployee analytic cost/quantity records are outside this cohort,
+      // even if a malformed source over-returns their columns or dates.
+      if (row.employee_id === false || row.employee_id === null) continue;
+      const date = calendarDate(row.date);
+      if (!date) { invalid.add(projectId); continue; }
+      if (date < eligible.get(projectId) || date > today) continue;
+      const employeeId = personalRelationId(row.employee_id), hours = numeric(row.unit_amount);
+      if (!employeeId || hours === null || !Number.isSafeInteger(row.id) || row.id <= 0) { invalid.add(projectId); continue; }
+      if (seen.has(row.id)) { invalid.add(projectId); invalid.add(seen.get(row.id)); continue; }
+      seen.set(row.id, projectId);
+      records.push({ projectId, employeeId, hours });
+    }
+    await enrichEmployeeFunctions(...args, records, [], { strictFunctionMetadata: true });
+    const totals = new Map([...eligible.keys()].map(id => [id, { sum: 0, correction: 0 }]));
+    for (const record of records) {
+      if (record.subcontractorClassification !== "employee-function") { invalid.add(record.projectId); continue; }
+      if (!record.isSubcontractor) {
+        // Compensated summation avoids cent-level drift without rounding the
+        // source precision before the strict convention-exhaustion comparison.
+        const total = totals.get(record.projectId), next = total.sum + record.hours;
+        total.correction += Math.abs(total.sum) >= Math.abs(record.hours)
+          ? total.sum - next + record.hours : record.hours - next + total.sum;
+        total.sum = next;
+      }
+    }
+    for (const [id, total] of totals) {
+      const hours = total.sum + total.correction;
+      if (invalid.has(id) || !Number.isFinite(hours)) continue;
+      projects.get(id).personnelBudget.actualHours = hours;
+      projects.get(id).personnelBudget.actualStatus = "available";
+    }
+  } catch (_) { /* Optional project-wide attribution remains unavailable. */ }
+}
+
 async function enrichPersonalProjectManagers(args, projects) {
   for (const project of projects.values()) project.manager = null;
   const projectIds = [...projects.keys()];
@@ -4319,6 +4505,42 @@ async function enrichPersonalProjectManagers(args, projects) {
     }
   } catch (_) {
     // Photos and optional manager metadata must never make personal time fail.
+  }
+}
+
+async function handleMyWorkCapacity(request, response) {
+  if (!authContext.getStore()) {
+    sendJson(response, 401, { ok: false, error: "Veuillez vous connecter pour continuer.", authenticationRequired: true });
+    return;
+  }
+  if (request.method !== "POST") {
+    sendJson(response, 405, { ok: false, error: "Utilisez POST pour cette lecture." });
+    return;
+  }
+  let body;
+  try { body = await readJsonBody(request); }
+  catch (_) { sendJson(response, 400, { ok: false, error: "La requête doit contenir un objet JSON valide." }); return; }
+  if (!body || !Array.isArray(body.years) || !body.years.length || body.years.length > 30 ||
+    body.years.some(year => !Number.isInteger(year) || year < 1900 || year > 2200)) {
+    sendJson(response, 400, { ok: false, error: "Choisissez de 1 à 30 années valides pour cette période." });
+    return;
+  }
+  try {
+    const settings = getAuthSettings({});
+    const uid = await authenticateOdoo(settings.odooUrl, settings.database, settings.username, settings.apiKey);
+    if (!Number.isSafeInteger(uid) || uid <= 0 || uid !== authContext.getStore().uid) {
+      sendJson(response, 401, { ok: false, error: "Veuillez vous reconnecter pour vérifier votre identité.", authenticationRequired: true });
+      return;
+    }
+    const args = [settings.odooUrl, settings.database, uid, settings.apiKey];
+    const employee = await resolvePersonalEmployee(args, uid, settings.username);
+    const result = await require("./work-capacity-service").load({
+      fields: model => getModelFields(...args, model),
+      read: (model, domain, fields, kwargs) => searchReadAll(...args, model, domain, fields, kwargs)
+    }, employee, [...new Set(body.years)].sort((a, b) => a - b), { now: new Date() });
+    sendJson(response, 200, { ok: true, ...result });
+  } catch (_) {
+    sendJson(response, 502, { ok: false, error: "Le calendrier de travail ou les droits annuels ne sont pas accessibles avec vos droits Odoo." });
   }
 }
 
@@ -4397,6 +4619,9 @@ async function handleMyTime(request, response) {
     planning.monthly = buildPersonalPlanningMonthly(planning.slots);
     planning.employeeMonthly = planning.monthly;
   }
+  await enrichPersonalProjectDates(args, projects);
+  await enrichPersonalProjectBudgets(args, projects);
+  await enrichPersonalPersonnelBudgets(args, projects);
   await enrichPersonalProjectManagers(args, projects);
   sendJson(response, 200, { ok: true, uid, employee, projects: [...projects.values()].sort((a, b) => a.name.localeCompare(b.name) || a.id - b.id),
     timesheets, planning, planningError });
@@ -4534,7 +4759,7 @@ async function buildProjectContributors(args, records) {
     }
   }
   return [...contributors.values()].map(contributor => ({ ...contributor,
-    name: contributor.name || (contributor.employeeId ? `Employee ${contributor.employeeId}` : "Unknown employee"),
+    name: contributor.name || (contributor.employeeId ? `Employé ${contributor.employeeId}` : "Employé non identifié"),
     resourceIds: contributor.resourceIds.sort((a, b) => a - b)
   }));
 }
@@ -4590,6 +4815,92 @@ async function readProjectLifetimeMetadata(args, projectId, warnings) {
     } catch (_) { warnings.push("Project dates are unavailable with your current Odoo access."); }
   }
   return lifetime;
+}
+
+async function handleUnitDicoProjects(request, response) {
+  const session = authContext.getStore();
+  if (!session) { sendJson(response, 401, { ok: false, error: "Please sign in to continue", authenticationRequired: true }); return; }
+  if (request.method !== "POST") { sendJson(response, 405, { ok: false, error: "Use POST for this endpoint" }); return; }
+  try { await readJsonBody(request); }
+  catch (_) { sendJson(response, 400, { ok: false, error: "Request body must be valid JSON" }); return; }
+  try {
+    const settings = getAuthSettings({});
+    const uid = await authenticateOdoo(settings.odooUrl, settings.database, settings.username, settings.apiKey);
+    if (!Number.isSafeInteger(uid) || uid <= 0 || uid !== session.uid) {
+      sendJson(response, 401, { ok: false, error: "Odoo rejected your credentials", authenticationRequired: true }); return;
+    }
+    const args = [settings.odooUrl, settings.database, uid, settings.apiKey];
+    const rpc = {
+      fields: model => getModelFields(...args, model),
+      read: (model, domain, fields, options = {}) => searchReadAll(...args, model, domain, fields,
+        { ...options, context: { active_test: false, lang: "en_US" }, order: "id asc" })
+    };
+    const result = await unitDicoService.load(rpc);
+    const projects = new Map(result.projects.map(project => [project.id, project]));
+    await enrichPersonalProjectManagers(args, projects);
+    sendJson(response, 200, result);
+  } catch (_) {
+    sendJson(response, 502, { ok: false, error: "Les projets de Unit DiCo sont indisponibles. Réessayez ou vérifiez vos accès Odoo et le champ d’unité responsable." });
+  }
+}
+
+async function handleProgrammesCatalogue(request, response) {
+  const session = authContext.getStore();
+  if (!session) { sendJson(response, 401, { ok: false, error: "Please sign in to continue", authenticationRequired: true }); return; }
+  if (request.method !== "POST") { sendJson(response, 405, { ok: false, error: "Use POST for this endpoint" }); return; }
+  let body;
+  try { body = await readJsonBody(request); }
+  catch (_) { sendJson(response, 400, { ok: false, error: "Request body must be valid JSON" }); return; }
+  if (!body || typeof body !== "object" || Array.isArray(body) || Object.keys(body).length) {
+    sendJson(response, 400, { ok: false, error: "An empty JSON object is required" }); return;
+  }
+  try {
+    const settings = getAuthSettings({});
+    const uid = await authenticateOdoo(settings.odooUrl, settings.database, settings.username, settings.apiKey);
+    if (!Number.isSafeInteger(uid) || uid <= 0 || uid !== session.uid) {
+      sendJson(response, 401, { ok: false, error: "Odoo rejected your credentials", authenticationRequired: true }); return;
+    }
+    const args = [settings.odooUrl, settings.database, uid, settings.apiKey];
+    const rpc = {
+      fields: model => getModelFields(...args, model),
+      read: (model, domain, fields, options) => searchReadAll(...args, model, domain, fields, options)
+    };
+    const programmeService = require("./programme-service");
+    sendJson(response, 200, await programmeService.load(rpc, safeManagerPhotoDataUrl));
+  } catch (_) {
+    sendJson(response, 502, { ok: false, error: "Les photos des responsables de programme sont indisponibles. Réessayez ou vérifiez vos accès Odoo." });
+  }
+}
+
+async function handleProgrammeProjects(request, response) {
+  const session = authContext.getStore();
+  if (!session) { sendJson(response, 401, { ok: false, error: "Please sign in to continue", authenticationRequired: true }); return; }
+  if (request.method !== "POST") { sendJson(response, 405, { ok: false, error: "Use POST for this endpoint" }); return; }
+  let body;
+  try { body = await readJsonBody(request); }
+  catch (_) { sendJson(response, 400, { ok: false, error: "Request body must be valid JSON" }); return; }
+  if (!body || typeof body !== "object" || Array.isArray(body) || Object.keys(body).length !== 1 ||
+    !["DC1", "DC2", "DC3"].includes(body.programmeId)) {
+    sendJson(response, 400, { ok: false, error: "programmeId must identify DC1, DC2 or DC3 without additional fields" }); return;
+  }
+  try {
+    const settings = getAuthSettings({});
+    const uid = await authenticateOdoo(settings.odooUrl, settings.database, settings.username, settings.apiKey);
+    if (!Number.isSafeInteger(uid) || uid <= 0 || uid !== session.uid) {
+      sendJson(response, 401, { ok: false, error: "Odoo rejected your credentials", authenticationRequired: true }); return;
+    }
+    const args = [settings.odooUrl, settings.database, uid, settings.apiKey];
+    const rpc = {
+      fields: model => getModelFields(...args, model),
+      read: (model, domain, fields, options) => searchReadAll(...args, model, domain, fields, options)
+    };
+    const programmeService = require("./programme-service");
+    const result = await programmeService.loadProjects(body.programmeId, rpc);
+    await enrichPersonalProjectManagers(args, new Map(result.projects.map(project => [project.id, project])));
+    sendJson(response, 200, result);
+  } catch (_) {
+    sendJson(response, 502, { ok: false, error: "Les projets du programme sont indisponibles. Réessayez ou vérifiez vos accès Odoo." });
+  }
 }
 
 async function handleProjectFinance(request, response) {
@@ -4693,6 +5004,25 @@ async function handleProjectHours(request, response) {
     const result = await readScopedProjectHoursPlanning(args, project);
     planning = { ok: true, slots: result.slots, domain: result.domain };
   } catch (_) { planningError = "Project planning is unavailable with your current Odoo access or schema."; }
+  if (planning) {
+    // Keep the raw planning identity before the older role/function enrichment
+    // can resolve resource-only records. Optional failures cannot hide hours.
+    try {
+      const identities = await require("./project-planning-service").load({
+        fields: model => getModelFields(...args, model),
+        read: (model, domain, fields, kwargs) => searchReadAll(...args, model, domain, fields, kwargs)
+      }, projectId, planning.slots);
+      planning.resources = identities.resources;
+      planning.slots = planning.slots.map((slot, index) => ({ ...slot, planningIdentity: identities.identities[index] }));
+    } catch (_) {
+      const ids = [...new Set(planning.slots.map(slot => slot.resourceId)
+        .filter(id => Number.isSafeInteger(id) && id > 0))].sort((a, b) => a - b);
+      planning.resources = ids.map(id => ({ id, name: null, employeeId: null, linkStatus: "unknown", isToHire: null }));
+      planning.slots = planning.slots.map(slot => ({ ...slot, planningIdentity: !(Number.isSafeInteger(slot.resourceId) && slot.resourceId > 0) &&
+        Number.isSafeInteger(slot.employeeId) && slot.employeeId > 0
+        ? { status: "person", employeeId: slot.employeeId } : { status: "unknown", employeeId: null } }));
+    }
+  }
   const warnings = [];
   const hourRecords = [...lines, ...(planning?.slots || [])];
   await enrichEmployeeFunctions(...args, hourRecords, warnings);

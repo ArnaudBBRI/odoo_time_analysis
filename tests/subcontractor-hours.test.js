@@ -167,7 +167,7 @@ test("Ormitters inclusion starts unchecked and remains an enabled user option", 
   assert.ok(checkbox, "The inclusion option must be present");
   assert.match(checkbox, /\btype="checkbox"/);
   assert.doesNotMatch(checkbox, /\b(?:checked|disabled)(?:\s|=|>)/);
-  assert.match(source, /Include Ormitters hours/);
+  assert.match(source, /Inclure les heures des Ormitters/);
 });
 
 test("personal actual and planned totals exclude classified subcontractors while retaining inclusive source and months", () => {

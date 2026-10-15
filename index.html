@@ -1,15 +1,15 @@
 <!doctype html>
-<html lang="en">
+<html lang="fr">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Mon temps · Odoo Dashboard</title>
+  <title>Mon temps · Tableau de bord Odoo</title>
   <link rel="stylesheet" href="/personal-time.css">
+  <link rel="stylesheet" href="/personal-capacity.css">
   <link rel="stylesheet" href="/project-card.css">
+  <link rel="stylesheet" href="/project-browser.css">
   <link rel="stylesheet" href="/unit-dico.css">
   <link rel="stylesheet" href="/programme-browser.css">
-  <link rel="stylesheet" href="/personal-capacity.css">
-  <link rel="stylesheet" href="/project-browser.css">
   <link rel="stylesheet" href="/project-budget.css">
   <style>
     :root {
@@ -392,9 +392,10 @@
     #time-view { display: grid; gap: 18px; min-width: 0; }
     #time-view[data-personal="true"] .dico-project-prompt { display: none; }
     .personal-macro-heading { display: flex; align-items: start; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+    .personal-macro-heading > div { flex: 1 1 360px; min-width: 0; }
     .personal-macro-heading h2 { margin: 7px 0 10px; }
     .personal-section-label { color: var(--teal); font-size: .75rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
-    .personal-macro-description { max-width: 64ch; color: #626262; line-height: 1.6; font-size: .92rem; }
+    .personal-macro-description { color: #626262; line-height: 1.6; font-size: .92rem; }
     .personal-macro-actions { display: flex; align-items: center; gap: 12px; }
     #personalTimeStatus:not(:empty) { margin-top: 20px; color: #626262; line-height: 1.5; }
     #personalTimeStatus:empty { display: none; }
@@ -416,6 +417,29 @@
     .dashboard-menu .year-chip {
       flex: 0 0 auto;
     }
+
+    .custom-date-control { position: relative; flex: 0 0 auto; margin-left: auto; }
+    .custom-date-toggle { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+    .custom-date-toggle svg { width: 16px; height: 16px; }
+    .custom-date-panel {
+      position: absolute; right: 0; top: calc(100% + 10px); z-index: 110;
+      width: min(340px, calc(100vw - 48px)); padding: 16px;
+      background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+      box-shadow: var(--shadow);
+    }
+    .custom-date-panel[hidden] { display: none; }
+    .custom-date-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+    .custom-date-fields label { display: grid; gap: 6px; min-width: 0; font-size: .8rem; color: #626262; font-weight: 700; }
+    .custom-date-fields input {
+      width: 100%; min-width: 0; box-sizing: border-box; padding: 9px 8px;
+      font: inherit; font-size: .88rem; color: var(--ink); background: #fff;
+      border: 1px solid var(--line); border-radius: 6px;
+    }
+    .custom-date-fields input[aria-invalid="true"] { border-color: #ad4c38; }
+    .custom-date-help { margin: 10px 0 0; font-size: .75rem; line-height: 1.5; color: #626262; }
+    .custom-date-error { margin: 8px 0 0; font-size: .78rem; line-height: 1.4; color: #ad4c38; }
+    .custom-date-error:empty { display: none; }
+    .custom-date-reset { margin-top: 12px; font-size: .78rem; }
 
     .hours-scope-toggle {
       display: inline-flex;
@@ -1513,7 +1537,7 @@
           <input id="personalPlanFile" data-testid="personal-plan-file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
         </label>
         <label class="file-picker" data-help="Actual hours for one or more projects: project row with employee rows below it and months as columns.">
-          <span>Project exports</span>
+          <span>Exports de projet</span>
           <input id="projectFiles" data-testid="project-files" type="file" multiple accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
         </label>
         <label class="file-picker" data-help="Optional planning for projects: employees as rows, end-date month columns, planned hours as values.">
@@ -1530,29 +1554,52 @@
     <nav id="pilotage-nav" class="pilotage-nav" aria-label="Navigation du dashboard">
       <button type="button" data-view="time" aria-current="page">Mon temps</button>
       <button type="button" data-view="projects">Projets</button>
-      <button type="button" data-view="programmes" disabled>Programmes</button>
-      <button type="button" data-view="unit" disabled>Unité DiCo</button>
-      <button type="button" id="pilotage-my-projects" disabled>Mes projets comme project leader</button>
+      <button type="button" data-view="unit-dico">Unité DiCo</button>
+      <button type="button" data-view="programmes">Programmes</button>
+      <button type="button" data-view="unit" disabled>Pilotage DiCo</button>
+      <button type="button" id="pilotage-my-projects" disabled>Mes projets comme responsable de projet</button>
     </nav>
       <label id="hoursInclusionControl" class="hours-inclusion-control" hidden>
         <input id="includeOrmittersHours" type="checkbox" aria-describedby="subcontractorHoursNote">
-        <strong>Include Ormitters hours</strong>
+        <strong>Inclure les heures des Ormitters</strong>
       </label>
-      <div id="hoursScopeControl" class="hours-scope-toggle" role="group" aria-label="Hours scope" hidden>
-        <button id="hoursScopeMe" class="hours-scope-button" type="button" aria-pressed="true">Me</button>
-        <button id="hoursScopeWhole" class="hours-scope-button" type="button" aria-pressed="false">Whole Project</button>
+      <div id="hoursScopeControl" class="hours-scope-toggle" role="group" aria-label="Périmètre des heures" hidden>
+        <button id="hoursScopeMe" class="hours-scope-button" type="button" aria-pressed="true">Moi</button>
+        <button id="hoursScopeWhole" class="hours-scope-button" type="button" aria-pressed="false">Tout le projet</button>
       </div>
-      <div id="filterBar" class="filter-bar" aria-label="Années sélectionnées">
+      <div id="filterBar" class="filter-bar" aria-label="Période sélectionnée">
         <div class="filter-title">
           <strong>Période</strong>
           <span id="scopeText">Années disponibles</span>
         </div>
         <div id="yearChips" class="year-chips"></div>
+        <div id="customDateControl" class="custom-date-control" hidden>
+          <button id="customDateToggle" class="year-chip custom-date-toggle" type="button" aria-expanded="false" aria-pressed="false" aria-controls="customDatePanel">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4M17 3v4M3 11h18M7 15h3M14 15h3"/></svg>
+            Période personnalisée
+          </button>
+          <div id="customDatePanel" class="custom-date-panel" role="group" aria-label="Période personnalisée" hidden>
+            <div class="custom-date-fields">
+              <label>Du<input id="customDateStart" type="date" min="0001-01-01" max="9998-12-31" aria-describedby="customDateHelp customDateError"></label>
+              <label>Au<input id="customDateEnd" type="date" min="0001-01-01" max="9998-12-31" aria-describedby="customDateHelp customDateError"></label>
+            </div>
+            <p id="customDateHelp" class="custom-date-help">Les deux dates sont incluses. La période s’applique automatiquement.</p>
+            <p id="customDateError" class="custom-date-error" role="status" aria-live="polite"></p>
+            <button id="customDateReset" class="year-chip custom-date-reset" type="button" hidden>Revenir aux années</button>
+          </div>
+        </div>
       </div>
       <p id="hoursScopeStatus" class="hours-scope-status" aria-live="polite" hidden></p>
     </section>
     <section id="personal-projects-view" hidden aria-label="Mes projets">
       <div id="personalProjectsContent"></div>
+    </section>
+    <section id="unit-dico-view" hidden aria-label="Unité DiCo">
+      <div id="unitDicoContent"></div>
+    </section>
+    <section id="programmes-view" hidden aria-label="Programmes">
+      <div id="programmesContent"></div>
+      <div id="programmeProjectsContent"></div>
     </section>
     <p id="pilotage-activation" class="pilotage-note" role="status" hidden></p>
     <section id="pilotage-view" hidden aria-label="Pilotage DiCo">
@@ -1564,7 +1611,7 @@
           <label>Responsable<select id="pilotage-owner"><option value="">Tous</option></select></label>
           <label>Statut<select id="pilotage-stage"><option value="">Tous</option></select></label>
           <label>Période<select id="pilotage-period"><option value="">Toutes les périodes</option></select></label>
-          <label class="pilotage-checkbox"><input type="checkbox" id="pilotage-leader">Project leader : moi</label>
+          <label class="pilotage-checkbox"><input type="checkbox" id="pilotage-leader">Responsable de projet : moi</label>
         </div>
         <p class="pilotage-note">La période sélectionne les projets dont les dates recouvrent l’année. Les heures restent des cumuls projet / horizon disponible ; aucun historique des chargements n’est conservé.</p>
       </div>
@@ -1586,6 +1633,8 @@
         </form>
       </div>
       <p id="personalTimeStatus" role="status" aria-live="polite">Chargement de mes heures…</p>
+      <div id="personalTimeRecommendations" hidden></div>
+      <div id="personalTimeCapacity" hidden></div>
       <div id="personalTimeContent"></div>
     </section>
     <p id="statusText" class="portfolio-message" role="alert" hidden></p>
@@ -1680,15 +1729,15 @@
   </main>
 
   <script src="/personal-time.js"></script>
-  <script src="/project-monthly.js"></script>
-  <script src="/project-budget.js"></script>
-  <script src="/project-card.js"></script>
-  <script src="/unit-dico.js"></script>
-  <script src="/programme-browser.js"></script>
   <script src="/work-capacity.js"></script>
   <script src="/personal-capacity.js"></script>
+  <script src="/project-monthly.js"></script>
   <script src="/project-planning.js"></script>
+  <script src="/project-budget.js"></script>
+  <script src="/project-card.js"></script>
   <script src="/project-browser.js"></script>
+  <script src="/unit-dico.js"></script>
+  <script src="/programme-browser.js"></script>
   <script>
     (() => {
       "use strict";
@@ -1730,8 +1779,24 @@
         personalTimeLoading: false,
         personalTimeError: "",
         personalTimeFetchToken: 0,
+        personalTimeRecommendationTolerance: 15,
+        personalCapacityCache: new Map(),
+        personalCapacityGeneration: 0,
         hiddenPersonalProjects: new Set(),
         selectedPersonalProjectId: null,
+        unitDicoResult: null,
+        unitDicoLoading: false,
+        unitDicoError: "",
+        unitDicoFetchToken: 0,
+        selectedUnitProjectId: null,
+        programmeResult: null,
+        programmeLoading: false,
+        programmeError: "",
+        programmeFetchToken: 0,
+        selectedProgrammeId: null,
+        programmeProjectsCache: new Map(),
+        programmeProjectsFetchToken: 0,
+        selectedProgrammeProjectId: null,
         focusPersonalProjectDetail: false,
         focusPersonalProjectId: null,
         personalProjectHoursCache: new Map(),
@@ -1741,9 +1806,11 @@
         personalProjectView: new Map(),
         personalProjectConvention: new Map(),
         personalProjectExcludeOrmitterCosts: new Map(),
+        personalProjectShowBwPersonnelCosts: new Map(),
         personalProjectOrmitters: new Map(),
         personalProjectMonthlyMode: new Map(),
         personalProjectMonthlyEmployee: new Map(),
+        personalProjectPlannedMonthlyEmployee: new Map(),
         personalProjectMonthlyReveal: new Map(),
         portfolioProjects: [],
         portfolioPlanningError: null,
@@ -1769,14 +1836,21 @@
         errors: [],
         years: [],
         selectedYears: new Set(),
+        customDateRange: null,
+        customDatePanelOpen: false,
         activeProjectKey: "",
         projectFetchToken: 0
       };
 
       const els = {
         personalTimeContent: document.getElementById("personalTimeContent"),
+        personalTimeRecommendations: document.getElementById("personalTimeRecommendations"),
+        personalTimeCapacity: document.getElementById("personalTimeCapacity"),
         personalTimeStatus: document.getElementById("personalTimeStatus"),
         personalProjectsContent: document.getElementById("personalProjectsContent"),
+        unitDicoContent: document.getElementById("unitDicoContent"),
+        programmesContent: document.getElementById("programmesContent"),
+        programmeProjectsContent: document.getElementById("programmeProjectsContent"),
         hoursInclusionControl: document.getElementById("hoursInclusionControl"),
         hoursScopeControl: document.getElementById("hoursScopeControl"),
         subcontractorNotePanel: document.getElementById("subcontractorNotePanel"),
@@ -1802,6 +1876,13 @@
         filterBar: document.getElementById("filterBar"),
         yearChips: document.getElementById("yearChips"),
         scopeText: document.getElementById("scopeText"),
+        customDateControl: document.getElementById("customDateControl"),
+        customDateToggle: document.getElementById("customDateToggle"),
+        customDatePanel: document.getElementById("customDatePanel"),
+        customDateStart: document.getElementById("customDateStart"),
+        customDateEnd: document.getElementById("customDateEnd"),
+        customDateError: document.getElementById("customDateError"),
+        customDateReset: document.getElementById("customDateReset"),
         kpiGrid: document.getElementById("kpiGrid"),
         myHours: document.getElementById("myHours"),
         myProjectCount: document.getElementById("myProjectCount"),
@@ -1839,14 +1920,34 @@
       };
       loadSessionIdentity();
       fetchPersonalTime();
-      window.addEventListener("dashboard:viewchange", (event) => {
+      initializeCustomDateRangeControls();
+      window.addEventListener("dashboard:viewchange", handleDashboardViewChange);
+
+      function handleDashboardViewChange(event) {
+        if (state.dashboardView !== event.detail.view) {
+          const previousHost = state.dashboardView === "unit-dico" ? els.unitDicoContent :
+            state.dashboardView === "programmes" ? els.programmeProjectsContent :
+            state.dashboardView === "projects" ? els.personalProjectsContent : null;
+          if (previousHost) window.ProjectBrowser?.cleanup?.(previousHost);
+          if (["unit-dico", "programmes"].includes(state.dashboardView)) window.UnitDico?.cleanup?.(previousHost);
+        }
         if (event.detail.view === "projects" && state.dashboardView !== "projects") state.selectedPersonalProjectId = null;
         state.dashboardView = event.detail.view;
         els.filterBar.hidden = !["time", "projects"].includes(state.dashboardView);
         els.hoursInclusionControl.hidden = true;
         els.hoursScopeControl.hidden = true;
         renderPersonalProjects();
-      });
+        if (state.dashboardView === "unit-dico") {
+          fetchUnitDicoProjects();
+          loadSelectedProjectDetail();
+        }
+        if (state.dashboardView === "programmes") {
+          renderProgrammes();
+          fetchProgrammeCatalogue();
+          if (state.selectedProgrammeId) fetchProgrammeProjects(state.selectedProgrammeId);
+          loadSelectedProjectDetail();
+        }
+      }
       document.getElementById("logoutButton").addEventListener("click", async () => {
         try {
           const response = await fetch("/api/auth/logout", { method: "POST" });
@@ -1933,6 +2034,8 @@
 
       async function fetchPersonalTime() {
         const token = ++state.personalTimeFetchToken;
+        state.personalCapacityGeneration += 1;
+        state.personalCapacityCache.clear();
         state.personalTimeLoading = true;
         state.personalTimeError = "";
         setOdooButtonsDisabled(true);
@@ -1975,16 +2078,16 @@
           render();
         } catch (error) {
           if (token !== state.personalTimeFetchToken) return;
-          state.personalTimeError = error.message || "La lecture de mes heures est indisponible.";
+          state.personalTimeError = "La lecture de mes heures est indisponible avec vos accès Odoo. Réessayez.";
         } finally {
           if (token === state.personalTimeFetchToken) {
             state.personalTimeLoading = false;
             setOdooButtonsDisabled(false);
             renderPersonalTimeMacro();
             renderPersonalProjects();
-            if (state.dashboardView === "projects" && state.selectedPersonalProjectId != null) {
-              if (state.personalProjectView.get(String(state.selectedPersonalProjectId)) === "budget") loadPersonalProjectFinance(state.selectedPersonalProjectId);
-              else loadPersonalProjectHours(state.selectedPersonalProjectId);
+            if (["projects", "unit-dico", "programmes"].includes(state.dashboardView) && getSelectedDetailProjectId() != null) {
+              if (state.personalProjectView.get(String(getSelectedDetailProjectId())) === "budget") loadPersonalProjectFinance(getSelectedDetailProjectId());
+              else loadPersonalProjectHours(getSelectedDetailProjectId());
             }
           }
         }
@@ -1998,12 +2101,15 @@
         if (state.personalTimeResult?.planningError) messages.push("Le planning est indisponible. Les heures réalisées restent affichées dans la liste.");
         els.personalTimeStatus.textContent = messages.join(" ");
         els.personalTimeContent.setAttribute("aria-busy", String(state.personalTimeLoading));
+        renderPersonalRecommendations();
+        renderPersonalCapacity();
         if (!state.personalTimeResult) return;
-        const projects = window.PersonalTime.summarizeProjects(state.personalTimeResult, state.selectedYears);
-        const scopeLabel = Array.from(state.selectedYears).sort((a, b) => a - b).join(" · ");
+        const projects = window.PersonalTime.summarizeProjects(state.personalTimeResult, getPersonalTimeScope());
+        const scopeLabel = getPersonalTimeScopeLabel();
         window.PersonalTime.render(els.personalTimeContent, projects, {
           embedded: true,
           years: state.selectedYears,
+          scope: getPersonalTimeScope(),
           hiddenIds: state.hiddenPersonalProjects,
           scopeLabel,
           onToggle(id) {
@@ -2015,74 +2121,349 @@
         });
       }
 
+      function getPersonalCapacityYears(scope) {
+        if (scope && typeof scope === "object" && typeof scope.startDate === "string" && typeof scope.endDate === "string") {
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(scope.startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(scope.endDate) || scope.startDate > scope.endDate) return [];
+          const first = Number(scope.startDate.slice(0, 4)), last = Number(scope.endDate.slice(0, 4));
+          if (last - first >= 30) return [];
+          return Array.from({ length: last - first + 1 }, (_, index) => first + index);
+        }
+        return [...new Set(Array.from(scope || []))].filter(year => Number.isInteger(year) && year >= 1900 && year <= 2200).sort((a, b) => a - b);
+      }
+
+      async function fetchPersonalCapacity(years, key, entry, generation) {
+        try {
+          const result = await postOdooJson("/api/odoo/my-work-capacity", { years }, "Capacité de travail");
+          if (generation !== state.personalCapacityGeneration || state.personalCapacityCache.get(key) !== entry) return;
+          entry.result = result;
+        } catch (_) {
+          if (generation !== state.personalCapacityGeneration || state.personalCapacityCache.get(key) !== entry) return;
+          entry.error = "Le calendrier de travail ou les droits annuels sont indisponibles avec vos accès Odoo.";
+        } finally {
+          if (generation === state.personalCapacityGeneration && state.personalCapacityCache.get(key) === entry) {
+            entry.loading = false;
+            renderPersonalCapacity();
+          }
+        }
+      }
+
+      function renderPersonalCapacity() {
+        const container = els.personalTimeCapacity;
+        if (!container || !window.PersonalCapacity?.render || !window.WorkCapacity?.summarize) return;
+        container.hidden = !state.personalTimeResult;
+        if (!state.personalTimeResult) return;
+        const scope = getPersonalTimeScope(), years = getPersonalCapacityYears(scope), key = JSON.stringify(years);
+        let entry = state.personalCapacityCache.get(key);
+        if (!entry && years.length && years.length <= 30 && !state.personalTimeLoading) {
+          entry = { loading: true, result: null, error: "" };
+          state.personalCapacityCache.set(key, entry);
+          fetchPersonalCapacity(years, key, entry, state.personalCapacityGeneration);
+        }
+        let model = { status: "unavailable", availableHours: null, availableDays: null, years: [], warnings: [] };
+        if (entry?.result) {
+          try { model = window.WorkCapacity.summarize(entry.result, scope); }
+          catch (_) { /* Optional capacity cannot hide existing personal hours. */ }
+        }
+        const planningKnown = state.personalTimeResult.planning?.ok === true &&
+          !state.personalTimeResult.planningError && Array.isArray(state.personalTimeResult.planning.slots);
+        const projects = window.PersonalTime.summarizeProjects(state.personalTimeResult, scope);
+        model = { ...model, scopeLabel: getPersonalTimeScopeLabel(), plannedHours: planningKnown
+          ? projects.reduce((sum, project) => sum + project.planned, 0) : null };
+        window.PersonalCapacity.render(container, model, {
+          loading: Boolean(state.personalTimeLoading || entry?.loading),
+          error: entry?.error || (!years.length || years.length > 30 ? "Choisissez une période couvrant au maximum 30 années." : "")
+        });
+      }
+
+      function renderPersonalRecommendations() {
+        const container = els.personalTimeRecommendations;
+        if (!container || !window.PersonalTime?.buildRecommendations || !window.PersonalTime?.renderRecommendations) return;
+        container.hidden = !state.personalTimeResult;
+        if (!state.personalTimeResult) return;
+        const now = new Date();
+        const scope = getPersonalTimeScope();
+        const projects = window.PersonalTime.summarizeProjects(state.personalTimeResult, scope, now);
+        const model = window.PersonalTime.buildRecommendations(projects, scope, {
+          now, data: state.personalTimeResult, tolerancePercent: state.personalTimeRecommendationTolerance
+        });
+        window.PersonalTime.renderRecommendations(container, model, {
+          onToleranceChange(value) {
+            if (!Number.isFinite(value)) return;
+            state.personalTimeRecommendationTolerance = Math.max(0, Math.min(100, value));
+            renderPersonalRecommendations();
+          }
+        });
+      }
+
       function getScopedPersonalProjects() {
         if (!state.personalTimeResult || typeof window === "undefined" || !window.PersonalTime) return [];
         const catalogue = new Map((state.personalTimeResult.projects || []).map(project => [String(project.id), project]));
-        return window.PersonalTime.summarizeProjects(state.personalTimeResult, state.selectedYears)
+        return window.PersonalTime.summarizeProjects(state.personalTimeResult, getPersonalTimeScope())
           .filter(project => Number.isSafeInteger(Number(project.id)) && Number(project.id) > 0)
-          .map(project => ({ ...project, manager: catalogue.get(String(project.id))?.manager || null }));
+          .map(project => ({ ...project, manager: catalogue.get(String(project.id))?.manager || null,
+            startDate: catalogue.get(String(project.id))?.startDate || null,
+            endDate: catalogue.get(String(project.id))?.endDate || null,
+            totalBudget: catalogue.get(String(project.id))?.totalBudget || null }));
+      }
+
+      function getSelectedDetailProjectId() {
+        return state.dashboardView === "unit-dico" ? state.selectedUnitProjectId :
+          state.dashboardView === "programmes" ? state.selectedProgrammeProjectId : state.selectedPersonalProjectId;
+      }
+
+      function setSelectedDetailProjectId(id) {
+        if (state.dashboardView === "unit-dico") state.selectedUnitProjectId = id;
+        else if (state.dashboardView === "programmes") state.selectedProgrammeProjectId = id;
+        else state.selectedPersonalProjectId = id;
+      }
+
+      function getDetailProjectCatalogue(fullPersonalCatalogue = false) {
+        if (state.dashboardView === "unit-dico") return state.unitDicoResult?.projects || [];
+        if (state.dashboardView === "programmes") return state.programmeProjectsCache.get(state.selectedProgrammeId)?.result?.projects || [];
+        return fullPersonalCatalogue ? state.personalTimeResult?.projects || [] : getScopedPersonalProjects();
+      }
+
+      function loadSelectedProjectDetail() {
+        if (!["projects", "unit-dico", "programmes"].includes(state.dashboardView)) return;
+        const id = getSelectedDetailProjectId();
+        if (id == null) return;
+        if (state.personalProjectView.get(String(id)) === "budget") return loadPersonalProjectFinance(id);
+        return loadPersonalProjectHours(id);
+      }
+
+      function renderProgrammes() {
+        if (state.dashboardView !== "programmes" || !window.ProgrammeBrowser || !els.programmesContent) return;
+        window.ProgrammeBrowser.render(els.programmesContent, state.programmeResult || {}, {
+          selectedId: state.selectedProgrammeId, loading: state.programmeLoading, error: state.programmeError,
+          onSelect: chooseProgramme, onRetry: () => fetchProgrammeCatalogue(true)
+        });
+      }
+
+      function chooseProgramme(id) {
+        if (!window.ProgrammeBrowser?.PROGRAMMES.some(programme => programme.id === id) || state.selectedProgrammeId === id) return;
+        state.selectedProgrammeId = id;
+        state.selectedProgrammeProjectId = null;
+        state.focusPersonalProjectId = null;
+        state.focusPersonalProjectDetail = false;
+        renderPersonalProjects();
+        fetchProgrammeProjects(id);
+      }
+
+      async function fetchProgrammeProjects(id, force = false) {
+        if (!window.ProgrammeBrowser?.PROGRAMMES.some(programme => programme.id === id)) return;
+        const cached = state.programmeProjectsCache.get(id);
+        if (cached?.loading || (!force && cached?.result)) return;
+        const entry = { result: null, loading: true, error: "", token: ++state.programmeProjectsFetchToken };
+        state.programmeProjectsCache.set(id, entry);
+        if (state.dashboardView === "programmes" && state.selectedProgrammeId === id) renderPersonalProjects();
+        try {
+          const result = await postOdooJson("/api/odoo/programme-projects", { programmeId: id }, "Projets du programme");
+          if (state.programmeProjectsCache.get(id) !== entry) return;
+          if (result.programme?.id !== id || !Array.isArray(result.projects) ||
+            result.projects.some(project => !Number.isSafeInteger(project.id) || project.id <= 0) ||
+            new Set(result.projects.map(project => project.id)).size !== result.projects.length) {
+            throw new Error("Les projets reçus ne correspondent pas au programme sélectionné.");
+          }
+          entry.result = result;
+          if (force && state.dashboardView === "programmes" && state.selectedProgrammeId === id) {
+            state.personalProjectHoursGeneration += 1;
+            state.personalProjectHoursCache.clear();
+            state.personalProjectFinanceGeneration += 1;
+            state.personalProjectFinanceCache.clear();
+          }
+          if (state.selectedProgrammeId === id && !result.projects.some(project => project.id === state.selectedProgrammeProjectId)) {
+            state.selectedProgrammeProjectId = null;
+          }
+        } catch (_) {
+          if (state.programmeProjectsCache.get(id) !== entry) return;
+          entry.error = "Les projets de ce programme sont indisponibles avec vos accès Odoo. Réessayez.";
+        } finally {
+          if (state.programmeProjectsCache.get(id) === entry) {
+            entry.loading = false;
+            if (state.dashboardView === "programmes" && state.selectedProgrammeId === id) {
+              renderPersonalProjects();
+              loadSelectedProjectDetail();
+            }
+          }
+        }
+      }
+
+      async function fetchProgrammeCatalogue(force = false) {
+        if (!force && (state.programmeLoading || state.programmeResult)) return;
+        const token = ++state.programmeFetchToken;
+        state.programmeLoading = true;
+        state.programmeError = "";
+        renderProgrammes();
+        try {
+          const result = await postOdooJson("/api/odoo/programmes-catalogue", {}, "Programmes");
+          if (token !== state.programmeFetchToken) return;
+          state.programmeResult = { programmes: window.ProgrammeBrowser.normalizeCatalogue(result) };
+        } catch (error) {
+          if (token !== state.programmeFetchToken) return;
+          state.programmeError = "Les portraits des responsables sont indisponibles. Réessayez.";
+        } finally {
+          if (token === state.programmeFetchToken) {
+            state.programmeLoading = false;
+            renderProgrammes();
+          }
+        }
+      }
+
+      async function fetchUnitDicoProjects(force = false) {
+        if (!force && (state.unitDicoLoading || state.unitDicoResult)) return;
+        const token = ++state.unitDicoFetchToken;
+        state.unitDicoLoading = true;
+        state.unitDicoError = "";
+        renderPersonalProjects();
+        try {
+          const result = await postOdooJson("/api/odoo/unit-dico-projects", {}, "Projets Unité DiCo");
+          if (token !== state.unitDicoFetchToken) return;
+          if (result.unit?.id !== 206 || result.responsibleField !== "lead_unit_id" || !Array.isArray(result.projects) ||
+            result.projects.some(project => !Number.isSafeInteger(project.id) || project.id <= 0)) {
+            throw new Error("Les projets reçus ne correspondent pas à l’unité DiCo attendue.");
+          }
+          state.unitDicoResult = result;
+          if (force) {
+            state.personalProjectHoursGeneration += 1;
+            state.personalProjectHoursCache.clear();
+            state.personalProjectFinanceGeneration += 1;
+            state.personalProjectFinanceCache.clear();
+          }
+          if (!result.projects.some(project => project.id === state.selectedUnitProjectId)) state.selectedUnitProjectId = null;
+        } catch (error) {
+          if (token !== state.unitDicoFetchToken) return;
+          state.unitDicoResult = null;
+          state.selectedUnitProjectId = null;
+          state.unitDicoError = "Les projets de l’unité DiCo sont indisponibles avec vos accès Odoo. Réessayez.";
+        } finally {
+          if (token === state.unitDicoFetchToken) {
+            state.unitDicoLoading = false;
+            renderPersonalProjects();
+            loadSelectedProjectDetail();
+          }
+        }
       }
 
       function renderPersonalProjects() {
-        if (typeof window === "undefined" || !window.ProjectBrowser || !els.personalProjectsContent) return;
-        const projects = getScopedPersonalProjects();
-        const rememberedView = state.personalProjectView.get(String(state.selectedPersonalProjectId));
-        if (rememberedView === "budget" && state.selectedPersonalProjectId != null &&
-          !projects.some(project => String(project.id) === String(state.selectedPersonalProjectId))) {
-          const selected = state.personalTimeResult?.projects?.find(project => String(project.id) === String(state.selectedPersonalProjectId));
+        if (!["projects", "unit-dico", "programmes"].includes(state.dashboardView)) {
+          updatePersonalProjectFilterVisibility();
+          return;
+        }
+        const unitView = state.dashboardView === "unit-dico";
+        const programmeView = state.dashboardView === "programmes";
+        const programme = programmeView ? window.ProgrammeBrowser?.PROGRAMMES.find(row => row.id === state.selectedProgrammeId) : null;
+        const catalogue = programmeView ? state.programmeProjectsCache.get(state.selectedProgrammeId) : null;
+        const container = unitView ? els.unitDicoContent : programmeView ? els.programmeProjectsContent : els.personalProjectsContent;
+        if (typeof window === "undefined" || !window.ProjectBrowser || !container) return;
+        if (programmeView && !programme) {
+          window.ProjectBrowser.cleanup?.(container);
+          window.UnitDico?.cleanup?.(container);
+          container.replaceChildren();
+          updatePersonalProjectFilterVisibility();
+          return;
+        }
+        const projects = getDetailProjectCatalogue();
+        const rememberedView = state.personalProjectView.get(String(getSelectedDetailProjectId()));
+        if (!unitView && !programmeView && rememberedView === "budget" && getSelectedDetailProjectId() != null &&
+          !projects.some(project => String(project.id) === String(getSelectedDetailProjectId()))) {
+          const selected = state.personalTimeResult?.projects?.find(project => String(project.id) === String(getSelectedDetailProjectId()));
           if (selected) projects.push(selected);
         }
-        if (!projects.some(project => String(project.id) === String(state.selectedPersonalProjectId))) state.selectedPersonalProjectId = null;
-        const panel = state.personalProjectView.get(String(state.selectedPersonalProjectId)) || "hours";
-        const hours = state.personalProjectHoursCache.get(String(state.selectedPersonalProjectId));
+        if (!projects.some(project => String(project.id) === String(getSelectedDetailProjectId()))) setSelectedDetailProjectId(null);
+        if ((unitView || programmeView) && getSelectedDetailProjectId() == null) {
+          window.ProjectBrowser.cleanup?.(container);
+          window.UnitDico?.render(container, programmeView ? catalogue?.result : state.unitDicoResult, {
+            loading: programmeView ? catalogue?.loading : state.unitDicoLoading,
+            error: programmeView ? catalogue?.error : state.unitDicoError,
+            ...(programmeView ? {
+              projectsHeading: `${programme.code} · 01 / Projets · ${programme.subtitle}`,
+              caption: "Liste de projets associée à ce programme, sur leur durée totale. Affectation définie dans le dashboard ; accès Odoo respectés.",
+              legend: `Choisir un projet ${programme.code}`, radioName: "programme-project",
+              loadingMessage: `Chargement des projets ${programme.code}…`,
+              unavailableMessage: `Les projets ${programme.code} sont indisponibles.`,
+              emptyMessage: `Aucun projet ${programme.code} accessible.`,
+              heading: `${programme.code} · 02 / Calendrier des projets`,
+              regionLabel: `Calendrier de durée des projets ${programme.code}, défilement horizontal disponible`,
+              concurrencyHeading: `${programme.code} · 03 / Projets simultanés`
+            } : {}),
+            onRetry: () => programmeView ? fetchProgrammeProjects(programme.id, true) : fetchUnitDicoProjects(true),
+            onRefresh: () => programmeView ? fetchProgrammeProjects(programme.id, true) : fetchUnitDicoProjects(true),
+            onSelect: choosePersonalProject, focusProjectId: state.focusPersonalProjectId
+          });
+          state.focusPersonalProjectId = null;
+          state.focusPersonalProjectDetail = false;
+          updatePersonalProjectFilterVisibility();
+          return;
+        }
+        const panel = state.personalProjectView.get(String(getSelectedDetailProjectId())) || "hours";
+        const hours = state.personalProjectHoursCache.get(String(getSelectedDetailProjectId()));
         const monthly = panel === "hours" && hours?.result ? summarizePersonalProjectMonthly(hours.result) : null;
-        const calendarScope = hours?.result ? window.PersonalTime.projectCalendarProgress(state.selectedYears,
+        const plannedMonthly = panel === "hours" && hours?.result ? summarizePersonalProjectPlanningMonthly(hours.result) : null;
+        const calendarScope = hours?.result ? window.PersonalTime.projectCalendarProgress(getPersonalTimeScope(),
           hours.result.lifetime?.startDate, hours.result.lifetime?.endDate, new Date()) : null;
-        const projectKey = String(state.selectedPersonalProjectId);
+        const projectKey = String(getSelectedDetailProjectId());
         let monthlyEmployeeId = state.personalProjectMonthlyEmployee.get(projectKey) ?? null;
         if (monthly && !monthly.employees.some(employee => String(employee.id) === monthlyEmployeeId)) {
           state.personalProjectMonthlyEmployee.delete(projectKey);
           monthlyEmployeeId = null;
         }
-        window.ProjectBrowser.render(els.personalProjectsContent, {
+        let plannedMonthlyEmployeeId = state.personalProjectPlannedMonthlyEmployee.get(projectKey) ?? null;
+        if (plannedMonthly && !plannedMonthly.employees.some(employee => String(employee.id) === plannedMonthlyEmployeeId)) {
+          state.personalProjectPlannedMonthlyEmployee.delete(projectKey);
+          plannedMonthlyEmployeeId = null;
+        }
+        if (unitView || programmeView) window.UnitDico?.cleanup?.(container);
+        window.ProjectBrowser.render(container, {
           projects,
-          selectedId: state.selectedPersonalProjectId,
-          loading: state.personalTimeLoading,
-          error: state.personalTimeError,
+          timelineRenderer: window.UnitDico,
+          selectedId: getSelectedDetailProjectId(),
+          loading: unitView ? state.unitDicoLoading : programmeView ? catalogue?.loading : state.personalTimeLoading,
+          error: unitView ? state.unitDicoError : programmeView ? catalogue?.error : state.personalTimeError,
           focusDetail: state.focusPersonalProjectDetail,
           focusProjectId: state.focusPersonalProjectId,
           years: state.selectedYears,
+          scope: getPersonalTimeScope(),
+          scopeLabel: getPersonalTimeScopeLabel(),
           panel,
           finance: {
             ...(state.personalProjectFinanceCache.get(projectKey) || { result: null, loading: panel === "budget", error: "" }),
             selectedConventionId: state.personalProjectConvention.get(projectKey) ?? null,
-            excludeOrmitterCosts: state.personalProjectExcludeOrmitterCosts.get(projectKey) === true
+            excludeOrmitterCosts: state.personalProjectExcludeOrmitterCosts.get(projectKey) === true,
+            showBwPersonnelCosts: state.personalProjectShowBwPersonnelCosts.get(projectKey) === true
           },
-          detail: state.selectedPersonalProjectId == null ? null : {
+          detail: getSelectedDetailProjectId() == null ? null : {
             personal: hours?.result ? summarizePersonalProjectHours(hours.result, true) : null,
             project: hours?.result ? summarizePersonalProjectHours(hours.result, false) : null,
             lifetime: hours?.result ? summarizeLifetimeProjectHours(hours.result) : null,
             monthly,
+            plannedMonthly,
+            planningInfo: hours?.result && window.ProjectPlanning ? window.ProjectPlanning.summarize(hours.result, {
+              now: new Date(),
+              includeOrmitters: false
+            }) : null,
             monthlyEmployeeId,
-            monthlyMode: state.personalProjectMonthlyMode.get(String(state.selectedPersonalProjectId)) || "monthly",
-            monthlyRevealKey: state.personalProjectMonthlyReveal.get(String(state.selectedPersonalProjectId)) || 0,
+            plannedMonthlyEmployeeId,
+            monthlyMode: state.personalProjectMonthlyMode.get(String(getSelectedDetailProjectId())) || "monthly",
+            monthlyRevealKey: state.personalProjectMonthlyReveal.get(String(getSelectedDetailProjectId())) || 0,
             loading: hours?.loading ?? !hours?.error,
             error: hours?.error || "",
             hasOrmitters: hours?.result ? hasProjectOrmitters(hours.result) : false,
-            includeOrmitters: Boolean(hours?.result && hasProjectOrmitters(hours.result) && state.personalProjectOrmitters.get(String(state.selectedPersonalProjectId)) === true),
+            includeOrmitters: Boolean(hours?.result && hasProjectOrmitters(hours.result) && state.personalProjectOrmitters.get(String(getSelectedDetailProjectId())) === true),
             calendarFraction: calendarScope?.fraction ?? null,
             calendarScope
           },
           onSelect: choosePersonalProject,
           onBack: clearPersonalProject,
           onViewChange: setPersonalProjectView,
-          onBudgetRetry: () => loadPersonalProjectFinance(state.selectedPersonalProjectId, true),
+          onBudgetRetry: () => loadPersonalProjectFinance(getSelectedDetailProjectId(), true),
           onConventionChange: setPersonalProjectConvention,
           onExcludeOrmitterCostsChange: setPersonalProjectExcludeOrmitterCosts,
+          onShowBwPersonnelCostsChange: setPersonalProjectShowBwPersonnelCosts,
           onIncludeOrmittersChange: setPersonalProjectOrmitters,
           onMonthlyModeChange: setPersonalProjectMonthlyMode,
           onMonthlyEmployeeChange: setPersonalProjectMonthlyEmployee,
-          onRetry: () => loadPersonalProjectHours(state.selectedPersonalProjectId, true)
+          onPlannedMonthlyEmployeeChange: setPersonalProjectPlannedMonthlyEmployee,
+          onRetry: () => loadPersonalProjectHours(getSelectedDetailProjectId(), true)
         });
         state.focusPersonalProjectDetail = false;
         state.focusPersonalProjectId = null;
@@ -2090,14 +2471,17 @@
       }
 
       function updatePersonalProjectFilterVisibility() {
-        els.filterBar.hidden = !["time", "projects"].includes(state.dashboardView) ||
-          (state.dashboardView === "projects" && state.selectedPersonalProjectId != null &&
-            state.personalProjectView.get(String(state.selectedPersonalProjectId)) === "budget");
+        const selectedId = getSelectedDetailProjectId();
+        const projectView = ["projects", "unit-dico", "programmes"].includes(state.dashboardView);
+        els.filterBar.hidden = !(state.dashboardView === "time" || state.dashboardView === "projects" ||
+          ["unit-dico", "programmes"].includes(state.dashboardView) && selectedId != null) ||
+          (projectView && selectedId != null && state.personalProjectView.get(String(selectedId)) === "budget");
+        if (els.filterBar.hidden && state.customDatePanelOpen) setCustomDatePanelOpen(false);
       }
 
       function setPersonalProjectView(panel) {
-        if (!["hours", "budget"].includes(panel) || state.selectedPersonalProjectId == null) return;
-        const id = state.selectedPersonalProjectId;
+        if (!["hours", "budget"].includes(panel) || getSelectedDetailProjectId() == null) return;
+        const id = getSelectedDetailProjectId();
         const key = String(id);
         if ((state.personalProjectView.get(key) || "hours") === panel) return;
         state.personalProjectView.set(key, panel);
@@ -2107,7 +2491,7 @@
       }
 
       function setPersonalProjectConvention(id) {
-        const key = String(state.selectedPersonalProjectId);
+        const key = String(getSelectedDetailProjectId());
         const finance = state.personalProjectFinanceCache.get(key)?.result;
         if (!finance?.conventions?.some(budget => String(budget.id) === String(id))) return;
         state.personalProjectConvention.set(key, String(id));
@@ -2115,24 +2499,33 @@
       }
 
       function setPersonalProjectExcludeOrmitterCosts(exclude) {
-        if (state.selectedPersonalProjectId == null || typeof exclude !== "boolean") return;
-        const key = String(state.selectedPersonalProjectId);
+        if (getSelectedDetailProjectId() == null || typeof exclude !== "boolean") return;
+        const key = String(getSelectedDetailProjectId());
         if (!state.personalProjectFinanceCache.get(key)?.result) return;
         if ((state.personalProjectExcludeOrmitterCosts.get(key) === true) === exclude) return;
         state.personalProjectExcludeOrmitterCosts.set(key, exclude);
         renderPersonalProjects();
       }
 
+      function setPersonalProjectShowBwPersonnelCosts(show) {
+        if (getSelectedDetailProjectId() == null || typeof show !== "boolean") return;
+        const key = String(getSelectedDetailProjectId());
+        if (!state.personalProjectFinanceCache.get(key)?.result) return;
+        if ((state.personalProjectShowBwPersonnelCosts.get(key) === true) === show) return;
+        state.personalProjectShowBwPersonnelCosts.set(key, show);
+        renderPersonalProjects();
+      }
+
       function choosePersonalProject(id) {
-        if (!getScopedPersonalProjects().some(project => String(project.id) === String(id))) return;
-        state.selectedPersonalProjectId = id;
+        if (!getDetailProjectCatalogue().some(project => String(project.id) === String(id))) return;
+        setSelectedDetailProjectId(id);
         state.focusPersonalProjectDetail = true;
         renderPersonalProjects();
         if (state.personalProjectView.get(String(id)) === "budget") loadPersonalProjectFinance(id);
         else loadPersonalProjectHours(id);
       }
 
-      function summarizePersonalProjectHours(result, personal = false, now = new Date(), years = state.selectedYears) {
+      function summarizePersonalProjectHours(result, personal = false, now = new Date(), years = getPersonalTimeScope()) {
         const projectId = Number(result.project.id);
         const ownIds = new Set((result.employee?.ids || []).map(String));
         const resourceIds = new Set((result.employee?.resourceIds || []).map(String));
@@ -2239,7 +2632,7 @@
       }
 
       function setPersonalProjectOrmitters(include) {
-        const key = String(state.selectedPersonalProjectId);
+        const key = String(getSelectedDetailProjectId());
         const result = state.personalProjectHoursCache.get(key)?.result;
         if (!result || !hasProjectOrmitters(result)) return;
         if ((state.personalProjectOrmitters.get(key) === true) === (include === true)) return;
@@ -2250,8 +2643,8 @@
 
       function setPersonalProjectMonthlyMode(mode) {
         if (mode !== "monthly" && mode !== "cumulative") return;
-        const key = String(state.selectedPersonalProjectId);
-        if (!getScopedPersonalProjects().some(project => String(project.id) === key)) return;
+        const key = String(getSelectedDetailProjectId());
+        if (!getDetailProjectCatalogue().some(project => String(project.id) === key)) return;
         if ((state.personalProjectMonthlyMode.get(key) || "monthly") === mode) return;
         state.personalProjectMonthlyMode.set(key, mode);
         state.personalProjectMonthlyReveal.set(key, (state.personalProjectMonthlyReveal.get(key) || 0) + 1);
@@ -2269,9 +2662,9 @@
       }
 
       function setPersonalProjectMonthlyEmployee(employeeId) {
-        const key = String(state.selectedPersonalProjectId);
+        const key = String(getSelectedDetailProjectId());
         const result = state.personalProjectHoursCache.get(key)?.result;
-        if (!result || !getScopedPersonalProjects().some(project => String(project.id) === key)) return;
+        if (!result || !getDetailProjectCatalogue().some(project => String(project.id) === key)) return;
         const selected = employeeId == null ? null : String(employeeId);
         if (selected !== null && !summarizePersonalProjectMonthly(result)?.employees.some(employee => String(employee.id) === selected)) return;
         if ((state.personalProjectMonthlyEmployee.get(key) ?? null) === selected) return;
@@ -2281,9 +2674,32 @@
         renderPersonalProjects();
       }
 
+      function summarizePersonalProjectPlanningMonthly(result) {
+        if (typeof window.ProjectMonthly?.summarizePlanning !== "function") return null;
+        const key = String(result.project.id);
+        return window.ProjectMonthly.summarizePlanning(result, {
+          now: new Date(),
+          mode: state.personalProjectMonthlyMode.get(key) || "monthly",
+          includeOrmitters: hasProjectOrmitters(result) && state.personalProjectOrmitters.get(key) === true
+        });
+      }
+
+      function setPersonalProjectPlannedMonthlyEmployee(employeeId) {
+        const key = String(getSelectedDetailProjectId());
+        const result = state.personalProjectHoursCache.get(key)?.result;
+        if (!result || !getDetailProjectCatalogue().some(project => String(project.id) === key)) return;
+        const selected = employeeId == null ? null : String(employeeId);
+        if (selected !== null && !summarizePersonalProjectPlanningMonthly(result)?.employees.some(employee => String(employee.id) === selected)) return;
+        if ((state.personalProjectPlannedMonthlyEmployee.get(key) ?? null) === selected) return;
+        if (selected === null) state.personalProjectPlannedMonthlyEmployee.delete(key);
+        else state.personalProjectPlannedMonthlyEmployee.set(key, selected);
+        state.personalProjectMonthlyReveal.set(key, (state.personalProjectMonthlyReveal.get(key) || 0) + 1);
+        renderPersonalProjects();
+      }
+
       async function loadPersonalProjectHours(id, force = false) {
         if (!Number.isSafeInteger(Number(id)) || Number(id) <= 0 ||
-          !getScopedPersonalProjects().some(project => String(project.id) === String(id))) return;
+          !getDetailProjectCatalogue().some(project => String(project.id) === String(id))) return;
         const key = String(id);
         const cached = state.personalProjectHoursCache.get(key);
         if (cached?.loading || (!force && cached?.result)) return;
@@ -2300,7 +2716,7 @@
           entry.result = result;
         } catch (error) {
           if (generation !== state.personalProjectHoursGeneration) return;
-          entry.error = error.message || "Les heures du projet sont indisponibles. Réessayez.";
+          entry.error = "Les heures du projet sont indisponibles avec vos accès Odoo. Réessayez.";
         } finally {
           if (generation === state.personalProjectHoursGeneration) {
             entry.loading = false;
@@ -2310,14 +2726,14 @@
       }
 
       function clearPersonalProject() {
-        state.focusPersonalProjectId = state.selectedPersonalProjectId;
-        state.selectedPersonalProjectId = null;
+        state.focusPersonalProjectId = getSelectedDetailProjectId();
+        setSelectedDetailProjectId(null);
         renderPersonalProjects();
       }
 
       async function loadPersonalProjectFinance(id, force = false) {
         if (!Number.isSafeInteger(Number(id)) || Number(id) <= 0 ||
-          !state.personalTimeResult?.projects?.some(project => String(project.id) === String(id))) return;
+          !getDetailProjectCatalogue(true).some(project => String(project.id) === String(id))) return;
         const key = String(id);
         const cached = state.personalProjectFinanceCache.get(key);
         if (cached?.loading || (!force && cached?.result)) return;
@@ -2339,7 +2755,7 @@
           }
         } catch (error) {
           if (generation !== state.personalProjectFinanceGeneration) return;
-          entry.error = error.message || "Le budget du projet est indisponible. Réessayez.";
+          entry.error = "Le budget du projet est indisponible avec vos accès Odoo. Réessayez.";
         } finally {
           if (generation === state.personalProjectFinanceGeneration) {
             entry.loading = false;
@@ -4558,7 +4974,86 @@
 
       function renderYearFilters() {
         renderYearFilterControl(els.filterBar, els.scopeText, els.yearChips);
+        syncCustomDateRangeControls();
         updatePersonalProjectFilterVisibility();
+      }
+
+      function getPersonalTimeScope() {
+        return state.customDateRange || state.selectedYears;
+      }
+
+      function getPersonalTimeScopeLabel() {
+        if (state.customDateRange) {
+          const display = value => value.split("-").reverse().join("/");
+          return `${display(state.customDateRange.startDate)} – ${display(state.customDateRange.endDate)}`;
+        }
+        return Array.from(state.selectedYears).sort((a, b) => a - b).join(" · ");
+      }
+
+      function syncCustomDateRangeControls() {
+        if (!els.customDateControl) return;
+        els.customDateControl.hidden = !state.personalTimeResult;
+        els.customDatePanel.hidden = !state.customDatePanelOpen;
+        els.customDateToggle.setAttribute("aria-expanded", String(state.customDatePanelOpen));
+        els.customDateToggle.setAttribute("aria-pressed", String(Boolean(state.customDateRange)));
+        els.customDateToggle.classList.toggle("active", Boolean(state.customDateRange));
+        els.customDateReset.hidden = !state.customDateRange;
+      }
+
+      function setCustomDatePanelOpen(open, restoreFocus = false) {
+        state.customDatePanelOpen = Boolean(open);
+        if (open && !els.customDateStart.value && !els.customDateEnd.value) {
+          const years = Array.from(state.selectedYears).sort((a, b) => a - b);
+          const first = years[0] || CURRENT_YEAR, last = years.at(-1) || first;
+          els.customDateStart.value = state.customDateRange?.startDate || `${String(first).padStart(4, "0")}-01-01`;
+          els.customDateEnd.value = state.customDateRange?.endDate || `${String(last).padStart(4, "0")}-12-31`;
+        }
+        syncCustomDateRangeControls();
+        if (restoreFocus) els.customDateToggle.focus();
+      }
+
+      function applyCustomDateRange() {
+        const range = { startDate: els.customDateStart.value, endDate: els.customDateEnd.value };
+        const normalized = window.PersonalTime?.normalizeScope(range);
+        const valid = normalized?.kind === "range";
+        els.customDateStart.setAttribute("aria-invalid", String(!valid));
+        els.customDateEnd.setAttribute("aria-invalid", String(!valid));
+        els.customDateError.textContent = valid ? "" : !range.startDate || !range.endDate
+          ? "Choisissez une date de début et une date de fin."
+          : range.startDate > range.endDate ? "La date de fin doit être égale ou postérieure à la date de début."
+          : "Vérifiez les dates de début et de fin.";
+        if (!valid) return;
+        if (state.customDateRange?.startDate === range.startDate && state.customDateRange?.endDate === range.endDate) return;
+        state.customDateRange = range;
+        render();
+      }
+
+      function clearCustomDateRange() {
+        state.customDateRange = null;
+        state.customDatePanelOpen = false;
+        els.customDateStart.value = "";
+        els.customDateEnd.value = "";
+        els.customDateStart.setAttribute("aria-invalid", "false");
+        els.customDateEnd.setAttribute("aria-invalid", "false");
+        els.customDateError.textContent = "";
+        syncCustomDateRangeControls();
+      }
+
+      function initializeCustomDateRangeControls() {
+        els.customDateToggle.addEventListener("click", () => setCustomDatePanelOpen(!state.customDatePanelOpen));
+        els.customDateStart.addEventListener("change", applyCustomDateRange);
+        els.customDateEnd.addEventListener("change", applyCustomDateRange);
+        els.customDateReset.addEventListener("click", () => {
+          clearCustomDateRange(); render(); els.customDateToggle.focus();
+        });
+        document.addEventListener("keydown", event => {
+          if (event.key === "Escape" && state.customDatePanelOpen && !els.filterBar.hidden) {
+            event.preventDefault(); setCustomDatePanelOpen(false, true);
+          }
+        });
+        document.addEventListener("pointerdown", event => {
+          if (state.customDatePanelOpen && !els.customDateControl.contains(event.target)) setCustomDatePanelOpen(false);
+        });
       }
 
       function renderYearFilterControl(container, scopeText, chips) {
@@ -4566,32 +5061,38 @@
           return;
         }
 
-        container.classList.toggle("visible", state.years.length > 0);
-        chips.innerHTML = "";
+        const focusedYear = document.activeElement?.getAttribute("data-scope-year");
+        container.classList.toggle("visible", state.years.length > 0 || Boolean(state.personalTimeResult));
+        chips.replaceChildren();
         if (!state.years.length) {
-          scopeText.textContent = state.personalTimeResult ? "Années disponibles" : "All available months";
+          scopeText.textContent = state.customDateRange ? getPersonalTimeScopeLabel() : state.personalTimeResult ? "Années disponibles" : "Tous les mois disponibles";
           return;
         }
 
-        const allActive = state.selectedYears.size === state.years.length;
-        scopeText.textContent = allActive
-          ? (state.personalTimeResult ? "Toutes les années" : "All available months")
+        const allActive = !state.customDateRange && state.selectedYears.size === state.years.length;
+        scopeText.textContent = state.customDateRange ? getPersonalTimeScopeLabel() : allActive
+          ? (state.personalTimeResult ? "Toutes les années" : "Tous les mois disponibles")
           : Array.from(state.selectedYears).sort((a, b) => a - b).join(", ");
 
-        chips.appendChild(makeYearButton(state.personalTimeResult ? "Toutes" : "All", allActive, () => selectAllYears()));
+        chips.append(makeYearButton(state.personalTimeResult ? "Toutes" : "All", allActive, () => selectAllYears()));
         state.years.forEach((year) => {
-          chips.appendChild(makeYearButton(String(year), state.selectedYears.has(year), () => toggleSelectedYear(year)));
+          chips.append(makeYearButton(String(year), !state.customDateRange && state.selectedYears.has(year), () => toggleSelectedYear(year)));
         });
+        if (focusedYear) Array.from(chips.querySelectorAll("[data-scope-year]"))
+          .find(button => button.getAttribute("data-scope-year") === focusedYear)?.focus();
       }
 
       function selectAllYears() {
+        clearCustomDateRange();
         state.selectedYears = new Set(state.years);
         render();
       }
 
       function toggleSelectedYear(year) {
+        const wasCustom = Boolean(state.customDateRange);
+        clearCustomDateRange();
         const currentlyAll = state.selectedYears.size === state.years.length;
-        if (currentlyAll) {
+        if (wasCustom || currentlyAll) {
           state.selectedYears = new Set([year]);
         } else if (state.selectedYears.has(year) && state.selectedYears.size > 1) {
           state.selectedYears.delete(year);
@@ -4606,6 +5107,7 @@
         button.type = "button";
         button.className = `year-chip${active ? " active" : ""}`;
         button.textContent = label;
+        button.setAttribute("data-scope-year", label);
         button.setAttribute("aria-pressed", String(active));
         button.addEventListener("click", onClick);
         return button;

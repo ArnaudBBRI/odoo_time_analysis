@@ -3,6 +3,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 const vm = require("node:vm");
+const { domFixture } = require("./dom-fixture");
 
 const source = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
 const projectName = "[10001] Example project";
@@ -10,13 +11,13 @@ const emptyProjectName = "[10002] Zero-hour project";
 const employeeName = "Alex Example";
 
 function loadDashboard(mockFetch, { allowedRoutes = ["/api/odoo/project-timesheets", "/api/odoo/project-planning"],
-  legacyScope = true, personalTime = false } = {}) {
+  legacyScope = true, personalTime = false, dateControls = false, programmeDOM = false, capacity = false } = {}) {
   const script = source.match(/<script>([\s\S]*?)<\/script>/)?.[1];
   assert.ok(script, "Dashboard inline script must exist");
   const bootstrap = "const originalFetch = window.fetch.bind(window);";
   assert.equal(script.split(bootstrap).length, 2, "Test seam must precede the sole bootstrap");
-  const viewChange = script.match(/window\.addEventListener\("dashboard:viewchange", \(event\) => \{([\s\S]*?)\n      \}\);/)?.[1];
-  assert.ok(viewChange, "The dashboard must retain a shared view-change handler");
+  assert.ok(script.includes('window.addEventListener("dashboard:viewchange", handleDashboardViewChange);'),
+    "The dashboard must bind its shared view-change handler");
   const instrumented = script.replace(bootstrap, `
     const completeRender = render;
     render = () => { globalThis.renderCalls += 1; };
@@ -33,12 +34,18 @@ function loadDashboard(mockFetch, { allowedRoutes = ["/api/odoo/project-timeshee
       buildProjectDatasetFromApi, buildProjectPlanDatasetFromApi,
       buildDicoProjectListFromApi, aggregateNamedRows, buildWholeProjectMacroInfo,
       buildRemainingHoursScopeInfo, renderRemainingHoursScope, buildSubcontractorHoursNote, buildRemainingToDateTotals,
-      fetchEmployeeTimesheets, fetchDicoProjects, fetchPersonalTime, renderPersonalTimeMacro,
+      fetchEmployeeTimesheets, fetchDicoProjects, fetchPersonalTime, renderPersonalTimeMacro, renderPersonalRecommendations,
+      renderPersonalCapacity, getPersonalCapacityYears,
       refreshYears, toggleSelectedYear, selectAllYears,
+      getPersonalTimeScope, getPersonalTimeScopeLabel, renderYearFilters,
+      setCustomDatePanelOpen, applyCustomDateRange, clearCustomDateRange, initializeCustomDateRangeControls,
       getScopedPersonalProjects, renderPersonalProjects, choosePersonalProject, clearPersonalProject,
+      getSelectedDetailProjectId, setSelectedDetailProjectId, getDetailProjectCatalogue, fetchUnitDicoProjects,
+      fetchProgrammeCatalogue, fetchProgrammeProjects, renderProgrammes, chooseProgramme,
       summarizePersonalProjectHours, summarizeLifetimeProjectHours, loadPersonalProjectHours, setPersonalProjectOrmitters, hasProjectOrmitters,
-      loadPersonalProjectFinance, setPersonalProjectView, setPersonalProjectConvention, setPersonalProjectExcludeOrmitterCosts, updatePersonalProjectFilterVisibility,
-      applyViewChange(event) { ${viewChange} },
+      summarizePersonalProjectPlanningMonthly, setPersonalProjectPlannedMonthlyEmployee,
+      loadPersonalProjectFinance, setPersonalProjectView, setPersonalProjectConvention, setPersonalProjectExcludeOrmitterCosts, setPersonalProjectShowBwPersonnelCosts, updatePersonalProjectFilterVisibility,
+      applyViewChange: handleDashboardViewChange,
       captureRenderFeeds() {
         globalThis.renderFeeds = {};
         renderStatus = () => {};
@@ -54,6 +61,7 @@ function loadDashboard(mockFetch, { allowedRoutes = ["/api/odoo/project-timeshee
     return;
     ${bootstrap}`);
   const elements = new Map();
+  const scopeRoot = dateControls || programmeDOM ? domFixture() : null;
   const requests = [];
   const context = {
     renderCalls: 0,
@@ -66,7 +74,7 @@ function loadDashboard(mockFetch, { allowedRoutes = ["/api/odoo/project-timeshee
         if (!elements.has(id)) elements.set(id, {
           value: "", textContent: "", innerHTML: "", checked: false, hidden: false,
           classList: { toggle() {}, add() {}, remove() {} }, setAttribute() {},
-          querySelectorAll() { return []; }
+          querySelectorAll() { return []; }, replaceChildren() {}
         });
         return elements.get(id);
       }
@@ -81,16 +89,74 @@ function loadDashboard(mockFetch, { allowedRoutes = ["/api/odoo/project-timeshee
       return mockFetch(request);
     }
   };
+  if (scopeRoot) {
+    context.document = scopeRoot.ownerDocument;
+    const classToggle = (element, name, active) => active ? element.classList.add(name) : element.classList.remove(name);
+    context.document.getElementById = id => {
+      if (!elements.has(id)) {
+        const element = context.document.createElement(id.startsWith("customDate") && /Start|End/.test(id) ? "input" : "div");
+        element.value = "";
+        element.classList.toggle = (name, active) => classToggle(element, name, active);
+        elements.set(id, element);
+      }
+      return elements.get(id);
+    };
+    const control = context.document.getElementById("customDateControl");
+    control.append(...["customDateToggle", "customDatePanel"].map(id => context.document.getElementById(id)));
+    context.document.getElementById("customDatePanel").append(...["customDateStart", "customDateEnd", "customDateReset"].map(id => context.document.getElementById(id)));
+  }
   if (personalTime) {
     const module = require("../personal-time");
     context.personalRenders = [];
+    context.recommendationRenders = [];
     context.projectBrowserRenders = [];
+    context.projectBrowserCleanups = [];
+    context.unitDicoRenders = [];
+    context.unitDicoCleanups = [];
+    context.programmeRenders = [];
+    context.projectHostEvents = [];
     context.window = { PersonalTime: { ...module,
       summarizeProjects(data, years, now = new Date("2026-10-05T10:00:00Z")) { return module.summarizeProjects(data, years, now); },
       calendarProgress(years, now = new Date("2026-10-05T10:00:00Z")) { return module.calendarProgress(years, now); },
-      render(container, projects, options) { context.personalRenders.push({ container, projects, options }); }
+      render(container, projects, options) { context.personalRenders.push({ container, projects, options }); },
+      renderRecommendations(container, model, options) { context.recommendationRenders.push({ container, model, options }); }
     }, ProjectMonthly: require("../project-monthly"),
-    ProjectBrowser: { render(container, options) { context.projectBrowserRenders.push({ container, options }); } } };
+    ProjectBrowser: {
+      render(container, options) {
+        context.projectHostEvents.push({ type: "project-render", container });
+        context.projectBrowserRenders.push({ container, options });
+        if (programmeDOM) return require("../project-browser").render(container, options);
+      },
+      cleanup(container) {
+        context.projectBrowserCleanups.push(container);
+        if (programmeDOM) require("../project-browser").cleanup(container);
+      }
+    }, UnitDico: { ...require("../unit-dico"),
+      render(container, result, options) {
+        context.projectHostEvents.push({ type: "unit-render", container });
+        context.unitDicoRenders.push({ container, result, options });
+        if (programmeDOM) return require("../unit-dico").render(container, result, options);
+      },
+      cleanup(container) {
+        context.projectHostEvents.push({ type: "unit-cleanup", container });
+        context.unitDicoCleanups.push(container);
+        if (programmeDOM) require("../unit-dico").cleanup(container);
+      }
+    }, ProgrammeBrowser: { ...require("../programme-browser"),
+      render(container, result, options) {
+        context.programmeRenders.push({ container, result, options });
+        if (programmeDOM) return require("../programme-browser").render(container, result, options);
+      }
+    } };
+  }
+  if (capacity && personalTime) {
+    context.capacityRenders = [];
+    context.capacitySummaries = [];
+    context.window.WorkCapacity = { summarize(result, scope) {
+      context.capacitySummaries.push({ result, scope });
+      return { status: "available", availableHours: result.fixtureHours, availableDays: 200, years: [], warnings: [] };
+    } };
+    context.window.PersonalCapacity = { render(container, model, options) { context.capacityRenders.push({ container, model, options }); } };
   }
   vm.runInNewContext(instrumented, context, { filename: "index.html" });
   const dashboard = context.dashboard;
@@ -194,6 +260,557 @@ function projectFinanceResult(id = 101) {
     lifetime: { status: "available", consumed: 3000 } };
 }
 
+function unitDicoResult(ids = [201, 202]) {
+  return { ok: true, unit: { id: 206, name: "RESEARCH & DEVELOPMENT / DIGITAL CONSTRUCTION UNIT" },
+    responsibleField: "lead_unit_id", asOf: "2026-10-05T10:00:00Z", warnings: [],
+    projects: ids.map(id => ({ id, name: `Example unit project ${id}`, startDate: "2025-12-01", endDate: "2028-05-31", manager: null })) };
+}
+
+function unitProjectHoursResult(id = 201) {
+  const result = projectHoursResult(id);
+  result.hasOrmitters = true;
+  result.lifetime = { startDate: "2025-12-01", endDate: "2028-05-31", conventionHours: 100, conventionStatus: "available" };
+  return result;
+}
+
+function programmeResult(photo = null) {
+  return { ok: true, programmes: require("../programme-browser").PROGRAMMES.map((programme, index) => ({ ...programme,
+    manager: { ...programme.manager, id: index + 10, photoDataUrl: photo } })) };
+}
+
+function programmeProjectsResult(id, ids = id === "DC1" ? [301, 302, 303] : id === "DC2" ? [401, 402] : []) {
+  const programme = require("../programme-browser").PROGRAMMES.find(row => row.id === id);
+  const periods = id === "DC1" ? [["2026-01-01", "2026-03-31"], ["2026-02-01", "2026-04-30"], ["2010-01-01", "2999-12-31"]] :
+    [["2026-06-01", "2026-06-30"], ["2026-07-01", "2026-07-31"]];
+  return { ok: true, programme: { id, code: id, subtitle: programme?.subtitle }, coverage: { expected: ids.length, accessible: ids.length }, warnings: [],
+    projects: ids.map((projectId, index) => ({ id: projectId, name: `[${id} ${index + 1}] [${100000 + projectId}] Synthetic programme project ${projectId}`,
+      startDate: periods[index % periods.length][0], endDate: periods[index % periods.length][1], manager: { name: "Alex Example", photoDataUrl: null } })) };
+}
+
+test("Programmes opens fixed choices immediately and lazily caches one session-bound photo catalogue without a date scope", async () => {
+  const data = programmeResult(), pending = [];
+  const { dashboard, requests, context } = loadDashboard(() => new Promise(resolve => pending.push(resolve)),
+    { personalTime: true, allowedRoutes: ["/api/odoo/programmes-catalogue"] });
+  dashboard.state.personalTimeResult = personalResult(); dashboard.state.selectedPersonalProjectId = 101;
+  dashboard.state.selectedYears = new Set([2025, 2026]); dashboard.state.customDateRange = { startDate: "2026-10-01", endDate: "2026-10-05" };
+  const personal = dashboard.state.personalTimeResult, years = dashboard.state.selectedYears, range = dashboard.state.customDateRange;
+  dashboard.renderProgrammes(); assert.equal(requests.length, 0);
+  dashboard.applyViewChange({ detail: { view: "programmes" } });
+  assert.equal(dashboard.state.programmeLoading, true); assert.equal(dashboard.state.programmeResult, null);
+  assert.equal(dashboard.els.filterBar.hidden, true); assert.equal(context.programmeRenders.at(-1).container, dashboard.els.programmesContent);
+  assert.deepEqual(requests, [{ url: "/api/odoo/programmes-catalogue", payload: {} }]);
+  const duplicate = dashboard.fetchProgrammeCatalogue(); assert.equal(requests.length, 1, "Concurrent entry and explicit refresh share the pending read");
+  pending[0](response(data)); await duplicate; await new Promise(setImmediate);
+  assert.equal(dashboard.state.programmeLoading, false); assert.equal(dashboard.state.programmeError, "");
+  assert.deepEqual(Array.from(dashboard.state.programmeResult.programmes, row => row.id), ["DC1", "DC2", "DC3"]);
+  assert.equal(dashboard.state.personalTimeResult, personal); assert.equal(dashboard.state.selectedPersonalProjectId, 101);
+  assert.equal(dashboard.state.selectedYears, years); assert.equal(dashboard.state.customDateRange, range);
+  dashboard.applyViewChange({ detail: { view: "time" } }); dashboard.applyViewChange({ detail: { view: "programmes" } });
+  await dashboard.fetchProgrammeCatalogue(); assert.equal(requests.length, 1, "Reopening Programmes reuses its independent catalogue");
+});
+
+test("Programmes selection accepts only canonical choices and loads membership without opening a project detail", async () => {
+  const { dashboard, requests, context } = loadDashboard(({ payload }) => response(programmeProjectsResult(payload.programmeId)),
+    { personalTime: true, allowedRoutes: ["/api/odoo/programme-projects"] });
+  dashboard.state.dashboardView = "programmes"; dashboard.state.selectedPersonalProjectId = 101; dashboard.state.selectedUnitProjectId = 201;
+  dashboard.renderProgrammes(); context.programmeRenders.at(-1).options.onSelect("DC2");
+  assert.equal(dashboard.state.selectedProgrammeId, "DC2"); dashboard.renderProgrammes();
+  await new Promise(setImmediate);
+  assert.equal(context.programmeRenders.at(-1).options.selectedId, "DC2");
+  for (const id of ["dc2", "DC4", 101, null, {}, "__unassigned"]) dashboard.chooseProgramme(id);
+  dashboard.state.years = [2025, 2026]; dashboard.toggleSelectedYear(2025); dashboard.renderProgrammes();
+  assert.equal(dashboard.state.selectedProgrammeId, "DC2", "An unrelated year selection does not change the selected programme");
+  dashboard.state.programmeResult = programmeResult();
+  dashboard.applyViewChange({ detail: { view: "time" } }); dashboard.applyViewChange({ detail: { view: "programmes" } });
+  assert.equal(dashboard.state.selectedProgrammeId, "DC2"); assert.equal(dashboard.state.selectedPersonalProjectId, 101);
+  assert.equal(dashboard.state.selectedUnitProjectId, 201);
+  assert.deepEqual(requests, [{ url: "/api/odoo/programme-projects", payload: { programmeId: "DC2" } }]);
+  assert.equal(context.projectBrowserRenders.length, 0); assert.ok(context.unitDicoRenders.length > 0);
+});
+
+test("an unavailable programme photo catalogue retains choices and their selected identity through retry", async () => {
+  let result = { ok: false, error: "PRIVATE_SOURCE_ERROR" };
+  const { dashboard, requests, context } = loadDashboard(() => response(result),
+    { personalTime: true, allowedRoutes: ["/api/odoo/programmes-catalogue"] });
+  dashboard.state.dashboardView = "programmes"; dashboard.state.selectedProgrammeId = "DC3";
+  await dashboard.fetchProgrammeCatalogue();
+  assert.equal(dashboard.state.programmeResult, null); assert.equal(dashboard.state.programmeLoading, false);
+  assert.match(dashboard.state.programmeError, /portraits.*indisponibles/i); assert.doesNotMatch(dashboard.state.programmeError, /PRIVATE_SOURCE_ERROR/);
+  assert.equal(dashboard.state.selectedProgrammeId, "DC3");
+  const render = context.programmeRenders.at(-1); assert.equal(render.options.selectedId, "DC3");
+  assert.equal(render.options.error, dashboard.state.programmeError);
+  result = programmeResult(); await render.options.onRetry();
+  assert.equal(dashboard.state.programmeError, ""); assert.equal(dashboard.state.programmeLoading, false);
+  assert.equal(dashboard.state.selectedProgrammeId, "DC3"); assert.equal(requests.length, 2);
+  assert.equal(context.programmeRenders.at(-1).options.selectedId, "DC3");
+});
+
+test("a failed forced programme refresh preserves already loaded portraits and the selected choice", async () => {
+  let result = programmeResult("data:image/png;base64,aW1hZ2U=");
+  const { dashboard, context } = loadDashboard(() => response(result),
+    { personalTime: true, allowedRoutes: ["/api/odoo/programmes-catalogue"] });
+  dashboard.state.dashboardView = "programmes"; await dashboard.fetchProgrammeCatalogue(); dashboard.state.selectedProgrammeId = "DC1";
+  const previous = dashboard.state.programmeResult; result = { ok: false, error: "PRIVATE_SOURCE_ERROR" };
+  await dashboard.fetchProgrammeCatalogue(true);
+  assert.equal(dashboard.state.programmeResult, previous); assert.equal(dashboard.state.selectedProgrammeId, "DC1");
+  assert.equal(dashboard.state.programmeLoading, false); assert.match(dashboard.state.programmeError, /portraits.*indisponibles/i);
+  assert.doesNotMatch(dashboard.state.programmeError, /PRIVATE_SOURCE_ERROR/);
+  assert.equal(context.programmeRenders.at(-1).result, previous);
+});
+
+test("obsolete programme reads cannot replace a newer catalogue or stop its loading state", async () => {
+  const pending = [];
+  const { dashboard, requests } = loadDashboard(() => new Promise(resolve => pending.push(resolve)),
+    { personalTime: true, allowedRoutes: ["/api/odoo/programmes-catalogue"] });
+  dashboard.state.dashboardView = "programmes"; const first = dashboard.fetchProgrammeCatalogue();
+  const second = dashboard.fetchProgrammeCatalogue(true); assert.equal(requests.length, 2);
+  pending[0](response(programmeResult())); await first;
+  assert.equal(dashboard.state.programmeResult, null); assert.equal(dashboard.state.programmeLoading, true);
+  pending[1](response(programmeResult("data:image/png;base64,aW1hZ2U="))); await second;
+  assert.equal(dashboard.state.programmeLoading, false);
+  assert.equal(dashboard.state.programmeResult.programmes[0].manager.photoDataUrl, "data:image/png;base64,aW1hZ2U=");
+});
+
+test("invalid programme catalogue identities cannot install data and their failure leaves fixed choices selectable", async () => {
+  for (const programmes of [{}, [], [{ id: "unknown" }], [programmeResult().programmes[0], programmeResult().programmes[0], programmeResult().programmes[2]]]) {
+    const { dashboard, context } = loadDashboard(() => response({ ok: true, programmes }),
+      { personalTime: true, allowedRoutes: ["/api/odoo/programmes-catalogue"] });
+    dashboard.state.dashboardView = "programmes"; dashboard.state.selectedProgrammeId = "DC2"; await dashboard.fetchProgrammeCatalogue();
+    assert.equal(dashboard.state.programmeResult, null); assert.equal(dashboard.state.programmeLoading, false);
+    assert.ok(dashboard.state.programmeError); assert.equal(dashboard.state.selectedProgrammeId, "DC2");
+    assert.equal(context.programmeRenders.at(-1).options.selectedId, "DC2"); assert.equal(typeof context.programmeRenders.at(-1).options.onRetry, "function");
+  }
+});
+
+test("programme cards remain above their associated project cards, lifetime calendar and monthly count while a new programme replaces all three", async () => {
+  const { dashboard, context, requests } = loadDashboard(({ payload }) => response(programmeProjectsResult(payload.programmeId)),
+    { personalTime: true, programmeDOM: true, allowedRoutes: ["/api/odoo/programme-projects"] });
+  dashboard.state.dashboardView = "programmes"; dashboard.state.programmeResult = programmeResult(); dashboard.renderProgrammes();
+  dashboard.renderPersonalProjects();
+  const selector = dashboard.els.programmesContent, projects = dashboard.els.programmeProjectsContent;
+  const choices = selector.querySelectorAll("[data-programme-choice]"); assert.equal(choices.length, 3);
+  assert.equal(projects.children.length, 0, "Project membership is not fetched or invented before a programme is selected");
+  const choose = id => { const radio = choices.find(choice => choice.value === id); radio.checked = true; radio.focus(); radio.dispatch("change"); };
+  choose("DC1"); await new Promise(setImmediate);
+  assert.deepEqual(projects.querySelectorAll("[data-unit-project-choice]").map(radio => radio.value), ["301", "302", "303"]);
+  assert.ok(projects.querySelectorAll("[data-unit-project-choice]").every(radio => radio.name === "programme-project"));
+  assert.match(projects.textContent, /DC1 · 01 \/ Projets · Backbone/); assert.match(projects.textContent, /3 \/ 3 projets référencés/);
+  assert.equal(projects.querySelectorAll("[data-unit-timeline-start]")[0].getAttribute("data-unit-timeline-start"), "2026-01-01");
+  assert.equal(projects.querySelectorAll("[data-unit-timeline-end]")[0].getAttribute("data-unit-timeline-end"), "2026-04-30");
+  assert.deepEqual(projects.querySelectorAll("[data-unit-timeline-project]").map(row => row.getAttribute("data-unit-timeline-project")), ["301", "302"],
+    "Year-2999 project cards remain selectable without stretching the reused charts");
+  assert.match(projects.querySelectorAll(".unit-dico-concurrency")[0].textContent, /DC1 · 03 \/ Projets simultanés/);
+  assert.equal(projects.querySelectorAll("[data-unit-concurrency-month]").length, 4);
+  assert.deepEqual(projects.querySelectorAll("[data-unit-concurrency-month]").map(month =>
+    Number(month.getAttribute("aria-label").match(/: (\d+) projets/)?.[1])), [1, 2, 2, 1]);
+  assert.equal(projects.querySelectorAll("[data-unit-concurrency-start]")[0].getAttribute("data-unit-concurrency-start"), "2026-01-01");
+  assert.equal(projects.querySelectorAll("[data-unit-concurrency-end]")[0].getAttribute("data-unit-concurrency-end"), "2026-04-30");
+  choose("DC2");
+  assert.equal(projects.querySelectorAll("[data-unit-project-choice]").length, 0, "Old programme projects disappear while the new membership loads");
+  await new Promise(setImmediate);
+  assert.deepEqual(projects.querySelectorAll("[data-unit-project-choice]").map(radio => radio.value), ["401", "402"]);
+  assert.match(projects.textContent, /DC2 · 01 \/ Projets · Insight/); assert.match(projects.textContent, /DC2 · 02 \/ Calendrier des projets/);
+  assert.equal(projects.querySelectorAll("[data-unit-timeline-start]")[0].getAttribute("data-unit-timeline-start"), "2026-06-01");
+  assert.equal(projects.querySelectorAll("[data-unit-timeline-end]")[0].getAttribute("data-unit-timeline-end"), "2026-07-31");
+  assert.match(projects.querySelectorAll(".unit-dico-concurrency")[0].textContent, /DC2 · 03 \/ Projets simultanés/);
+  assert.equal(projects.querySelectorAll("[data-unit-concurrency-month]").length, 2);
+  assert.deepEqual(projects.querySelectorAll("[data-unit-concurrency-month]").map(month =>
+    Number(month.getAttribute("aria-label").match(/: (\d+) projets/)?.[1])), [1, 1]);
+  assert.equal(projects.querySelectorAll("[data-unit-concurrency-start]")[0].getAttribute("data-unit-concurrency-start"), "2026-06-01");
+  assert.equal(projects.querySelectorAll("[data-unit-concurrency-end]")[0].getAttribute("data-unit-concurrency-end"), "2026-07-31");
+  assert.deepEqual(selector.querySelectorAll("[data-programme-choice]"), choices, "Only the lower project host is replaced");
+  assert.equal(context.projectBrowserRenders.length, 0); assert.equal(dashboard.els.filterBar.hidden, true);
+  choose("DC1"); await new Promise(setImmediate);
+  assert.equal(requests.length, 2, "Returning to a loaded programme reuses its membership catalogue");
+  assert.deepEqual(projects.querySelectorAll("[data-unit-project-choice]").map(radio => radio.value), ["301", "302", "303"]);
+});
+
+test("concurrent programme membership reads are deduplicated and inactive responses cache without replacing the active overview", async () => {
+  const pending = [];
+  const { dashboard, requests, context } = loadDashboard(({ payload }) => new Promise(resolve => pending.push({ id: payload.programmeId, resolve })),
+    { personalTime: true, allowedRoutes: ["/api/odoo/programme-projects"] });
+  dashboard.state.dashboardView = "programmes"; dashboard.chooseProgramme("DC1");
+  const duplicate = dashboard.fetchProgrammeProjects("DC1"); dashboard.chooseProgramme("DC1"); assert.equal(requests.length, 1);
+  dashboard.chooseProgramme("DC2"); assert.equal(requests.length, 2); assert.equal(context.unitDicoRenders.at(-1).options.loading, true);
+  const renders = context.unitDicoRenders.length;
+  pending[0].resolve(response(programmeProjectsResult("DC1"))); await duplicate; await new Promise(setImmediate);
+  assert.equal(dashboard.state.programmeProjectsCache.get("DC1").result.programme.id, "DC1");
+  assert.equal(context.unitDicoRenders.length, renders, "A late DC1 response cannot redraw the active DC2 host");
+  assert.equal(dashboard.state.programmeProjectsCache.get("DC2").loading, true);
+  pending[1].resolve(response(programmeProjectsResult("DC2"))); await new Promise(setImmediate);
+  assert.equal(context.unitDicoRenders.at(-1).result.programme.id, "DC2");
+  dashboard.chooseProgramme("DC1"); assert.equal(context.unitDicoRenders.at(-1).result.programme.id, "DC1"); assert.equal(requests.length, 2);
+});
+
+test("programme membership failures stay unavailable, retain the selector and retry into a verified empty catalogue", async () => {
+  let result = { ok: false, error: "PRIVATE_PROGRAMME_SOURCE" };
+  const { dashboard, context } = loadDashboard(() => response(result),
+    { personalTime: true, programmeDOM: true, allowedRoutes: ["/api/odoo/programme-projects"] });
+  dashboard.state.dashboardView = "programmes"; dashboard.renderProgrammes(); dashboard.chooseProgramme("DC3"); await new Promise(setImmediate);
+  const cached = dashboard.state.programmeProjectsCache.get("DC3"); assert.equal(cached.result, null); assert.equal(cached.loading, false);
+  assert.doesNotMatch(cached.error, /PRIVATE_PROGRAMME_SOURCE/); assert.match(cached.error, /indisponibles.*Réessayez/);
+  assert.equal(dashboard.els.programmesContent.querySelectorAll("[data-programme-choice]").length, 3);
+  assert.equal(dashboard.els.programmeProjectsContent.querySelectorAll("[data-unit-project-choice]").length, 0);
+  assert.equal(dashboard.els.programmeProjectsContent.querySelectorAll("svg").length, 0, "Failure cannot display an invented zero count");
+  result = programmeProjectsResult("DC3"); await context.unitDicoRenders.at(-1).options.onRetry();
+  assert.equal(dashboard.state.programmeProjectsCache.get("DC3").result, result);
+  assert.equal(dashboard.state.selectedProgrammeId, "DC3"); assert.match(dashboard.els.programmeProjectsContent.textContent, /Aucun projet DC3 accessible/);
+  assert.equal(dashboard.els.programmesContent.querySelectorAll("[data-programme-choice]").length, 3);
+});
+
+test("wrong programme identities and malformed project IDs never become a verified programme catalogue", async () => {
+  const invalid = [
+    { ...programmeProjectsResult("DC1"), programme: { id: "DC2" } }, { ...programmeProjectsResult("DC1"), projects: {} },
+    { ...programmeProjectsResult("DC1"), projects: [{ id: "301", name: "String ID" }] },
+    { ...programmeProjectsResult("DC1"), projects: [{ id: 0, name: "Zero ID" }] },
+    { ...programmeProjectsResult("DC1"), projects: [{ id: 301 }, { id: 301 }] }
+  ];
+  for (const data of invalid) {
+    const { dashboard, context } = loadDashboard(() => response(data), { personalTime: true, allowedRoutes: ["/api/odoo/programme-projects"] });
+    dashboard.state.dashboardView = "programmes"; dashboard.chooseProgramme("DC1"); await new Promise(setImmediate);
+    const cached = dashboard.state.programmeProjectsCache.get("DC1"); assert.equal(cached.result, null); assert.equal(cached.loading, false);
+    assert.ok(cached.error); assert.equal(context.unitDicoRenders.at(-1).result, null); assert.equal(dashboard.state.selectedProgrammeId, "DC1");
+  }
+});
+
+test("a forced response for an inactive programme cannot clear another programme's hours and finance caches", async () => {
+  let resolve;
+  const { dashboard, requests } = loadDashboard(() => new Promise(done => { resolve = done; }),
+    { personalTime: true, allowedRoutes: ["/api/odoo/programme-projects"] });
+  dashboard.state.dashboardView = "programmes"; dashboard.state.selectedProgrammeId = "DC1";
+  const read = dashboard.fetchProgrammeProjects("DC1", true);
+  dashboard.state.selectedProgrammeId = "DC2";
+  const hours = { result: unitProjectHoursResult(401) }, finance = { result: projectFinanceResult(401) };
+  dashboard.state.personalProjectHoursCache.set("401", hours); dashboard.state.personalProjectFinanceCache.set("401", finance);
+  const hourGeneration = dashboard.state.personalProjectHoursGeneration, financeGeneration = dashboard.state.personalProjectFinanceGeneration;
+  resolve(response(programmeProjectsResult("DC1"))); await read;
+  assert.equal(requests.length, 1); assert.equal(dashboard.state.programmeProjectsCache.get("DC1").result.programme.id, "DC1");
+  assert.equal(dashboard.state.personalProjectHoursCache.get("401"), hours); assert.equal(dashboard.state.personalProjectFinanceCache.get("401"), finance);
+  assert.equal(dashboard.state.personalProjectHoursGeneration, hourGeneration); assert.equal(dashboard.state.personalProjectFinanceGeneration, financeGeneration);
+});
+
+test("programme project choices enter shared Hours/Budget details while keeping the programme selector and Back focus", async () => {
+  const { dashboard, requests, context } = loadDashboard(({ url, payload }) => response(url.endsWith("programme-projects") ?
+    programmeProjectsResult(payload.programmeId) : url.endsWith("project-hours") ? unitProjectHoursResult(payload.projectId) : projectFinanceResult(payload.projectId)),
+    { personalTime: true, programmeDOM: true, allowedRoutes: ["/api/odoo/programme-projects", "/api/odoo/project-hours", "/api/odoo/project-finance"] });
+  dashboard.state.dashboardView = "programmes"; dashboard.renderProgrammes(); dashboard.chooseProgramme("DC1"); await new Promise(setImmediate);
+  const selector = dashboard.els.programmesContent.children[0]; context.projectHostEvents.length = 0;
+  const choice = dashboard.els.programmeProjectsContent.querySelectorAll('[data-unit-project-choice="301"]')[0];
+  choice.checked = true; choice.dispatch("change"); await new Promise(setImmediate);
+  assert.equal(dashboard.state.selectedProgrammeProjectId, 301); assert.equal(dashboard.state.selectedPersonalProjectId, null);
+  assert.equal(context.projectHostEvents[0].type, "unit-cleanup"); assert.equal(context.projectHostEvents[1].type, "project-render");
+  assert.equal(context.projectBrowserRenders.at(-1).container, dashboard.els.programmeProjectsContent);
+  assert.equal(context.projectBrowserRenders.at(-1).options.selectedId, 301); assert.equal(dashboard.els.filterBar.hidden, false);
+  assert.equal(dashboard.els.programmesContent.children[0], selector); assert.equal(dashboard.els.programmesContent.querySelectorAll("[data-programme-choice]").length, 3);
+  dashboard.choosePersonalProject(401); assert.equal(dashboard.state.selectedProgrammeProjectId, 301, "Another programme's project cannot enter this selection");
+  context.projectBrowserRenders.at(-1).options.onViewChange("budget"); await new Promise(setImmediate);
+  assert.equal(dashboard.els.filterBar.hidden, true); assert.equal(context.projectBrowserRenders.at(-1).options.panel, "budget");
+  context.projectBrowserRenders.at(-1).options.onBack();
+  assert.equal(dashboard.state.selectedProgrammeProjectId, null); assert.equal(dashboard.state.selectedProgrammeId, "DC1");
+  assert.equal(dashboard.els.programmesContent.children[0], selector); assert.equal(context.unitDicoRenders.at(-1).options.focusProjectId, 301);
+  assert.equal(dashboard.els.programmeProjectsContent.ownerDocument.activeElement,
+    dashboard.els.programmeProjectsContent.querySelectorAll('[data-unit-project-choice="301"]')[0]);
+  assert.deepEqual(requests.map(request => request.url), ["/api/odoo/programme-projects", "/api/odoo/project-hours", "/api/odoo/project-finance"]);
+});
+
+test("programme membership keeps its full-life catalogue across date scope changes and releases the lower chart host on departure", async () => {
+  const { dashboard, requests, context } = loadDashboard(({ payload }) => response(programmeProjectsResult(payload.programmeId)),
+    { personalTime: true, allowedRoutes: ["/api/odoo/programme-projects"] });
+  dashboard.state.dashboardView = "programmes"; dashboard.state.programmeResult = programmeResult(); dashboard.chooseProgramme("DC2"); await new Promise(setImmediate);
+  const result = dashboard.state.programmeProjectsCache.get("DC2").result;
+  dashboard.state.years = [2025, 2026]; dashboard.toggleSelectedYear(2025);
+  dashboard.state.customDateRange = { startDate: "2020-01-01", endDate: "2020-01-02" }; dashboard.renderPersonalProjects();
+  assert.equal(context.unitDicoRenders.at(-1).result, result); assert.equal(dashboard.els.filterBar.hidden, true); assert.equal(requests.length, 1);
+  const cleanups = context.unitDicoCleanups.length; dashboard.applyViewChange({ detail: { view: "time" } });
+  assert.equal(context.unitDicoCleanups.length, cleanups + 1); assert.equal(context.unitDicoCleanups.at(-1), dashboard.els.programmeProjectsContent);
+  assert.equal(context.projectBrowserCleanups.at(-1), dashboard.els.programmeProjectsContent);
+  assert.equal(dashboard.state.programmeProjectsCache.get("DC2").result, result);
+  dashboard.applyViewChange({ detail: { view: "programmes" } }); await new Promise(setImmediate);
+  assert.equal(context.unitDicoRenders.at(-1).result, result); assert.equal(requests.length, 1); assert.equal(dashboard.state.selectedProgrammeId, "DC2");
+});
+
+test("Unit DiCo catalogue starts lazily with an empty session-bound payload and stays independent of personal filters", async () => {
+  const data = unitDicoResult();
+  const { dashboard, requests, context } = loadDashboard(() => response(data),
+    { personalTime: true, allowedRoutes: ["/api/odoo/unit-dico-projects"] });
+  dashboard.state.personalTimeResult = personalResult();
+  dashboard.state.selectedPersonalProjectId = 101;
+  dashboard.state.selectedYears = new Set([2025, 2026]);
+  dashboard.state.customDateRange = { startDate: "2026-10-01", endDate: "2026-10-05" };
+  const personal = dashboard.state.personalTimeResult, years = dashboard.state.selectedYears, range = dashboard.state.customDateRange;
+  dashboard.renderPersonalProjects(); assert.equal(requests.length, 0);
+  dashboard.applyViewChange({ detail: { view: "unit-dico" } });
+  assert.equal(dashboard.state.unitDicoLoading, true);
+  assert.equal(dashboard.els.filterBar.hidden, true, "The full-lifetime overview does not display scoped year/date controls");
+  await new Promise(setImmediate);
+  assert.deepEqual(requests, [{ url: "/api/odoo/unit-dico-projects", payload: {} }]);
+  assert.equal(dashboard.state.unitDicoResult, data);
+  assert.equal(context.unitDicoRenders.at(-1).container, dashboard.els.unitDicoContent);
+  assert.equal(context.unitDicoRenders.at(-1).result.projects.length, 2, "Projects with no personal hours remain in the fixed unit catalogue");
+  assert.equal(dashboard.state.personalTimeResult, personal); assert.equal(dashboard.state.selectedPersonalProjectId, 101);
+  assert.equal(dashboard.state.selectedYears, years); assert.equal(dashboard.state.customDateRange, range);
+  dashboard.applyViewChange({ detail: { view: "time" } });
+  dashboard.applyViewChange({ detail: { view: "unit-dico" } });
+  await dashboard.fetchUnitDicoProjects();
+  assert.equal(requests.length, 1, "Reopening the tab and repeated requests reuse the catalogue");
+  assert.equal(dashboard.state.unitDicoLoading, false);
+});
+
+test("Unit DiCo rejects a wrong unit, relation, catalogue or project identity and exposes a working retry", async () => {
+  const wrongResults = [
+    { ...unitDicoResult(), unit: { id: 205 } },
+    { ...unitDicoResult(), responsibleField: "other_unit_id" },
+    { ...unitDicoResult(), projects: {} },
+    { ...unitDicoResult(), projects: [{ id: "201", name: "String ID" }] },
+    { ...unitDicoResult(), projects: [{ id: -1, name: "Bad ID" }] }
+  ];
+  for (const wrong of wrongResults) {
+    let data = wrong;
+    const { dashboard, requests, context } = loadDashboard(() => response(data),
+      { personalTime: true, allowedRoutes: ["/api/odoo/unit-dico-projects"] });
+    dashboard.state.dashboardView = "unit-dico";
+    await dashboard.fetchUnitDicoProjects();
+    assert.equal(dashboard.state.unitDicoResult, null);
+    assert.equal(dashboard.state.selectedUnitProjectId, null);
+    assert.match(dashboard.state.unitDicoError, /indisponibles.*Réessayez/);
+    assert.equal(context.unitDicoRenders.at(-1).options.error, dashboard.state.unitDicoError);
+    data = unitDicoResult([]);
+    await context.unitDicoRenders.at(-1).options.onRetry();
+    assert.equal(dashboard.state.unitDicoResult, data);
+    assert.equal(dashboard.state.unitDicoError, "");
+    assert.equal(dashboard.state.unitDicoLoading, false); assert.equal(requests.length, 2);
+  }
+});
+
+test("an obsolete Unit DiCo response cannot install a catalogue or stop a newer refresh", async () => {
+  const pending = [];
+  const { dashboard, requests } = loadDashboard(() => new Promise(resolve => pending.push(resolve)),
+    { personalTime: true, allowedRoutes: ["/api/odoo/unit-dico-projects"] });
+  dashboard.state.dashboardView = "unit-dico";
+  const first = dashboard.fetchUnitDicoProjects();
+  await dashboard.fetchUnitDicoProjects(); assert.equal(requests.length, 1, "Concurrent non-forced requests share the in-flight read");
+  const second = dashboard.fetchUnitDicoProjects(true);
+  pending[0](response(unitDicoResult([201]))); await first;
+  assert.equal(dashboard.state.unitDicoResult, null);
+  assert.equal(dashboard.state.unitDicoLoading, true, "The old finally block cannot clear the newer loading state");
+  const latest = unitDicoResult([202]); pending[1](response(latest)); await second;
+  assert.equal(dashboard.state.unitDicoResult, latest); assert.equal(dashboard.state.unitDicoLoading, false);
+  assert.equal(requests.length, 2);
+});
+
+test("Unit DiCo selection opens existing hours and finance for a unit-only project while preserving personal selection", async () => {
+  const { dashboard, requests, context } = loadDashboard(({ url, payload }) => response(
+    url.endsWith("project-finance") ? projectFinanceResult(payload.projectId) : unitProjectHoursResult(payload.projectId)),
+  { personalTime: true, allowedRoutes: ["/api/odoo/project-hours", "/api/odoo/project-finance"] });
+  dashboard.state.personalTimeResult = personalResult(); dashboard.state.selectedPersonalProjectId = 101;
+  dashboard.state.unitDicoResult = unitDicoResult(); dashboard.state.dashboardView = "unit-dico";
+  dashboard.renderPersonalProjects();
+  context.unitDicoRenders.at(-1).options.onSelect(201);
+  await new Promise(setImmediate);
+  assert.equal(dashboard.state.selectedUnitProjectId, 201); assert.equal(dashboard.state.selectedPersonalProjectId, 101);
+  let view = context.projectBrowserRenders.at(-1);
+  assert.equal(view.container, dashboard.els.unitDicoContent); assert.equal(view.options.selectedId, 201);
+  assert.equal(view.options.detail.project.actual, 28); assert.equal(dashboard.els.filterBar.hidden, false);
+  assert.deepEqual(requests[0], { url: "/api/odoo/project-hours", payload: { projectId: 201 } });
+  view.options.onViewChange("budget"); await new Promise(setImmediate);
+  view = context.projectBrowserRenders.at(-1);
+  assert.equal(view.options.panel, "budget"); assert.equal(view.options.finance.result.project.id, 201);
+  assert.equal(dashboard.els.filterBar.hidden, true);
+  assert.deepEqual(requests[1], { url: "/api/odoo/project-finance", payload: { projectId: 201 } });
+  view.options.onViewChange("hours"); await new Promise(setImmediate);
+  assert.equal(dashboard.els.filterBar.hidden, false); assert.equal(requests.length, 2, "Panel switches reuse exact-ID caches");
+  dashboard.choosePersonalProject(101); dashboard.choosePersonalProject(999);
+  await dashboard.loadPersonalProjectHours(999); await dashboard.loadPersonalProjectFinance(999);
+  assert.equal(dashboard.state.selectedUnitProjectId, 201); assert.equal(requests.length, 2, "Personal-only/unrelated IDs cannot enter unit selection");
+  context.projectBrowserRenders.at(-1).options.onBack();
+  assert.equal(dashboard.state.selectedUnitProjectId, null); assert.equal(dashboard.state.selectedPersonalProjectId, 101);
+  assert.equal(context.unitDicoRenders.at(-1).options.focusProjectId, 201);
+  assert.equal(dashboard.els.filterBar.hidden, true);
+});
+
+test("Unit DiCo membership and timeline keep all projects when the shared hours scope changes", () => {
+  const { dashboard, requests, context } = loadDashboard(undefined, { personalTime: true, dateControls: true });
+  dashboard.state.personalTimeResult = personalResult(); dashboard.state.unitDicoResult = unitDicoResult();
+  dashboard.state.dashboardView = "unit-dico"; dashboard.state.selectedUnitProjectId = 201;
+  dashboard.state.personalProjectHoursCache.set("201", { result: unitProjectHoursResult(), loading: false, error: "" });
+  dashboard.renderPersonalProjects();
+  const catalogue = dashboard.state.unitDicoResult;
+  dashboard.state.selectedYears = new Set([2024]); dashboard.renderPersonalProjects();
+  assert.equal(dashboard.state.selectedUnitProjectId, 201);
+  assert.equal(context.projectBrowserRenders.at(-1).options.detail.project.actual, 0);
+  assert.equal(context.projectBrowserRenders.at(-1).options.projects.length, 2);
+  dashboard.els.customDateStart.value = "2026-10-01"; dashboard.els.customDateEnd.value = "2026-10-05";
+  dashboard.applyCustomDateRange(); dashboard.renderPersonalProjects();
+  assert.equal(dashboard.state.selectedUnitProjectId, 201); assert.equal(dashboard.state.unitDicoResult, catalogue);
+  assert.equal(context.projectBrowserRenders.at(-1).options.detail.project.actual, 28);
+  dashboard.clearPersonalProject(); assert.equal(context.unitDicoRenders.at(-1).result, catalogue);
+  assert.equal(requests.length, 0, "Scope changes recalculate hours without replacing or fetching the full-lifetime catalogue");
+});
+
+test("Unit DiCo detail uses exact-ID local hour, monthly and finance preferences without affecting another project", () => {
+  const { dashboard, requests, context } = loadDashboard(undefined, { personalTime: true });
+  dashboard.state.personalTimeResult = personalResult(); dashboard.state.unitDicoResult = unitDicoResult();
+  dashboard.state.dashboardView = "unit-dico"; dashboard.state.selectedUnitProjectId = 201;
+  for (const id of [201, 202]) {
+    dashboard.state.personalProjectHoursCache.set(String(id), { result: unitProjectHoursResult(id), loading: false, error: "" });
+    dashboard.state.personalProjectFinanceCache.set(String(id), { result: projectFinanceResult(id), loading: false, error: "" });
+  }
+  dashboard.renderPersonalProjects(); const latest = () => context.projectBrowserRenders.at(-1).options;
+  assert.equal(latest().detail.includeOrmitters, false);
+  latest().onIncludeOrmittersChange(true); latest().onMonthlyModeChange("cumulative");
+  latest().onMonthlyEmployeeChange("employee:11");
+  assert.equal(latest().detail.includeOrmitters, true); assert.equal(latest().detail.monthlyMode, "cumulative");
+  assert.equal(latest().detail.monthlyEmployeeId, "employee:11");
+  latest().onViewChange("budget"); latest().onShowBwPersonnelCostsChange(true);
+  latest().onExcludeOrmitterCostsChange(true); latest().onConventionChange(501);
+  assert.equal(latest().finance.showBwPersonnelCosts, true); assert.equal(latest().finance.excludeOrmitterCosts, true);
+  assert.equal(latest().finance.selectedConventionId, "501");
+  dashboard.choosePersonalProject(202);
+  assert.equal(latest().detail.includeOrmitters, false); assert.equal(latest().detail.monthlyMode, "monthly");
+  assert.equal(latest().finance.showBwPersonnelCosts, false); assert.equal(latest().finance.excludeOrmitterCosts, false);
+  dashboard.choosePersonalProject(201);
+  assert.equal(latest().panel, "budget"); assert.equal(latest().finance.showBwPersonnelCosts, true);
+  latest().onViewChange("hours"); assert.equal(latest().detail.monthlyEmployeeId, "employee:11");
+  assert.equal(latest().detail.monthlyMode, "cumulative"); assert.equal(latest().detail.includeOrmitters, true);
+  assert.equal(dashboard.state.personalProjectOrmitters.has("101"), false);
+  assert.equal(dashboard.state.personalProjectShowBwPersonnelCosts.has("101"), false);
+  assert.equal(requests.length, 0, "All active unit callbacks reuse cached exact-project records");
+});
+
+test("leaving Unit DiCo details tears down their host and reopening keeps their selected project", async () => {
+  const { dashboard, context, requests } = loadDashboard(undefined, { personalTime: true });
+  dashboard.state.personalTimeResult = personalResult(); dashboard.state.unitDicoResult = unitDicoResult();
+  dashboard.state.dashboardView = "unit-dico"; dashboard.state.selectedUnitProjectId = 201;
+  dashboard.state.personalProjectHoursCache.set("201", { result: unitProjectHoursResult(), loading: false, error: "" });
+  dashboard.renderPersonalProjects();
+  dashboard.applyViewChange({ detail: { view: "time" } });
+  assert.equal(context.projectBrowserCleanups.at(-1), dashboard.els.unitDicoContent,
+    "Hidden detail modal/observer/tooltip handlers must be released before switching views");
+  assert.equal(dashboard.state.selectedUnitProjectId, 201);
+  dashboard.applyViewChange({ detail: { view: "unit-dico" } }); await new Promise(setImmediate);
+  assert.equal(context.projectBrowserRenders.at(-1).container, dashboard.els.unitDicoContent);
+  assert.equal(context.projectBrowserRenders.at(-1).options.selectedId, 201);
+  assert.equal(requests.length, 0);
+});
+
+test("leaving the Unit DiCo overview releases timeline reveal observers without changing its catalogue", async () => {
+  const { dashboard, context, requests } = loadDashboard(undefined, { personalTime: true });
+  dashboard.state.personalTimeResult = personalResult(); dashboard.state.unitDicoResult = unitDicoResult();
+  dashboard.state.dashboardView = "unit-dico";
+  const catalogue = dashboard.state.unitDicoResult;
+  dashboard.renderPersonalProjects();
+  assert.equal(context.unitDicoCleanups.length, 0);
+  dashboard.applyViewChange({ detail: { view: "time" } });
+  assert.deepEqual(context.unitDicoCleanups, [dashboard.els.unitDicoContent]);
+  assert.equal(dashboard.state.unitDicoResult, catalogue); assert.equal(dashboard.state.selectedUnitProjectId, null);
+  dashboard.applyViewChange({ detail: { view: "unit-dico" } }); await new Promise(setImmediate);
+  assert.equal(context.unitDicoRenders.at(-1).result, catalogue);
+  assert.equal(context.unitDicoCleanups.length, 1, "Reopening the overview remounts its own chart rather than cleaning another host");
+  assert.equal(requests.length, 0);
+});
+
+test("opening a Unit DiCo project cleans the overview timeline before the shared detail replaces its host", () => {
+  const { dashboard, context, requests } = loadDashboard(undefined, { personalTime: true });
+  dashboard.state.personalTimeResult = personalResult(); dashboard.state.unitDicoResult = unitDicoResult();
+  dashboard.state.dashboardView = "unit-dico";
+  dashboard.state.personalProjectHoursCache.set("201", { result: unitProjectHoursResult(), loading: false, error: "" });
+  dashboard.renderPersonalProjects(); context.projectHostEvents.length = 0;
+  context.unitDicoRenders.at(-1).options.onSelect(201);
+  const events = context.projectHostEvents;
+  assert.equal(events[0].type, "unit-cleanup"); assert.equal(events[1].type, "project-render");
+  assert.ok(events.every(event => event.container === dashboard.els.unitDicoContent));
+  assert.equal(context.projectBrowserRenders.at(-1).options.selectedId, 201);
+  assert.equal(dashboard.state.selectedUnitProjectId, 201); assert.equal(requests.length, 0);
+  context.projectBrowserRenders.at(-1).options.onBack();
+  assert.equal(context.projectHostEvents.at(-1).type, "unit-render");
+  assert.equal(context.unitDicoRenders.at(-1).options.focusProjectId, 201);
+});
+
+test("forced Unit DiCo refresh preserves a valid selection while replacing cached detail generations", async () => {
+  const pending = [];
+  const { dashboard, requests, context } = loadDashboard(({ url }) => url.endsWith("unit-dico-projects") ? new Promise(resolve => pending.push(resolve)) : response(unitProjectHoursResult()),
+    { personalTime: true, allowedRoutes: ["/api/odoo/unit-dico-projects", "/api/odoo/project-hours"] });
+  dashboard.state.personalTimeResult = personalResult(); const original = unitDicoResult();
+  dashboard.state.unitDicoResult = original; dashboard.state.dashboardView = "unit-dico"; dashboard.state.selectedUnitProjectId = 201;
+  const staleHours = { result: unitProjectHoursResult(), loading: false, error: "" };
+  dashboard.state.personalProjectHoursCache.set("201", staleHours);
+  dashboard.state.personalProjectFinanceCache.set("201", { result: projectFinanceResult(), loading: false, error: "" });
+  const previousHoursGeneration = dashboard.state.personalProjectHoursGeneration;
+  const previousFinanceGeneration = dashboard.state.personalProjectFinanceGeneration;
+  const refresh = dashboard.fetchUnitDicoProjects(true);
+  assert.equal(dashboard.state.unitDicoResult, original); assert.equal(dashboard.state.selectedUnitProjectId, 201);
+  assert.equal(dashboard.state.unitDicoLoading, true);
+  pending[0](response(unitDicoResult())); await refresh; await new Promise(setImmediate);
+  assert.equal(dashboard.state.selectedUnitProjectId, 201);
+  assert.ok(dashboard.state.personalProjectHoursGeneration > previousHoursGeneration);
+  assert.ok(dashboard.state.personalProjectFinanceGeneration > previousFinanceGeneration);
+  assert.notEqual(dashboard.state.personalProjectHoursCache.get("201"), staleHours);
+  assert.equal(dashboard.state.personalProjectFinanceCache.size, 0);
+  assert.equal(context.projectBrowserRenders.at(-1).options.detail.loading, false);
+  assert.deepEqual(requests.map(request => request.url), ["/api/odoo/unit-dico-projects", "/api/odoo/project-hours"]);
+});
+
+test("Unit DiCo refresh clears only a project absent from its new catalogue and returns to the overview", async () => {
+  const { dashboard, context, requests } = loadDashboard(() => response(unitDicoResult([202])),
+    { personalTime: true, allowedRoutes: ["/api/odoo/unit-dico-projects"] });
+  dashboard.state.personalTimeResult = personalResult(); dashboard.state.selectedPersonalProjectId = 101;
+  dashboard.state.unitDicoResult = unitDicoResult(); dashboard.state.dashboardView = "unit-dico"; dashboard.state.selectedUnitProjectId = 201;
+  await dashboard.fetchUnitDicoProjects(true);
+  assert.equal(dashboard.state.selectedUnitProjectId, null); assert.equal(dashboard.state.selectedPersonalProjectId, 101);
+  assert.equal(context.unitDicoRenders.at(-1).result.projects[0].id, 202);
+  assert.equal(dashboard.els.filterBar.hidden, true); assert.equal(requests.length, 1);
+});
+
+test("a pending Unit DiCo refresh restarts the active personal detail and ignores its previous cache generation", async () => {
+  const pending = { unit: [], hours: [] };
+  const { dashboard, context, requests } = loadDashboard(({ url }) => new Promise(resolve => {
+    pending[url.endsWith("unit-dico-projects") ? "unit" : "hours"].push(resolve);
+  }), { personalTime: true, allowedRoutes: ["/api/odoo/unit-dico-projects", "/api/odoo/project-hours"] });
+  dashboard.state.personalTimeResult = personalResult(); dashboard.state.unitDicoResult = unitDicoResult();
+  dashboard.state.dashboardView = "unit-dico"; dashboard.state.selectedUnitProjectId = 201;
+  dashboard.state.personalProjectHoursCache.set("201", { result: unitProjectHoursResult(), loading: false, error: "" });
+  const refresh = dashboard.fetchUnitDicoProjects(true);
+  dashboard.applyViewChange({ detail: { view: "projects" } }); dashboard.choosePersonalProject(101);
+  assert.equal(pending.hours.length, 1);
+  const previousGeneration = dashboard.state.personalProjectHoursGeneration;
+  pending.unit[0](response(unitDicoResult())); await refresh;
+  assert.ok(dashboard.state.personalProjectHoursGeneration > previousGeneration);
+  assert.equal(pending.hours.length, 2, "Refreshing the shared cache restarts the current personal detail read");
+  pending.hours[0](response(projectHoursResult())); await new Promise(setImmediate);
+  assert.equal(dashboard.state.personalProjectHoursCache.get("101").result, null);
+  assert.equal(dashboard.state.personalProjectHoursCache.get("101").loading, true, "The stale response cannot end the replacement load");
+  pending.hours[1](response(projectHoursResult())); await new Promise(setImmediate);
+  assert.equal(dashboard.state.selectedPersonalProjectId, 101); assert.equal(dashboard.state.selectedUnitProjectId, 201);
+  assert.equal(context.projectBrowserRenders.at(-1).container, dashboard.els.personalProjectsContent);
+  assert.equal(context.projectBrowserRenders.at(-1).options.detail.loading, false);
+  assert.equal(context.projectBrowserRenders.at(-1).options.detail.project.actual, 28);
+  assert.deepEqual(requests.map(request => request.url), ["/api/odoo/unit-dico-projects", "/api/odoo/project-hours", "/api/odoo/project-hours"]);
+});
+
+test("reentering Unit DiCo after a personal refresh reloads its remembered hours or budget while reusing the catalogue", async () => {
+  for (const panel of ["hours", "budget"]) {
+    const { dashboard, context, requests } = loadDashboard(({ url, payload }) => response(
+      url.endsWith("my-time") ? personalResult() : url.endsWith("project-finance") ? projectFinanceResult(payload.projectId) : unitProjectHoursResult(payload.projectId)),
+    { personalTime: true, allowedRoutes: ["/api/odoo/my-time", "/api/odoo/project-hours", "/api/odoo/project-finance"] });
+    dashboard.state.personalTimeResult = personalResult(); const catalogue = unitDicoResult();
+    dashboard.state.unitDicoResult = catalogue; dashboard.state.selectedUnitProjectId = 201;
+    dashboard.state.personalProjectView.set("201", panel); dashboard.state.dashboardView = "time";
+    dashboard.state.personalProjectHoursCache.set("201", { result: unitProjectHoursResult(), loading: false, error: "" });
+    dashboard.state.personalProjectFinanceCache.set("201", { result: projectFinanceResult(201), loading: false, error: "" });
+    await dashboard.fetchPersonalTime();
+    assert.equal(dashboard.state.personalProjectHoursCache.size, 0); assert.equal(dashboard.state.personalProjectFinanceCache.size, 0);
+    assert.equal(dashboard.state.unitDicoResult, catalogue); assert.equal(dashboard.state.selectedUnitProjectId, 201);
+    dashboard.applyViewChange({ detail: { view: "unit-dico" } }); await new Promise(setImmediate);
+    const rendered = context.projectBrowserRenders.at(-1).options;
+    assert.equal(rendered.selectedId, 201); assert.equal(rendered.panel, panel);
+    if (panel === "hours") assert.equal(rendered.detail.loading, false);
+    else assert.equal(rendered.finance.result.project.id, 201);
+    assert.deepEqual(requests.map(request => request.url), ["/api/odoo/my-time", `/api/odoo/project-${panel === "hours" ? "hours" : "finance"}`]);
+    dashboard.applyViewChange({ detail: { view: "unit-dico" } }); await new Promise(setImmediate);
+    assert.equal(requests.length, 2, "Repeated entry reuses the replacement detail cache");
+  }
+});
+
 test("project Budget switch reads lazily, hides irrelevant years and retains independent cached hours", async () => {
   const { dashboard, requests, context } = loadDashboard(({ url }) => response(
     url.endsWith("project-finance") ? projectFinanceResult() : projectHoursResult()),
@@ -239,6 +856,7 @@ test("finance in-flight reads share an exact ID, isolate another selection and d
   const pending = new Map();
   const { dashboard, requests, context } = loadDashboard(({ payload }) => new Promise(resolve => pending.set(payload.projectId, resolve)),
     { personalTime: true, allowedRoutes: ["/api/odoo/project-finance"] });
+  dashboard.state.dashboardView = "projects";
   dashboard.state.personalTimeResult = personalResult();
   dashboard.state.personalTimeResult.projects.push({ id: 102, name: emptyProjectName });
   dashboard.state.personalTimeResult.timesheets.lines.push(line(11, 1, false, employeeName, emptyProjectName));
@@ -273,7 +891,7 @@ test("wrong-project finance stays unavailable, retry recovers, and personal refr
   dashboard.state.personalProjectView.set("101", "budget");
   await dashboard.loadPersonalProjectFinance(101);
   assert.equal(dashboard.state.personalProjectFinanceCache.get("101").result, null);
-  assert.match(dashboard.state.personalProjectFinanceCache.get("101").error, /ne correspond pas/);
+  assert.match(dashboard.state.personalProjectFinanceCache.get("101").error, /Le budget du projet.*indisponible.*Réessayez/);
   wrong = false;
   await dashboard.loadPersonalProjectFinance(101, true);
   assert.equal(dashboard.state.personalProjectFinanceCache.get("101").result.project.id, 101);
@@ -334,6 +952,52 @@ test("annual Ormitter costs exclusion is local, remembered per project and indep
   assert.equal(requests.length, 2);
 });
 
+test("BW personnel display defaults off, stays local per project and survives finance refresh independently", async () => {
+  const { dashboard, requests, context } = loadDashboard(({ url, payload }) => response(
+    url.endsWith("my-time") ? dashboard.state.personalTimeResult : projectFinanceResult(payload.projectId)),
+  { personalTime: true, allowedRoutes: ["/api/odoo/project-finance", "/api/odoo/my-time"] });
+  dashboard.state.personalTimeResult = personalResult();
+  dashboard.state.personalTimeResult.projects.push({ id: 102, name: emptyProjectName });
+  dashboard.state.personalTimeResult.timesheets.lines.push(line(11, 1, false, employeeName, emptyProjectName));
+  dashboard.state.dashboardView = "projects";
+  dashboard.state.selectedPersonalProjectId = 101;
+  dashboard.state.personalProjectView.set("101", "budget");
+  dashboard.setPersonalProjectShowBwPersonnelCosts(true);
+  assert.equal(dashboard.state.personalProjectShowBwPersonnelCosts.size, 0, "No choice is stored before finance data exists");
+  await dashboard.loadPersonalProjectFinance(101);
+  assert.equal(context.projectBrowserRenders.at(-1).options.finance.showBwPersonnelCosts, false);
+  const source = dashboard.state.personalProjectFinanceCache.get("101").result;
+  context.projectBrowserRenders.at(-1).options.onShowBwPersonnelCostsChange(true);
+  assert.equal(context.projectBrowserRenders.at(-1).options.finance.showBwPersonnelCosts, true);
+  assert.equal(dashboard.state.personalProjectOrmitters.has("101"), false);
+  assert.equal(dashboard.state.personalProjectExcludeOrmitterCosts.has("101"), false);
+  dashboard.setPersonalProjectShowBwPersonnelCosts("true");
+  dashboard.setPersonalProjectShowBwPersonnelCosts(true);
+  dashboard.setPersonalProjectExcludeOrmitterCosts(true);
+  dashboard.state.selectedYears = new Set([2025, 2026]);
+  dashboard.renderPersonalProjects();
+  assert.equal(context.projectBrowserRenders.at(-1).options.finance.showBwPersonnelCosts, true);
+  assert.equal(context.projectBrowserRenders.at(-1).options.finance.excludeOrmitterCosts, true);
+  assert.equal(dashboard.state.personalProjectFinanceCache.get("101").result, source);
+  assert.equal(requests.length, 1, "Checkbox and period changes use the existing finance result");
+  dashboard.state.selectedPersonalProjectId = 102;
+  dashboard.state.personalProjectView.set("102", "budget");
+  await dashboard.loadPersonalProjectFinance(102);
+  assert.equal(context.projectBrowserRenders.at(-1).options.finance.showBwPersonnelCosts, false);
+  dashboard.state.selectedPersonalProjectId = 101;
+  await dashboard.fetchPersonalTime();
+  await new Promise(setImmediate);
+  assert.equal(context.projectBrowserRenders.at(-1).options.finance.showBwPersonnelCosts, true);
+  assert.equal(context.projectBrowserRenders.at(-1).options.finance.excludeOrmitterCosts, true);
+  assert.deepEqual(requests.map(request => request.url), ["/api/odoo/project-finance", "/api/odoo/project-finance", "/api/odoo/my-time", "/api/odoo/project-finance"]);
+  dashboard.setPersonalProjectShowBwPersonnelCosts(false);
+  assert.equal(context.projectBrowserRenders.at(-1).options.finance.showBwPersonnelCosts, false);
+  assert.equal(context.projectBrowserRenders.at(-1).options.finance.excludeOrmitterCosts, true);
+  dashboard.state.selectedPersonalProjectId = null;
+  dashboard.setPersonalProjectShowBwPersonnelCosts(true);
+  assert.equal(dashboard.state.personalProjectShowBwPersonnelCosts.has("null"), false);
+});
+
 test("persistent sticky navigation starts on Mon temps and hides legacy population controls", () => {
   const { dashboard } = loadDashboard(undefined, { legacyScope: false });
   assert.equal(dashboard.state.dashboardView, "time");
@@ -350,6 +1014,7 @@ test("persistent sticky navigation starts on Mon temps and hides legacy populati
   const menu = source.match(/<section class="dashboard-menu"[\s\S]*?<\/section>/)?.[0];
   assert.match(menu, /<nav id="pilotage-nav"/);
   assert.match(menu, /data-view="time" aria-current="page">Mon temps<\/button>/);
+  assert.match(menu, /data-view="projects">Projets<\/button>\s*<button type="button" data-view="unit-dico">Unité DiCo<\/button>/);
   assert.match(menu, /id="hoursScopeControl"[^>]*hidden/);
   assert.match(menu, /id="hoursInclusionControl"[^>]*hidden/);
   assert.ok(source.indexOf('id="time-view"') > source.indexOf(menu) + menu.length,
@@ -367,6 +1032,131 @@ test("Me identity matches employee IDs before same-name records and supports a r
   assert.equal(dashboard.recordMatchesPersonalIdentity(line(22, 12), identity), false,
     "Another employee with an identical display name must not enter Me hours");
   assert.equal(dashboard.recordMatchesPersonalIdentity(line(33, 20, false, "Drew Example"), identity), false);
+});
+
+test("Mon temps recommendations react locally to tolerance, data and scope while preserving the pie and legend state", () => {
+  const { dashboard, context, requests } = loadDashboard(undefined, { personalTime: true, allowedRoutes: [] });
+  dashboard.renderPersonalTimeMacro(); assert.equal(dashboard.els.personalTimeRecommendations.hidden, true);
+  const result = personalResult(); result.projects[0].startDate = "2026-01-01"; result.projects[0].endDate = "2026-12-31";
+  // Keep a future personal allocation so this controller case exercises the
+  // tolerance groups; exhausted planning now correctly takes stop priority.
+  result.planning.slots[0].end = "2027-01-01 00:00:00";
+  result.planning.slots[0].endMonth = "2026-12";
+  dashboard.state.personalTimeResult = result; dashboard.state.hiddenPersonalProjects.add(101);
+  dashboard.renderPersonalTimeMacro();
+  assert.equal(dashboard.els.personalTimeRecommendations.hidden, false); assert.equal(dashboard.state.personalTimeRecommendationTolerance, 15);
+  const initial = context.recommendationRenders.at(-1), pieRenders = context.personalRenders.length;
+  assert.equal(initial.container, dashboard.els.personalTimeRecommendations); assert.equal(initial.model.rows.length, 1,
+    "Hiding a pie sector does not remove that project's recommendation");
+  assert.equal(initial.model.rows[0].category, "slow");
+  initial.options.onToleranceChange(100);
+  assert.equal(dashboard.state.personalTimeRecommendationTolerance, 100); assert.equal(context.recommendationRenders.at(-1).model.rows[0].category, "continue");
+  assert.equal(context.personalRenders.length, pieRenders, "A slider movement updates only the recommendation host");
+  initial.options.onToleranceChange(-10); assert.equal(dashboard.state.personalTimeRecommendationTolerance, 0);
+  initial.options.onToleranceChange(Infinity); assert.equal(dashboard.state.personalTimeRecommendationTolerance, 0);
+  dashboard.state.customDateRange = { startDate: "2026-10-01", endDate: "2026-10-02" }; dashboard.renderPersonalRecommendations();
+  assert.equal(context.recommendationRenders.at(-1).model.rows[0].actual, 0); assert.equal(context.recommendationRenders.at(-1).model.rows[0].periodEnded, true);
+  dashboard.state.customDateRange = null; result.timesheets.lines[0].hours = 3; dashboard.renderPersonalRecommendations();
+  assert.equal(context.recommendationRenders.at(-1).model.rows[0].actual, 3); assert.ok(dashboard.state.hiddenPersonalProjects.has(101));
+  assert.equal(context.personalRenders.length, pieRenders); assert.equal(requests.length, 0);
+  assert.ok(source.indexOf('id="personalTimeRecommendations"') < source.indexOf('id="personalTimeContent"'),
+    "The recommendation host precedes the personal pie");
+});
+
+test("personal work capacity caches by scoped years and includes hidden projects in total planning", async () => {
+  const { dashboard, context, requests } = loadDashboard(request => response({ ok: true, fixtureHours: request.payload.years[0] }),
+    { personalTime: true, capacity: true, allowedRoutes: ["/api/odoo/my-work-capacity"] });
+  dashboard.renderPersonalTimeMacro();
+  assert.equal(dashboard.els.personalTimeCapacity.hidden, true);
+  dashboard.state.personalTimeResult = personalResult();
+  dashboard.state.hiddenPersonalProjects.add(101);
+  dashboard.renderPersonalTimeMacro();
+  assert.equal(context.capacityRenders.at(-1).options.loading, true);
+  await new Promise(setImmediate);
+  assert.deepEqual(requests.map(request => request.payload), [{ years: [2026] }]);
+  assert.equal(context.capacityRenders.at(-1).model.plannedHours, 6);
+  assert.equal(context.capacityRenders.at(-1).model.availableHours, 2026);
+  assert.equal(dashboard.els.personalTimeCapacity.hidden, false);
+  dashboard.state.hiddenPersonalProjects.clear(); dashboard.renderPersonalTimeMacro();
+  assert.equal(requests.length, 1, "Pie visibility never reloads HR sources or changes total planning");
+  assert.equal(context.capacityRenders.at(-1).model.plannedHours, 6);
+  dashboard.state.selectedYears = new Set([2027]); dashboard.renderPersonalTimeMacro();
+  await new Promise(setImmediate);
+  assert.deepEqual(requests.at(-1).payload, { years: [2027] });
+  assert.equal(context.capacityRenders.at(-1).model.plannedHours, 0);
+  dashboard.state.selectedYears = new Set([2026]); dashboard.renderPersonalTimeMacro();
+  assert.equal(requests.length, 2);
+  assert.equal(context.capacityRenders.at(-1).model.availableHours, 2026);
+});
+
+test("capacity planning covers complete selected years, including future and uncatalogued personal allocations", async () => {
+  const { dashboard, context } = loadDashboard(() => response({ ok: true, fixtureHours: 1700 }),
+    { personalTime: true, capacity: true, allowedRoutes: ["/api/odoo/my-work-capacity"] });
+  const result = personalResult();
+  const allocation = (id, hours, start, end, projectId = 101) => ({
+    ...slot(11, hours), id, projectId, project: projectId === 101 ? projectName : null,
+    start, end, startMonth: start.slice(0, 7), endMonth: end.slice(0, 7)
+  });
+  result.planning.slots = [
+    allocation(1, 100, "2026-01-01 00:00:00", "2027-01-01 00:00:00"),
+    allocation(2, 50, "2026-11-01 00:00:00", "2026-12-01 00:00:00"),
+    allocation(3, 15, "2026-12-01 00:00:00", "2027-01-01 00:00:00", null),
+    allocation(4, 120, "2027-06-01 00:00:00", "2027-07-01 00:00:00"),
+    allocation(5, 50, "2027-08-01 00:00:00", "2027-09-01 00:00:00", 999),
+    allocation(6, 900, "2025-01-01 00:00:00", "2026-01-01 00:00:00"),
+    allocation(7, 1000, "2028-01-01 00:00:00", "2029-01-01 00:00:00")
+  ];
+  dashboard.state.personalTimeResult = result;
+  dashboard.state.hiddenPersonalProjects.add(101);
+  for (const [years, expected] of [[[2026], 165], [[2027], 170], [[2026, 2027], 335]]) {
+    dashboard.state.selectedYears = new Set(years);
+    dashboard.renderPersonalTimeMacro();
+    await new Promise(setImmediate);
+    assert.equal(context.capacityRenders.at(-1).model.plannedHours, expected,
+      "Planning includes the entire selected years, without a cutoff at today's date");
+    assert.deepEqual([...context.capacitySummaries.at(-1).scope], years,
+      "Available capacity and complete planning use the same selected years");
+  }
+});
+
+test("custom capacity scopes fetch each intersecting year and keep denied capacity independent of unknown planning", async () => {
+  const { dashboard, context, requests } = loadDashboard(() => { throw new Error("private-upstream-secret"); },
+    { personalTime: true, capacity: true, allowedRoutes: ["/api/odoo/my-work-capacity"] });
+  dashboard.state.personalTimeResult = { ...personalResult(), planning: null };
+  dashboard.state.customDateRange = { startDate: "2026-12-01", endDate: "2027-01-15" };
+  dashboard.renderPersonalTimeMacro(); await new Promise(setImmediate);
+  assert.deepEqual(requests[0].payload, { years: [2026, 2027] });
+  const view = context.capacityRenders.at(-1);
+  assert.equal(view.model.plannedHours, null);
+  assert.equal(view.model.availableHours, null);
+  assert.equal(view.options.loading, false);
+  assert.match(view.options.error, /indisponibles/);
+  assert.doesNotMatch(view.options.error, /private-upstream-secret/);
+  dashboard.renderPersonalTimeMacro(); assert.equal(requests.length, 1, "Failed optional reads do not retry on every pie render");
+  assert.ok(context.personalRenders.length > 0, "Optional HR failure preserves personal time");
+  dashboard.state.personalTimeResult.planning = { ...personalResult().planning, ok: false };
+  dashboard.renderPersonalTimeMacro();
+  assert.equal(context.capacityRenders.at(-1).model.plannedHours, null, "A failed source flag cannot establish complete planning");
+  dashboard.state.personalTimeResult.planning.ok = true;
+  dashboard.state.personalTimeResult.planningError = "Planning unavailable";
+  dashboard.renderPersonalTimeMacro();
+  assert.equal(context.capacityRenders.at(-1).model.plannedHours, null);
+});
+
+test("stale capacity responses cannot replace a different selected scope or survive explicit refresh", async () => {
+  const pending = [];
+  const { dashboard, context } = loadDashboard(request => new Promise(resolve => pending.push({ request, resolve })),
+    { personalTime: true, capacity: true, allowedRoutes: ["/api/odoo/my-work-capacity"] });
+  dashboard.state.personalTimeResult = personalResult(); dashboard.renderPersonalTimeMacro();
+  dashboard.state.selectedYears = new Set([2027]); dashboard.renderPersonalTimeMacro();
+  pending[1].resolve(response({ ok: true, fixtureHours: 1700 })); await new Promise(setImmediate);
+  pending[0].resolve(response({ ok: true, fixtureHours: 1500 })); await new Promise(setImmediate);
+  assert.equal(context.capacityRenders.at(-1).model.availableHours, 1700);
+  dashboard.state.selectedYears = new Set([2028]); dashboard.renderPersonalTimeMacro();
+  dashboard.state.personalCapacityGeneration += 1; dashboard.state.personalCapacityCache.clear();
+  pending[2].resolve(response({ ok: true, fixtureHours: 999 })); await new Promise(setImmediate);
+  assert.equal(dashboard.state.personalCapacityCache.size, 0, "Old generation cannot repopulate refreshed source cache");
+  assert.notEqual(context.capacityRenders.at(-1).model.availableHours, 999);
 });
 
 test("Mon temps fetches an empty session-bound payload and keeps connected consultant hours inclusive", async () => {
@@ -432,6 +1222,181 @@ test("Mon temps year selection and legend visibility stay local and exclude shar
   assert.equal(requests.length, 1, "Year and legend changes must reuse the loaded personal records");
 });
 
+test("custom range pickers apply atomically, preserve input focus and restore year selection", () => {
+  const { dashboard, context, requests } = loadDashboard(undefined, { personalTime: true, dateControls: true });
+  dashboard.state.personalTimeResult = personalResult();
+  dashboard.state.years = [2025, 2026];
+  dashboard.state.selectedYears = new Set([2025, 2026]);
+  dashboard.initializeCustomDateRangeControls();
+  dashboard.renderYearFilters();
+  dashboard.els.customDateToggle.dispatch("click");
+  assert.equal(dashboard.els.customDatePanel.hidden, false);
+  assert.equal(dashboard.els.customDateStart.value, "2025-01-01");
+  assert.equal(dashboard.els.customDateEnd.value, "2026-12-31");
+  assert.equal(dashboard.state.customDateRange, null, "Opening the pickers leaves the year scope active");
+  const start = dashboard.els.customDateStart, end = dashboard.els.customDateEnd;
+  start.value = "2026-10-01"; end.value = "2026-10-05";
+  end.focus(); end.dispatch("change");
+  const validRange = dashboard.state.customDateRange;
+  assert.equal(validRange.startDate, "2026-10-01");
+  assert.equal(validRange.endDate, "2026-10-05");
+  dashboard.renderYearFilters();
+  assert.equal(dashboard.els.scopeText.textContent, "01/10/2026 – 05/10/2026");
+  assert.equal(dashboard.els.customDateToggle.getAttribute("aria-pressed"), "true");
+  assert.ok(dashboard.els.yearChips.children.every(button => button.getAttribute("aria-pressed") === "false"));
+  assert.equal(context.document.activeElement, end, "Applying a range keeps the same date input focused");
+  assert.equal(dashboard.els.customDatePanel.hidden, false, "Fast successive changes keep the editor open");
+  const renders = context.renderCalls;
+  end.dispatch("change");
+  assert.equal(context.renderCalls, renders, "An unchanged range does not rerender charts");
+  for (const [from, to, notice] of [["2026-10-06", "2026-10-05", /postérieure/],
+    ["", "2026-10-05", /Choisissez/], ["2026-02-30", "2026-10-05", /Vérifiez/]]) {
+    start.value = from; end.value = to; start.dispatch("change");
+    assert.equal(dashboard.state.customDateRange, validRange, "Draft errors must retain the last applied scope");
+    assert.equal(context.renderCalls, renders);
+    assert.match(dashboard.els.customDateError.textContent, notice);
+    assert.equal(start.getAttribute("aria-invalid"), "true");
+  }
+  dashboard.toggleSelectedYear(2025);
+  dashboard.renderYearFilters();
+  assert.equal(dashboard.state.customDateRange, null);
+  assert.deepEqual([...dashboard.state.selectedYears], [2025], "A year click leaves custom mode and selects that year alone");
+  assert.equal(dashboard.els.customDatePanel.hidden, true);
+  assert.equal(dashboard.els.customDateError.textContent, "");
+  assert.equal(dashboard.els.customDateToggle.getAttribute("aria-pressed"), "false");
+  assert.equal(requests.length, 0);
+});
+
+test("custom picker dismissal and reset support keyboard and preserve the applied scope", () => {
+  const { dashboard, context } = loadDashboard(undefined, { personalTime: true, dateControls: true });
+  dashboard.state.personalTimeResult = personalResult();
+  dashboard.initializeCustomDateRangeControls();
+  dashboard.setCustomDatePanelOpen(true);
+  dashboard.els.customDateStart.value = "2026-10-01"; dashboard.els.customDateEnd.value = "2026-10-05";
+  dashboard.applyCustomDateRange(); dashboard.renderYearFilters();
+  let prevented = false;
+  context.document.dispatch("keydown", { key: "Escape", preventDefault() { prevented = true; } });
+  assert.equal(prevented, true);
+  assert.equal(dashboard.els.customDatePanel.hidden, true);
+  assert.equal(context.document.activeElement, dashboard.els.customDateToggle);
+  assert.ok(dashboard.state.customDateRange, "Closing the editor keeps the applied date filter");
+  dashboard.setCustomDatePanelOpen(true);
+  context.document.dispatch("pointerdown", { target: dashboard.els.customDateStart });
+  assert.equal(dashboard.state.customDatePanelOpen, true);
+  context.document.dispatch("pointerdown", { target: dashboard.els.scopeText });
+  assert.equal(dashboard.state.customDatePanelOpen, false);
+  dashboard.setCustomDatePanelOpen(true);
+  dashboard.els.customDateReset.dispatch("click");
+  assert.equal(dashboard.state.customDateRange, null);
+  assert.equal(context.document.activeElement, dashboard.els.customDateToggle);
+  const year = dashboard.els.yearChips.children.find(button => button.textContent === "2026");
+  year.focus(); dashboard.renderYearFilters();
+  assert.equal(context.document.activeElement.getAttribute("data-scope-year"), "2026", "Year rerenders retain keyboard focus");
+});
+
+test("custom dates share macro, project membership, clipped date ticks and exact employee totals without fetching", () => {
+  const { dashboard, context, requests } = loadDashboard(undefined, { personalTime: true, dateControls: true });
+  const personal = personalResult(), result = projectHoursResult();
+  const own = [line(11, 8), { ...line(11, 4), date: "2026-09-30" },
+    { ...line(11, 2), date: "2026-10-01" }, { ...line(11, 100), date: "2026-10-06" }];
+  const ownSlots = [{ ...slot(11, 240), start: "2026-09-30T00:00:00Z", end: "2026-10-10T00:00:00Z" }];
+  personal.timesheets.lines = own;
+  personal.planning.slots = ownSlots;
+  personal.projects.push({ id: 102, name: emptyProjectName });
+  personal.timesheets.lines.push({ ...line(11, 6, false, employeeName, emptyProjectName), date: "2026-09-30" });
+  result.timesheets.lines = [...own, { ...line(22, 15), date: "2026-10-04" }];
+  result.planning.slots = [...ownSlots, { ...slot(22, 24), start: "2026-10-03T00:00:00Z", end: "2026-10-04T00:00:00Z" }];
+  result.lifetime = { startDate: "2026-10-03", endDate: "2027-01-31", conventionHours: 500 };
+  dashboard.state.dashboardView = "projects";
+  dashboard.state.personalTimeResult = personal;
+  dashboard.state.selectedPersonalProjectId = 101;
+  dashboard.state.personalProjectHoursCache.set("101", { result, loading: false, error: "" });
+  dashboard.renderPersonalProjects();
+  const baseline = context.projectBrowserRenders.at(-1).options.detail;
+  const monthly = JSON.stringify(baseline.monthly), lifetime = JSON.stringify(baseline.lifetime);
+  dashboard.els.customDateStart.value = "2026-10-01"; dashboard.els.customDateEnd.value = "2026-10-05";
+  dashboard.applyCustomDateRange();
+  dashboard.renderPersonalTimeMacro(); dashboard.renderPersonalProjects();
+  const macro = context.personalRenders.at(-1), view = context.projectBrowserRenders.at(-1).options;
+  assert.equal(macro.projects.length, 1, "No planned or actual hours in the range means no legend/grid project");
+  assert.equal(macro.projects[0].planned, 120, "Boundary slots are prorated to five inclusive Brussels days");
+  assert.equal(macro.projects[0].actual, 10);
+  assert.equal(macro.options.scope, dashboard.state.customDateRange);
+  assert.deepEqual(Array.from(view.projects, project => project.id), [101]);
+  assert.equal(view.detail.personal.planned, 120);
+  assert.equal(view.detail.personal.actual, 10);
+  assert.equal(view.detail.project.planned, 144);
+  assert.equal(view.detail.project.actual, 25);
+  assert.equal(view.detail.project.employees.reduce((total, person) => total + person.actual, 0), 25);
+  assert.equal(view.detail.calendarScope.startDate, "2026-10-03", "The linear tick excludes pre-project days");
+  assert.equal(view.detail.calendarScope.endDate, "2026-10-05");
+  assert.equal(view.detail.calendarFraction, 1);
+  assert.equal(view.scopeLabel, "01/10/2026 – 05/10/2026");
+  assert.equal(JSON.stringify(view.detail.monthly), monthly);
+  assert.equal(JSON.stringify(view.detail.lifetime), lifetime);
+  assert.equal(requests.length, 0);
+});
+
+test("custom empty ranges clear a scoped hours selection but retain an independent budget and its cache", () => {
+  const { dashboard, context, requests } = loadDashboard(undefined, { personalTime: true, dateControls: true });
+  dashboard.state.dashboardView = "projects";
+  dashboard.state.personalTimeResult = personalResult();
+  dashboard.state.selectedPersonalProjectId = 101;
+  const finance = projectFinanceResult();
+  dashboard.state.personalProjectFinanceCache.set("101", { result: finance, loading: false, error: "" });
+  dashboard.els.customDateStart.value = "2040-06-01"; dashboard.els.customDateEnd.value = "2040-06-30";
+  dashboard.applyCustomDateRange(); dashboard.renderPersonalTimeMacro(); dashboard.renderPersonalProjects();
+  assert.equal(dashboard.state.selectedPersonalProjectId, null);
+  assert.equal(context.personalRenders.at(-1).projects.length, 0);
+  assert.equal(context.projectBrowserRenders.at(-1).options.projects.length, 0);
+  dashboard.state.selectedPersonalProjectId = 101; dashboard.state.personalProjectView.set("101", "budget");
+  dashboard.renderPersonalProjects(); dashboard.renderYearFilters();
+  assert.equal(dashboard.state.selectedPersonalProjectId, 101);
+  assert.equal(context.projectBrowserRenders.at(-1).options.finance.result, finance);
+  assert.equal(dashboard.els.filterBar.hidden, true);
+  assert.equal(requests.length, 0, "Date filters reuse full-history caches and leave finance unchanged");
+});
+
+test("an accessible empty personal history still offers custom dates and keeps them on refresh", async () => {
+  const empty = personalResult(); empty.timesheets.lines = []; empty.planning.slots = [];
+  const { dashboard, requests } = loadDashboard(() => response(empty), {
+    allowedRoutes: ["/api/odoo/my-time"], personalTime: true, dateControls: true
+  });
+  await dashboard.fetchPersonalTime(); dashboard.renderYearFilters();
+  assert.equal(dashboard.state.years.length, 0);
+  assert.equal(dashboard.els.customDateControl.hidden, false);
+  assert.ok(dashboard.els.filterBar.className.includes("visible"));
+  dashboard.setCustomDatePanelOpen(true);
+  assert.equal(dashboard.els.customDateStart.value, "2026-01-01");
+  dashboard.els.customDateStart.value = "2026-02-01"; dashboard.els.customDateEnd.value = "2026-02-28";
+  dashboard.applyCustomDateRange(); const range = dashboard.state.customDateRange;
+  await dashboard.fetchPersonalTime();
+  assert.equal(dashboard.state.customDateRange, range);
+  assert.equal(requests.length, 2, "Only explicit data refreshes fetch, not range changes");
+});
+
+test("keyboard navigation into an independent budget closes the range editor without stealing dialog Escape", () => {
+  const { dashboard, context } = loadDashboard(undefined, { personalTime: true, dateControls: true });
+  dashboard.state.dashboardView = "projects";
+  dashboard.state.personalTimeResult = personalResult();
+  dashboard.state.selectedPersonalProjectId = 101;
+  dashboard.initializeCustomDateRangeControls();
+  dashboard.setCustomDatePanelOpen(true);
+  dashboard.els.customDateStart.focus();
+  const before = context.document.activeElement;
+  dashboard.state.personalProjectView.set("101", "budget");
+  dashboard.updatePersonalProjectFilterVisibility();
+  assert.equal(dashboard.els.filterBar.hidden, true);
+  assert.equal(dashboard.state.customDatePanelOpen, false);
+  assert.equal(dashboard.els.customDateToggle.getAttribute("aria-expanded"), "false");
+  assert.equal(context.document.activeElement, before, "Closing for navigation does not focus a hidden trigger");
+  context.document.dispatch("keydown", { key: "Escape", preventDefault() { assert.fail("A hidden editor must not intercept other dialogs"); } });
+  dashboard.state.personalProjectView.set("101", "hours");
+  dashboard.updatePersonalProjectFilterVisibility();
+  assert.equal(dashboard.els.filterBar.hidden, false);
+  assert.equal(dashboard.els.customDatePanel.hidden, true);
+});
+
 test("an obsolete Mon temps refresh cannot replace a newer connected-person result", async () => {
   const pending = [];
   const { dashboard, requests } = loadDashboard(() => new Promise(resolve => pending.push(resolve)), {
@@ -493,6 +1458,109 @@ test("personal projects sharing a bracketed code keep distinct Remaining totals 
   assert.equal(totals.get(dashboard.projectColorKey(secondName)).actualToDate, 5);
 });
 
+test("personal calendar receives exact-ID lifetime dates without expanding the scoped activity catalogue", () => {
+  const { dashboard, context, requests } = loadDashboard(undefined, { personalTime: true });
+  const data = personalResult(), sharedName = "Same project name";
+  data.projects = [
+    { id: 101, name: sharedName, startDate: "2025-12-01", endDate: "2028-05-31", manager: { name: "First manager" } },
+    { id: 102, name: sharedName, startDate: "2020-01-01", endDate: "2026-10-04", manager: { name: "Second manager" } },
+    { id: 103, name: "No activity", startDate: "1800-01-01", endDate: "3000-12-31" },
+    { id: 104, name: "No readable dates" },
+    { id: 105, name: "Placeholder", startDate: "1900-01-01", endDate: "2999-12-31" }
+  ];
+  data.timesheets.lines = [
+    { ...line(11, 8), project: sharedName, projectId: 101 },
+    { ...line(11, 4), project: sharedName, projectId: 102 },
+    { ...line(11, 2), project: "No readable dates", projectId: 104 },
+    { ...line(11, 3), project: "Placeholder", projectId: 105 }
+  ];
+  data.planning.slots = [];
+  const before = JSON.stringify(data);
+  dashboard.state.personalTimeResult = data; dashboard.state.dashboardView = "projects";
+  dashboard.renderPersonalProjects();
+  const view = context.projectBrowserRenders.at(-1).options, byId = new Map(Array.from(view.projects, project => [project.id, project]));
+  assert.deepEqual(Array.from(byId.keys()).sort(), [101, 102, 104, 105]);
+  assert.equal(view.timelineRenderer, context.window.UnitDico, "The personal overview uses the same renderer as Unit DiCo");
+  for (const id of [101, 102, 105]) {
+    const original = data.projects.find(project => project.id === id), scoped = byId.get(id);
+    assert.equal(scoped.startDate, original.startDate); assert.equal(scoped.endDate, original.endDate);
+    assert.equal(scoped.manager, original.manager || null);
+  }
+  assert.equal(byId.get(104).startDate, null); assert.equal(byId.get(104).endDate, null);
+  assert.match(byId.get(101).name, /ID 101/); assert.match(byId.get(102).name, /ID 102/);
+  const timeline = context.window.UnitDico.buildTimeline(view.projects, "2026-10-05");
+  assert.deepEqual(timeline.rows.map(row => row.id), [101, 104, 102]);
+  assert.equal(timeline.startDate, "2020-01-01"); assert.equal(timeline.endDate, "2028-05-31");
+  assert.equal(JSON.stringify(data), before); assert.equal(requests.length, 0);
+});
+
+test("personal project cards preserve exact-ID full convention budgets independently of period and personnel choices", () => {
+  const { dashboard, context, requests } = loadDashboard(undefined, { personalTime: true, dateControls: true });
+  const data = personalResult(), sharedName = "Shared project name";
+  data.projects = [
+    { id: 101, name: sharedName, totalBudget: { amount: 24567.89, currencyId: 1, currency: "EUR" } },
+    { id: 102, name: sharedName, totalBudget: { amount: 0, currencyId: 2, currency: "USD" } },
+    { id: 103, name: "No readable budget" },
+    { id: 104, name: "No scoped activity", totalBudget: { amount: 999999, currencyId: 1, currency: "EUR" } }
+  ];
+  data.timesheets.lines = [
+    { ...line(11, 8), project: sharedName, projectId: 101 },
+    { ...line(11, 4), project: sharedName, projectId: 102, date: "2025-06-01" },
+    { ...line(11, 2), project: "No readable budget", projectId: 103 }
+  ];
+  data.planning.slots = [];
+  const original = JSON.stringify(data), latest = () => context.projectBrowserRenders.at(-1).options;
+  dashboard.state.personalTimeResult = data; dashboard.state.dashboardView = "projects";
+  dashboard.state.personalProjectFinanceCache.set("101", { result: { project: { id: 101 }, conventions: [{ budgetedTotal: 1 }] } });
+  for (const includePersonnel of [false, true]) {
+    dashboard.state.personalProjectShowBwPersonnelCosts.set("101", includePersonnel);
+    dashboard.renderPersonalProjects();
+    assert.deepEqual(Array.from(latest().projects, project => project.id).sort(), [101, 103]);
+    assert.equal(latest().projects.find(project => project.id === 101).totalBudget, data.projects[0].totalBudget,
+      "The card uses the full project macro, independently of the budget graph's personnel basis");
+    assert.equal(latest().projects.find(project => project.id === 103).totalBudget, null);
+  }
+  dashboard.state.selectedYears = new Set([2025]); dashboard.renderPersonalProjects();
+  assert.deepEqual(Array.from(latest().projects, project => project.id), [102]);
+  assert.equal(latest().projects[0].totalBudget, data.projects[1].totalBudget,
+    "Shared display names cannot swap currencies or turn a confirmed zero into missing data");
+  dashboard.els.customDateStart.value = "2026-10-05"; dashboard.els.customDateEnd.value = "2026-10-05";
+  dashboard.applyCustomDateRange(); dashboard.renderPersonalProjects();
+  assert.deepEqual(Array.from(latest().projects, project => project.id).sort(), [101, 103]);
+  assert.equal(latest().projects.find(project => project.id === 101).totalBudget.amount, 24567.89,
+    "Custom dates affect membership, not the lifetime convention total");
+  assert.equal(JSON.stringify(data), original); assert.equal(requests.length, 0,
+    "Hover details reuse the catalogue without per-project finance requests");
+});
+
+test("personal calendar membership follows year and custom scopes while dates retain each project's full life", () => {
+  const { dashboard, context, requests } = loadDashboard(undefined, { personalTime: true, dateControls: true });
+  const data = personalResult();
+  data.projects = [
+    { id: 101, name: projectName, startDate: "2025-12-01", endDate: "2028-05-31" },
+    { id: 102, name: emptyProjectName, startDate: "2026-01-01", endDate: "2029-12-31" }
+  ];
+  data.timesheets.lines.push({ ...line(11, 4, false, employeeName, emptyProjectName), date: "2025-06-01" });
+  dashboard.state.personalTimeResult = data; dashboard.state.dashboardView = "projects";
+  const latest = () => context.projectBrowserRenders.at(-1).options;
+  dashboard.renderPersonalProjects();
+  assert.deepEqual(Array.from(latest().projects, project => project.id), [101]);
+  assert.equal(latest().projects[0].startDate, "2025-12-01"); assert.equal(latest().projects[0].endDate, "2028-05-31");
+  dashboard.state.selectedYears = new Set([2025]); dashboard.renderPersonalProjects();
+  assert.deepEqual(Array.from(latest().projects, project => project.id), [102]);
+  assert.equal(latest().projects[0].startDate, "2026-01-01", "Project metadata cannot hide real personal activity from a selected year");
+  assert.equal(latest().projects[0].endDate, "2029-12-31");
+  dashboard.els.customDateStart.value = "2025-06-01"; dashboard.els.customDateEnd.value = "2025-06-01";
+  dashboard.applyCustomDateRange(); dashboard.renderPersonalProjects();
+  assert.deepEqual(Array.from(latest().projects, project => project.id), [102]);
+  const timeline = context.window.UnitDico.buildTimeline(latest().projects, "2026-10-05");
+  assert.equal(timeline.startDate, "2026-01-01"); assert.equal(timeline.endDate, "2029-12-31");
+  dashboard.els.customDateStart.value = "2040-06-01"; dashboard.els.customDateEnd.value = "2040-06-30";
+  dashboard.applyCustomDateRange(); dashboard.renderPersonalProjects();
+  assert.equal(latest().projects.length, 0);
+  assert.equal(requests.length, 0, "Membership changes reuse the authenticated personal response without chart-specific reads");
+});
+
 test("personal project selection shares years and managers, fetching hours only after selection", async () => {
   const { dashboard, requests, context } = loadDashboard(() => response(projectHoursResult()),
     { personalTime: true, allowedRoutes: ["/api/odoo/project-hours"] });
@@ -501,6 +1569,7 @@ test("personal project selection shares years and managers, fetching hours only 
   result.projects.push({ id: 102, name: emptyProjectName, manager: null });
   result.timesheets.lines.push({ ...line(11, 4, false, employeeName, emptyProjectName), date: "2025-06-01" });
   install(dashboard);
+  dashboard.state.dashboardView = "projects";
   dashboard.state.personalTimeResult = result;
   dashboard.state.selectedYears = new Set([2026]);
   dashboard.state.hiddenPersonalProjects.add(101);
@@ -508,6 +1577,7 @@ test("personal project selection shares years and managers, fetching hours only 
   assert.equal(requests.length, 0, "Rendering the project grid stays local");
   let rendered = context.projectBrowserRenders.at(-1).options;
   assert.deepEqual(rendered.projects.map(project => project.id), [101]);
+  assert.equal(rendered.timelineRenderer, context.window.UnitDico);
   assert.equal(rendered.projects[0].manager, result.projects[0].manager);
   dashboard.captureRenderFeeds();
   assert.equal(dashboard.els.employeePanel.hidden, true, "The old Mon temps 02 section stays hidden");
@@ -581,6 +1651,7 @@ test("scoped comparison date references clip selected years to project dates wit
   result.timesheets.lines.push({ ...line(11, 4), date: "2025-12-15" });
   const personal = personalResult();
   personal.timesheets.lines.push({ ...line(11, 4), date: "2025-12-15" });
+  dashboard.state.dashboardView = "projects";
   dashboard.state.personalTimeResult = personal;
   dashboard.state.selectedPersonalProjectId = 101;
   dashboard.state.personalProjectHoursCache.set("101", { result, loading: false, error: "" });
@@ -646,6 +1717,7 @@ test("the project Ormitter checkbox is local, unchecked per project and independ
   const { dashboard, context, requests } = loadDashboard(undefined, { personalTime: true });
   const result = projectHoursResult();
   result.hasOrmitters = true;
+  dashboard.state.dashboardView = "projects";
   dashboard.state.personalTimeResult = personalResult();
   dashboard.state.selectedPersonalProjectId = 101;
   dashboard.state.personalProjectHoursCache.set("101", { result, loading: false, error: "" });
@@ -681,6 +1753,7 @@ test("unavailable assignments warn only the project pair and unconfirmed presenc
   result.hasOrmitters = false;
   result.timesheets.lines = result.timesheets.lines.filter(row => !row.isSubcontractor);
   result.planning.slots = result.planning.slots.filter(row => !row.isSubcontractor);
+  dashboard.state.dashboardView = "projects";
   dashboard.state.personalTimeResult = personalResult();
   dashboard.state.selectedPersonalProjectId = 101;
   dashboard.state.personalProjectHoursCache.set("101", { result, loading: false, error: "" });
@@ -795,6 +1868,7 @@ test("the one cached project toggle governs both whole-project comparisons witho
   const result = projectHoursResult();
   result.lifetime = { conventionHours: 100, startDate: "2026-01-01", endDate: "2026-12-31" };
   result.hasOrmitters = true;
+  dashboard.state.dashboardView = "projects";
   dashboard.state.personalTimeResult = personalResult();
   dashboard.state.selectedPersonalProjectId = 101;
   dashboard.state.personalProjectHoursCache.set("101", { result, loading: false, error: "" });
@@ -824,6 +1898,7 @@ test("monthly project history shares cached inclusion, ignores year chips and ke
   const personal = personalResult();
   personal.projects.push({ id: 102, name: emptyProjectName });
   personal.timesheets.lines.push({ ...line(11, 10), date: "2025-06-01" }, line(11, 1, false, employeeName, emptyProjectName));
+  dashboard.state.dashboardView = "projects";
   dashboard.state.personalTimeResult = personal;
   dashboard.state.personalProjectHoursCache.set("101", { result, loading: false, error: "" });
   dashboard.state.personalProjectHoursCache.set("102", { result: other, loading: false, error: "" });
@@ -867,6 +1942,7 @@ test("employee graph selection stays local, survives mode/project changes and cl
   personal.projects.push({ id: 102, name: emptyProjectName });
   personal.timesheets.lines.push({ ...line(11, 1), date: "2025-06-01" });
   personal.timesheets.lines.push(line(11, 1, false, employeeName, emptyProjectName));
+  dashboard.state.dashboardView = "projects";
   dashboard.state.personalTimeResult = personal;
   dashboard.state.personalProjectHoursCache.set("101", { result, loading: false, error: "" });
   dashboard.state.personalProjectHoursCache.set("102", { result: other, loading: false, error: "" });
@@ -919,6 +1995,46 @@ test("employee graph selection stays local, survives mode/project changes and cl
   assert.equal(requests.length, 0, "All selection changes use cached records without an Odoo request");
 });
 
+test("planned monthly history includes future-only people, shares scope controls and keeps its employee filter independent", () => {
+  const { dashboard, context, requests } = loadDashboard(undefined, { personalTime: true });
+  const result = projectHoursResult();
+  result.hasOrmitters = true;
+  result.lifetime = { conventionHours: 100, conventionStatus: "available", startDate: "2026-01-01", endDate: "2027-12-31" };
+  result.planning.slots.push({ ...slot(44, 18, false, "Future colleague"),
+    start: "2027-03-01 00:00:00", end: "2027-04-01 00:00:00", startMonth: "2027-03", endMonth: "2027-04" });
+  dashboard.state.dashboardView = "projects";
+  dashboard.state.personalTimeResult = personalResult();
+  dashboard.state.personalProjectHoursCache.set("101", { result, loading: false, error: "" });
+  dashboard.state.selectedPersonalProjectId = 101;
+  const latest = () => context.projectBrowserRenders.at(-1).options;
+  dashboard.renderPersonalProjects();
+  assert.equal(latest().detail.plannedMonthly.months.at(-1).key, "2027-12",
+    "The planned chart includes future project months despite selecting 2026");
+  assert.equal(latest().detail.plannedMonthly.total.reduce((sum, hours) => sum + hours, 0), 24);
+  assert.equal(latest().detail.monthly.planning.reduce((sum, hours) => sum + hours, 0), 6,
+    "The actual-chart planning reference stops today, independently of its full future chart");
+  assert.ok(latest().detail.plannedMonthly.employees.some(employee => employee.id === "employee:44"));
+  assert.equal(latest().detail.monthly.employees.some(employee => employee.id === "employee:44"), false);
+  latest().onPlannedMonthlyEmployeeChange("employee:44");
+  assert.equal(latest().detail.plannedMonthlyEmployeeId, "employee:44");
+  assert.equal(latest().detail.monthlyEmployeeId, null);
+  latest().onMonthlyEmployeeChange("employee:11");
+  assert.equal(latest().detail.monthlyEmployeeId, "employee:11");
+  assert.equal(latest().detail.plannedMonthlyEmployeeId, "employee:44");
+  latest().onMonthlyModeChange("cumulative");
+  assert.equal(latest().detail.plannedMonthly.mode, "cumulative");
+  assert.equal(latest().detail.plannedMonthly.total.at(-1), 24);
+  assert.equal(latest().detail.monthly.planning.at(-1), 6);
+  latest().onIncludeOrmittersChange(true);
+  assert.equal(latest().detail.plannedMonthly.total.at(-1), 48);
+  latest().onPlannedMonthlyEmployeeChange("employee:22");
+  assert.equal(latest().detail.plannedMonthlyEmployeeId, "employee:22");
+  latest().onIncludeOrmittersChange(false);
+  assert.equal(latest().detail.plannedMonthlyEmployeeId, null);
+  assert.equal(latest().detail.monthlyEmployeeId, "employee:11");
+  assert.equal(requests.length, 0, "The added graph and all controls reuse cached records");
+});
+
 test("monthly and cumulative modes reuse exact cached history and replay only on real project control changes", () => {
   const { dashboard, context, requests } = loadDashboard(undefined, { personalTime: true });
   const result = projectHoursResult();
@@ -930,6 +2046,7 @@ test("monthly and cumulative modes reuse exact cached history and replay only on
   const personal = personalResult();
   personal.projects.push({ id: 102, name: emptyProjectName });
   personal.timesheets.lines.push({ ...line(11, 10), date: "2025-06-01" }, line(11, 1, false, employeeName, emptyProjectName));
+  dashboard.state.dashboardView = "projects";
   dashboard.state.personalTimeResult = personal;
   dashboard.state.personalProjectHoursCache.set("101", { result, loading: false, error: "" });
   dashboard.state.personalProjectHoursCache.set("102", { result: other, loading: false, error: "" });
@@ -1052,6 +2169,7 @@ test("project detail shares one in-flight read per exact ID and late responses c
   const personal = personalResult();
   personal.projects.push({ id: 102, name: emptyProjectName });
   personal.timesheets.lines.push(line(11, 1, false, employeeName, emptyProjectName));
+  dashboard.state.dashboardView = "projects";
   dashboard.state.personalTimeResult = personal;
   dashboard.choosePersonalProject(101);
   const duplicate = dashboard.loadPersonalProjectHours("101");
@@ -1102,13 +2220,14 @@ test("mismatched project data stays unavailable and retry replaces the failed ca
   let attempt = 0;
   const { dashboard, requests, context } = loadDashboard(() => response(projectHoursResult(++attempt === 1 ? 102 : 101)),
     { personalTime: true, allowedRoutes: ["/api/odoo/project-hours"] });
+  dashboard.state.dashboardView = "projects";
   dashboard.state.personalTimeResult = personalResult();
   dashboard.state.selectedPersonalProjectId = 101;
   await dashboard.loadPersonalProjectHours(101);
   let view = context.projectBrowserRenders.at(-1).options;
   assert.equal(view.detail.personal, null);
   assert.equal(view.detail.project, null);
-  assert.match(view.detail.error, /correspondent pas/);
+  assert.match(view.detail.error, /Les heures du projet.*indisponibles.*Réessayez/);
   await view.onRetry();
   view = context.projectBrowserRenders.at(-1).options;
   assert.equal(view.detail.error, "");

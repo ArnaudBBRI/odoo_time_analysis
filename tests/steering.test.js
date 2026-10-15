@@ -3,7 +3,66 @@ const assert = require("node:assert/strict");
 const S = require("../steering");
 const service = require("../steering-service");
 const UI = require("../steering-client");
+const fs = require("node:fs");
+const path = require("node:path");
+const vm = require("node:vm");
+const { domFixture } = require("./dom-fixture");
 const { fixtureRpc, config } = require("./steering-fixture");
+
+async function loadNavigation(metadata) {
+  const root = domFixture(), document = root.ownerDocument, elements = new Map(), requests = [], events = [];
+  const element = id => {
+    if (!elements.has(id)) { const value = document.createElement("div"); value.value = ""; value.disabled = false;
+      value.removeAttribute = name => value.attributes.delete(name); elements.set(id, value); }
+    return elements.get(id);
+  };
+  const buttons = ["time", "projects", "unit-dico", "programmes", "unit"].map(view => {
+    const button = element(`view-${view}`); button.dataset = { view }; button.setAttribute("data-view", view); return button;
+  });
+  element("page-title").textContent = "Tableau de bord Odoo"; element("page-subtitle").textContent = "Suivi des heures";
+  document.getElementById = element;
+  document.querySelector = selector => selector === "header h1" ? element("page-title") : selector === "header .subtitle" ? element("page-subtitle") : null;
+  document.querySelectorAll = selector => {
+    if (!selector.startsWith("#pilotage-nav [data-view]")) return [];
+    const excluded = [...selector.matchAll(/:not\(\[data-view=["']?([^\]"']+)["']?\]\)/g)].map(match => match[1]);
+    return buttons.filter(button => !excluded.includes(button.dataset.view));
+  };
+  const context = { document, window: { SteeringMetrics: S, dispatchEvent(event) { events.push(event); } },
+    CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } },
+    async fetch(url, options) {
+      requests.push({ url, options }); assert.equal(url, "/api/odoo/pilotage/metadata", "Independent programme navigation must not fetch legacy steering data");
+      return { ok: true, status: 200, json: async () => metadata };
+    }
+  };
+  const source = fs.readFileSync(path.join(__dirname, "..", "steering-client.js"), "utf8");
+  const seam = 'post("metadata").then'; assert.equal(source.split(seam).length, 2);
+  vm.runInNewContext(source.replace(seam, `globalThis.navigation = { state, setView };\n${seam}`), context, { filename: "steering-client.js" });
+  await new Promise(setImmediate);
+  return { ...context.navigation, elements, buttons, requests, events, document };
+}
+
+test("Programmes remains enabled when the legacy steering unit configuration is unavailable", async () => {
+  const navigation = await loadNavigation({ ok: true, enabled: false, leader: { available: false } });
+  assert.equal(navigation.buttons.find(button => button.dataset.view === "programmes").disabled, false);
+  assert.equal(navigation.buttons.find(button => button.dataset.view === "unit").disabled, true,
+    "The unconfigured legacy unit view remains gated independently");
+  navigation.setView("programmes");
+  assert.equal(navigation.state.view, "programmes"); assert.equal(navigation.elements.get("programmes-view").hidden, false);
+  for (const id of ["time-view", "personal-projects-view", "unit-dico-view", "pilotage-view"]) assert.equal(navigation.elements.get(id).hidden, true, id);
+  assert.equal(navigation.buttons.find(button => button.dataset.view === "programmes").getAttribute("aria-current"), "page");
+  assert.equal(navigation.document.title, "Programmes · Tableau de bord Odoo"); assert.equal(navigation.events.at(-1).detail.view, "programmes");
+  assert.equal(navigation.requests.length, 1, "Programme photos are handled by their dedicated controller rather than the old portfolio");
+});
+
+test("returning from Programmes restores personal hosts and clears its navigation selection", async () => {
+  const navigation = await loadNavigation({ ok: true, enabled: false, leader: { available: false } });
+  navigation.setView("programmes"); navigation.setView("projects");
+  assert.equal(navigation.elements.get("programmes-view").hidden, true); assert.equal(navigation.elements.get("personal-projects-view").hidden, false);
+  assert.equal(navigation.elements.get("pilotage-view").hidden, true);
+  assert.equal(navigation.buttons.find(button => button.dataset.view === "programmes").getAttribute("aria-current"), null);
+  assert.equal(navigation.buttons.find(button => button.dataset.view === "projects").getAttribute("aria-current"), "page");
+  assert.equal(navigation.events.at(-1).detail.view, "projects"); assert.equal(navigation.requests.length, 1);
+});
 
 test("scoped portfolio preserves actual authority, nulls, leader identity and zero-hour projects", async () => {
   const rpc = fixtureRpc(), result = await service.load(config, rpc, 7);
