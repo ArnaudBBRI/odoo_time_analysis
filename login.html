@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Connexion | Buildwise Time Dashboard</title>
+  <title>Connexion | Buildwise · Tableau des heures</title>
   <style>
     :root { color-scheme: light; font-family: "neue-haas-unica", "Helvetica Neue", Arial, sans-serif; color: #1b1b1b; background: #fff; }
     * { box-sizing: border-box; }
@@ -42,6 +42,7 @@
     .config-button { width: 100%; padding: 12px 20px; border: 1px solid #007fae; background: #fff; color: #007fae; font: inherit; font-weight: 600; border-radius: 3px; cursor: pointer; }
     .config-button:hover { background: #edf7fa; }
     #configStatus { margin: 10px 0 0; line-height: 1.5; font-size: 13px; color: #626262; }
+    #configStatus[data-state="error"] { color: #b45309; font-weight: 700; }
     #configStatus:empty { display: none; }
     .help { margin-top: 26px; padding-top: 22px; border-top: 1px solid #e6e6e6; color: #7d7d7d; font-size: 13px; line-height: 1.6; }
     footer { max-width: 1200px; margin: 0 auto; padding: 28px 0; border-top: 1px solid #e6e6e6; color: #7d7d7d; display: flex; justify-content: space-between; font-size: 13px; }
@@ -50,7 +51,7 @@
   </style>
 </head>
 <body>
-  <header><div class="header-inner"><a href="https://www.buildwise.be/fr/" aria-label="Buildwise"><img class="logo" src="/assets/buildwise-logo.svg" alt="Buildwise" width="357" height="41"></a><span class="app-name">Time Dashboard</span></div></header>
+  <header><div class="header-inner"><a href="https://www.buildwise.be/fr/" aria-label="Buildwise"><img class="logo" src="/assets/buildwise-logo.svg" alt="Buildwise" width="357" height="41"></a><span class="app-name">Tableau des heures</span></div></header>
   <main>
     <section class="intro" aria-labelledby="welcome-title">
       <div class="eyebrow">Votre espace projets</div>
@@ -67,13 +68,13 @@
         <p id="status" role="alert" aria-live="polite"></p>
       </form>
       <div class="config-login">
-        <button class="config-button" id="configButton" type="button" aria-describedby="configStatus">Use config file</button>
+        <button class="config-button" id="configButton" type="button" aria-describedby="configStatus">Utiliser le fichier de configuration</button>
         <p id="configStatus" role="status" aria-live="polite" aria-atomic="true"></p>
       </div>
       <div class="help">Utilisez vos identifiants Odoo habituels. Pour toute difficulté de connexion, contactez votre support interne.</div>
     </section>
   </main>
-  <footer><span>Buildwise · Time Dashboard</span><a href="https://www.buildwise.be/fr/">Découvrir Buildwise ↗</a></footer>
+  <footer><span>Buildwise · Tableau des heures</span><a href="https://www.buildwise.be/fr/">Découvrir Buildwise ↗</a></footer>
   <script>
     const form = document.getElementById("loginForm");
     const password = document.getElementById("password");
@@ -100,6 +101,7 @@
       if (signingIn) return;
       status.textContent = "";
       configStatus.textContent = "";
+      configStatus.dataset.state = "";
       setSigningIn(true, "manual");
       try {
         const response = await fetch("/api/auth/login", {
@@ -120,6 +122,7 @@
       if (signingIn) return;
       status.textContent = "";
       configStatus.textContent = "Connexion avec le fichier de configuration…";
+      configStatus.dataset.state = "pending";
       setSigningIn(true, "config");
       try {
         const response = await fetch("/api/auth/login-config", {
@@ -136,12 +139,14 @@
           ]);
           const unavailable = { 429: "Trop de tentatives. Réessayez dans quelques minutes.", 503: "La connexion est temporairement indisponible. Réessayez plus tard." };
           configStatus.textContent = messages.get(result.code) || unavailable[response.status] || "La connexion à Odoo est indisponible. Réessayez plus tard.";
+          configStatus.dataset.state = "error";
           return;
         }
         password.value = "";
         window.location.replace("/dashboard");
       } catch (_) {
         configStatus.textContent = "Connexion impossible. Vérifiez votre connexion réseau.";
+        configStatus.dataset.state = "error";
       } finally { setSigningIn(false); }
     });
   </script>

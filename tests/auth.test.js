@@ -643,7 +643,7 @@ test('welcome config button sends no credentials and presents safe informational
     let location;
     const context = {
       document: { getElementById(id) {
-        if (!elements.has(id)) elements.set(id, { value: 'typed-private-password', textContent: '', disabled: false,
+        if (!elements.has(id)) elements.set(id, { value: 'typed-private-password', textContent: '', disabled: false, dataset: {},
           listeners: {}, addEventListener(name, callback) { this.listeners[name] = callback; }, setAttribute() {} });
         return elements.get(id);
       } },
