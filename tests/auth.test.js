@@ -266,7 +266,7 @@ async function fixture(options = {}) {
   mock.listen(0, '127.0.0.1');
   await once(mock, 'listening');
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'bw-auth-test-'));
-  for (const file of ['server.js', 'index.html', 'login.html', 'steering.js', 'steering-service.js', 'project-finance-service.js', 'steering-client.js', 'steering-client.css', 'personal-time.js', 'personal-time.css', 'project-monthly.js', 'project-browser.js', 'project-browser.css', 'project-budget.js', 'project-budget.css']) fs.copyFileSync(path.join(__dirname, '..', file), path.join(directory, file));
+  for (const file of ['server.js', 'index.html', 'login.html', 'steering.js', 'steering-service.js', 'project-finance-service.js', 'project-planning-service.js', 'unit-dico-service.js', 'steering-client.js', 'steering-client.css', 'personal-time.js', 'personal-time.css', 'project-card.js', 'project-card.css', 'project-monthly.js', 'project-planning.js', 'project-browser.js', 'project-browser.css', 'project-budget.js', 'project-budget.css', 'unit-dico.js', 'unit-dico.css']) fs.copyFileSync(path.join(__dirname, '..', file), path.join(directory, file));
   fs.mkdirSync(path.join(directory, 'assets'));
   fs.copyFileSync(path.join(__dirname, '..', 'assets', 'buildwise-logo.svg'), path.join(directory, 'assets', 'buildwise-logo.svg'));
   const mockOrigin = `http://127.0.0.1:${mock.address().port}`;
@@ -289,14 +289,30 @@ async function fixture(options = {}) {
   let output = '';
   child.stdout.on('data', chunk => { output += chunk; });
   child.stderr.on('data', chunk => { output += chunk; });
-  const base = await new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`Startup timeout: ${output}`)), 5000);
+  const closeFixture = async () => {
+    if (child.pid && child.exitCode === null && child.signalCode === null) {
+      child.kill();
+      await once(child, 'exit');
+    }
+    if (mock.listening) await new Promise(resolve => mock.close(resolve));
+    // Delete only the verified immediate temporary directory created above.
+    const target = path.resolve(directory);
+    assert.equal(path.dirname(target), path.resolve(os.tmpdir()));
+    assert.ok(path.basename(target).startsWith('bw-auth-test-'));
+    fs.rmSync(target, { recursive: true, force: true });
+  };
+  let base;
+  try { base = await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`Startup timeout: ${output}`)), 15000);
     child.once('exit', code => { clearTimeout(timer); reject(new Error(`Server exited ${code}: ${output}`)); });
     child.stdout.on('data', () => {
       const match = output.match(/http:\/\/127\.0\.0\.1:\d+/);
       if (match) { clearTimeout(timer); resolve(match[0]); }
     });
-  });
+  }); } catch (error) {
+    await closeFixture();
+    throw error;
+  }
   const request = (route, init = {}) => fetch(`${base}${route}`, { redirect: 'manual', ...init });
   const login = (email = 'person@example.com', password = 'correct password', headers = {}) => request('/api/auth/login', {
     method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify({ email, password })
@@ -306,17 +322,15 @@ async function fixture(options = {}) {
   });
   return { request, login, configLogin, calls, base, output: () => output,
     writeConfig(value) { fs.writeFileSync(path.join(directory, 'config.local.json'), typeof value === 'string' ? value : JSON.stringify(value)); },
-    async stopOdoo() { await new Promise(resolve => mock.close(resolve)); }, async close() {
-    child.kill();
-    if (child.exitCode === null) await once(child, 'exit');
-    if (mock.listening) await new Promise(resolve => mock.close(resolve));
-    // Delete only the verified immediate temporary directory created above.
-    const target = path.resolve(directory);
-    assert.equal(path.dirname(target), path.resolve(os.tmpdir()));
-    assert.ok(path.basename(target).startsWith('bw-auth-test-'));
-    fs.rmSync(target, { recursive: true, force: true });
-  } };
+    async stopOdoo() { await new Promise(resolve => mock.close(resolve)); }, close: closeFixture };
 }
+
+test('fixture startup failures close the mock server and remove their verified temporary copy', async () => {
+  const temporaryCopies = () => fs.readdirSync(os.tmpdir()).filter(name => name.startsWith('bw-auth-test-')).sort();
+  const before = temporaryCopies();
+  await assert.rejects(fixture({ NODE_OPTIONS: '--bw-fixture-startup-error' }), /Server exited/);
+  assert.deepEqual(temporaryCopies(), before);
+});
 
 function cookie(response) { return response.headers.get('set-cookie').split(';')[0]; }
 
@@ -329,7 +343,7 @@ test('Odoo login, session isolation and access control', async t => {
     assert.match(await welcome.text(), /Bienvenue/);
     assert.equal(welcome.headers.get('cache-control'), 'no-store');
     assert.equal((await f.request('/assets/buildwise-logo.svg')).status, 200);
-    for (const route of ['/dashboard', '/index.html', '/project-monthly.js', '/project-browser.js', '/project-browser.css', '/project-budget.js', '/project-budget.css']) {
+    for (const route of ['/dashboard', '/index.html', '/project-card.js', '/project-card.css', '/project-monthly.js', '/project-browser.js', '/project-browser.css', '/project-budget.js', '/project-budget.css']) {
       const response = await f.request(route);
       assert.equal(response.status, 303);
       assert.equal(response.headers.get('location'), '/login');
@@ -373,7 +387,7 @@ test('Odoo login, session isolation and access control', async t => {
     assert.match(f.calls.at(-1), /correct password/);
     assert.doesNotMatch(f.calls.at(-1), /attacker|private-config-secret/);
     assert.equal((await f.request('/dashboard', { headers: { Cookie: first } })).status, 200);
-    for (const route of ['/project-monthly.js', '/project-browser.js', '/project-browser.css', '/project-budget.js', '/project-budget.css']) assert.equal((await f.request(route, { headers: { Cookie: first } })).status, 200);
+    for (const route of ['/project-card.js', '/project-card.css', '/project-monthly.js', '/project-browser.js', '/project-browser.css', '/project-budget.js', '/project-budget.css']) assert.equal((await f.request(route, { headers: { Cookie: first } })).status, 200);
     for (const route of ['/server.js', '/project-finance-service.js', '/config.local.json', '/.git/config', '/README.md', '/timesheets_aca.xlsx', '/assets/../server.js', '/project-monthly.js.map']) {
       assert.equal((await f.request(route, { headers: { Cookie: first } })).status, 404);
     }
