@@ -1,6 +1,6 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { availableYears, summarizeProjects, buildSectors, calendarProgress, projectCalendarProgress, render } = require("../personal-time");
+const { availableYears, normalizeScope, summarizeProjects, buildSectors, calendarProgress, projectCalendarProgress, render } = require("../personal-time");
 const { domFixture } = require("./dom-fixture");
 
 const today = new Date("2026-10-08T10:00:00Z");
@@ -12,6 +12,147 @@ const data = (lines = [], slots = [], projects = [project(1), project(2)]) => ({
 });
 const close = (actual, expected, message) => assert.ok(Math.abs(actual - expected) < 1e-9,
   message || `Expected ${actual} to be within 1e-9 of ${expected}`);
+
+test("custom scope validates inclusive dates independently of available data years", () => {
+  const input = Object.freeze({ startDate: "2024-02-28", endDate: "2024-03-01" });
+  const scope = normalizeScope(input);
+  assert.equal(scope.kind, "range");
+  assert.equal(scope.startDate, input.startDate);
+  assert.equal(scope.endDate, input.endDate);
+  assert.equal((scope.periods[0].end - scope.periods[0].start) / 864e5, 3);
+  assert.equal(new Date(scope.planningPeriods[0].start).toISOString(), "2024-02-27T23:00:00.000Z");
+  assert.equal(new Date(scope.planningPeriods[0].end).toISOString(), "2024-03-01T23:00:00.000Z");
+  assert.deepEqual(input, { startDate: "2024-02-28", endDate: "2024-03-01" });
+  const earliest = normalizeScope({ startDate: "0001-01-01", endDate: "0001-01-03" });
+  assert.equal(earliest.planningPeriods[0].end - earliest.planningPeriods[0].start, 3 * 864e5,
+    "Ancient years retain finite planning boundaries without Date.UTC's 1900 offset for small years");
+  assert.equal(calendarProgress({ startDate: "0001-01-01", endDate: "0001-01-03" }, "0001-01-02").fraction, 0.5);
+  const maximum = normalizeScope({ startDate: "9998-12-31", endDate: "9998-12-31" });
+  assert.equal(maximum.planningPeriods[0].end - maximum.planningPeriods[0].start, 864e5);
+});
+
+test("invalid or incomplete custom ranges produce no totals or calendar references", () => {
+  const invalid = [{ startDate: "2026-01-01" }, { endDate: "2026-01-01" },
+    { startDate: "2026-02-29", endDate: "2026-03-01" },
+    { startDate: "2026-03-02", endDate: "2026-03-01" },
+    { startDate: "0000-01-01", endDate: "2026-01-01" },
+    { startDate: "9999-01-01", endDate: "9999-12-31" },
+    { startDate: new Date("2026-01-01"), endDate: "2026-01-02" },
+    { startDate: "2026-01-01T00:00:00Z", endDate: "2026-01-02" }];
+  const source = data([line(1, "2026-01-01", 10)]);
+  for (const scope of invalid) {
+    assert.equal(normalizeScope(scope), null);
+    assert.deepEqual(summarizeProjects(source, scope, today), []);
+    assert.equal(calendarProgress(scope, today), null);
+    assert.equal(projectCalendarProgress(scope, "2026-01-01", "2026-12-31", today), null);
+  }
+});
+
+test("custom actuals include both Brussels dates, retain credits and stop at today", () => {
+  const source = data([line(1, "2026-10-06", 100), line(1, "2026-10-06T22:30:00Z", 3),
+    line(1, "2026-10-07", 7), line(1, "2026-10-08", 5), line(1, "2026-10-08", -2),
+    line(1, "2026-10-08T22:30:00Z", 200), line(1, "2026-10-09", 300)]);
+  const scope = { startDate: "2026-10-07", endDate: "2026-10-08" };
+  assert.equal(summarizeProjects(source, scope, today)[0].actual, 13);
+  assert.equal(summarizeProjects(source, { ...scope, endDate: "2026-10-10" }, today)[0].actual, 13,
+    "Extending the scope into the future never includes future actuals");
+});
+
+test("custom planning prorates exact Brussels midnight intervals across DST", () => {
+  for (const [scope, start, end, total, expected] of [
+    [{ startDate: "2026-03-29", endDate: "2026-03-29" }, "2026-03-28T23:00:00Z", "2026-03-30T22:00:00Z", 47, 23],
+    [{ startDate: "2026-10-25", endDate: "2026-10-25" }, "2026-10-24T22:00:00Z", "2026-10-26T23:00:00Z", 49, 25]
+  ]) {
+    const normalized = normalizeScope(scope);
+    close((normalized.planningPeriods[0].end - normalized.planningPeriods[0].start) / 36e5, expected);
+    const rows = summarizeProjects(data([], [slot(1, start, end, total)]), scope, today);
+    close(rows[0].planned, expected, "Planning uses elapsed slot duration rather than treating DST days as 24 hours");
+  }
+});
+
+test("custom planning includes future allocations and excludes slots touching either boundary", () => {
+  const scope = { startDate: "2026-10-07", endDate: "2026-10-08" };
+  const source = data([], [
+    slot(1, "2026-10-06T22:00:00Z", "2026-10-08T22:00:00Z", 48),
+    slot(1, "2026-10-06T21:00:00Z", "2026-10-06T22:00:00Z", 100),
+    slot(1, "2026-10-08T22:00:00Z", "2026-10-09T22:00:00Z", 100)
+  ]);
+  close(summarizeProjects(source, scope, new Date("2026-10-01T12:00:00Z"))[0].planned, 48);
+});
+
+test("custom scope keeps unknown planning distinct and omits zero-net or absent projects", () => {
+  const scope = { startDate: "2026-10-07", endDate: "2026-10-08" };
+  const source = data([line(1, "2026-10-07", 3), line(1, "2026-10-08", -3),
+    line(2, "2026-10-06", 90), line(3, "2026-10-08", -4)], [], [project(1), project(2), project(3)]);
+  const rows = summarizeProjects({ ...source, planning: null }, scope, today);
+  assert.deepEqual(rows.map(row => row.id), [3]);
+  assert.equal(rows[0].planned, null);
+  assert.equal(rows[0].actual, -4);
+  assert.deepEqual(summarizeProjects(source, { startDate: "2040-01-01", endDate: "2040-01-31" }, today), []);
+});
+
+test("year and null scopes preserve UTC planning and full-history summary behavior", () => {
+  const source = data([line(1, "2025-01-01", 2), line(1, "2026-01-01", 3)], [
+    slot(1, "2026-12-31T23:30:00Z", "2027-01-01T00:30:00Z", 1)
+  ]);
+  const years = Object.freeze([2026, "2025", 2026]);
+  assert.equal(normalizeScope(years).kind, "years");
+  assert.deepEqual(normalizeScope(years).years, [2025, 2026]);
+  assert.equal(summarizeProjects(source, [2026], today)[0].planned, 0.5);
+  assert.equal(summarizeProjects(source, { startDate: "2026-01-01", endDate: "2026-12-31" }, today)[0].planned, 0);
+  assert.equal(summarizeProjects(source, null, today)[0].actual, 5);
+  assert.equal(summarizeProjects(source, null, today)[0].planned, 1);
+  assert.deepEqual(years, [2026, "2025", 2026]);
+});
+
+test("custom calendar progress counts dates across leap days and DST, with first/last anchors", () => {
+  for (const [scope, dates] of [
+    [{ startDate: "2024-02-28", endDate: "2024-03-01" }, ["2024-02-28", "2024-02-29", "2024-03-01"]],
+    [{ startDate: "2026-03-28", endDate: "2026-03-30" }, ["2026-03-28", "2026-03-29", "2026-03-30"]],
+    [{ startDate: "2026-10-24", endDate: "2026-10-26" }, ["2026-10-24", "2026-10-25", "2026-10-26"]]
+  ]) {
+    dates.forEach((date, index) => {
+      const result = calendarProgress(scope, date);
+      close(result.fraction, index / 2);
+      close(result.radiusRatio ** 2, result.fraction);
+    });
+  }
+  const scope = { startDate: "2026-10-07", endDate: "2026-10-09" };
+  assert.equal(calendarProgress(scope, "2026-10-06").fraction, 0);
+  assert.equal(calendarProgress(scope, "2026-10-10").fraction, 1);
+  assert.equal(calendarProgress(scope, "2026-10-07T22:30:00Z").fraction, 0.5);
+});
+
+test("single-day custom macro and project references complete on that day", () => {
+  const scope = { startDate: "2026-10-08", endDate: "2026-10-08" };
+  for (const [date, fraction] of [["2026-10-07", 0], ["2026-10-08", 1], ["2026-10-09", 1]]) {
+    assert.equal(calendarProgress(scope, date).fraction, fraction);
+    assert.equal(projectCalendarProgress(scope, "2026-01-01", "2026-12-31", date).fraction, fraction);
+  }
+});
+
+test("custom project references clip both boundaries without clipping recorded scoped hours", () => {
+  const scope = { startDate: "2025-11-01", endDate: "2026-02-28" };
+  const result = projectCalendarProgress(scope, "2025-12-01", "2026-01-31", "2026-01-01");
+  assert.deepEqual(result, { fraction: 31 / 61, startDate: "2025-12-01", endDate: "2026-01-31", calendarDays: 62 });
+  assert.equal(projectCalendarProgress(scope, "2026-03-01", "2026-04-01", today), null);
+  assert.equal(projectCalendarProgress(scope, null, "2026-04-01", today), null);
+  const source = data([line(1, "2025-11-30", 8), line(1, "2026-02-01", 4)]);
+  assert.equal(summarizeProjects(source, scope, today)[0].actual, 12,
+    "Source hours inside the chosen scope remain visible outside the project's date reference");
+});
+
+test("macro render uses custom scope ahead of legacy years for its calendar ring", () => {
+  const container = domFixture();
+  render(container, [{ ...project(1), planned: 100, actual: 50 }], {
+    years: [2025], scope: { startDate: "2026-10-07", endDate: "2026-10-09" }, now: today
+  });
+  const ring = container.querySelectorAll(".personal-time-calendar-ring")[0];
+  assert.ok(ring);
+  close(Number(ring.getAttribute("data-calendar-fraction")), 0.5);
+  close(Number(ring.getAttribute("r")), 190 * Math.sqrt(0.5));
+  assert.match(container.querySelectorAll(".personal-time-calendar-reference")[0].getAttribute("aria-label"), /période sélectionnée/);
+});
 
 test("personal actuals retain credits and include only selected years through Brussels today", () => {
   const input = data([
@@ -182,6 +323,9 @@ test("calendar progress omits invalid dates and empty or invalid year selections
   assert.equal(calendarProgress(new Set(), today), null);
   assert.equal(calendarProgress([0, "invalid", 10000], today), null);
   assert.equal(calendarProgress([2026], new Date(NaN)), null);
+  assert.equal(calendarProgress([2026], true), null);
+  assert.equal(calendarProgress([2026], false), null);
+  assert.equal(normalizeScope([true, false, null, undefined]), null);
 });
 
 test("project calendar intersects selected years with a December project start", () => {
@@ -332,6 +476,50 @@ test("chart legend keeps zero and unknown budgets inspectable and renders projec
   assert.match(container.textContent, /Sans heures prévues/);
   assert.match(container.textContent, /Correction nette/);
   assert.equal(container.querySelectorAll("img").length, 0);
+});
+
+test("project legend mirrors overruns and states the remaining scoped allowance only for known positive plans and actuals", () => {
+  const container = domFixture();
+  const inputs = [
+    [100, 70, "Plus que 30 h prévues disponibles d’ici au 31/12/2026"], [100, 0, "Plus que 100 h prévues disponibles d’ici au 31/12/2026"],
+    [100, -5, "Plus que 105 h prévues disponibles d’ici au 31/12/2026"], ["100", "70", "Plus que 30 h prévues disponibles d’ici au 31/12/2026"],
+    [100, 100, null], [100, 110, null], [0, 10, null], [null, 50, null],
+    [100, null, null], [100, undefined, null], [100, " ", null],
+    [100, NaN, null], [100, Infinity, null], [Infinity, 1, null], [-5, -10, null]
+  ];
+  const rows = inputs.map(([planned, actual], index) => ({ ...project(index + 1), planned, actual }));
+  render(container, rows, { hiddenIds: new Set([1]), years: [2026] });
+  inputs.forEach(([, , expected], index) => {
+    const button = container.querySelectorAll(`[data-personal-id="${index + 1}"]`)[0];
+    assert.ok(button, `Project ${index + 1} remains inspectable`);
+    const badges = button.querySelectorAll(".is-below");
+    assert.deepEqual(badges.map(badge => badge.textContent), expected ? [expected] : []);
+  });
+  assert.equal(container.querySelectorAll('[data-personal-id="6"]')[0].querySelectorAll(".is-overrun")[0].textContent,
+    "+10 h au-delà du prévu", "Existing overrun text is unchanged");
+  assert.equal(container.querySelectorAll('[data-personal-id="7"]')[0].querySelectorAll(".is-overrun")[0].textContent,
+    "Sans heures prévues");
+  assert.equal(container.querySelectorAll('[data-personal-id="8"]')[0].querySelectorAll(".is-unknown")[0].textContent,
+    "Planning indisponible");
+  assert.equal(container.querySelectorAll('[data-personal-id="3"]')[0].querySelectorAll(".is-credit")[0].textContent,
+    "Correction nette", "A shortfall does not conceal signed credit context");
+});
+
+test("remaining pie legend allowance ends at the normalized selected scope, independently of project dates, with an explicit unavailable fallback", () => {
+  const container = domFixture(), rows = [{ ...project(1), planned: 200, actual: 46.5,
+    startDate: "2026-01-01", endDate: "2026-09-30" }], before = structuredClone(rows);
+  const prefix = "Plus que 153,5 h prévues disponibles";
+  for (const [options, suffix] of [
+    [{ years: [2027, 2025, 2027] }, " d’ici au 31/12/2027"],
+    [{ years: [2027], scope: { startDate: "2026-08-01", endDate: "2026-12-15" } }, " d’ici au 15/12/2026"],
+    [{ scope: { startDate: "2026-08-01", endDate: "2026-08-01" } }, " d’ici au 01/08/2026"],
+    [{}, " sur la période sélectionnée (date de fin indisponible)"],
+    [{ years: [2026], scope: { startDate: "2026-08-01", endDate: "2026-02-30" } }, " sur la période sélectionnée (date de fin indisponible)"]
+  ]) {
+    render(container, rows, options);
+    assert.equal(container.querySelectorAll(".is-below")[0].textContent, prefix + suffix);
+    assert.deepEqual(rows, before, "The clearer badge must not change source totals or project dates");
+  }
 });
 
 test("controlled legend toggles use stable IDs and SVG details support keyboard and touch", () => {

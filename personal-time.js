@@ -11,11 +11,16 @@
   const PALETTE = ["#008bab", "#1c9c8c", "#6368ae", "#cd8747", "#b65c7b", "#488c62",
     "#5b88b4", "#8865a5", "#bc7057", "#86933f", "#448d8d", "#637d94"];
   const projectColors = new Map(), assignedColors = new Set();
+  const recommendationViews = new WeakMap();
   let extraColorIndex = 0;
   const numberFormat = new Intl.NumberFormat("fr-BE", { maximumFractionDigits: 1 });
   const percentFormat = new Intl.NumberFormat("fr-BE", { style: "percent", maximumFractionDigits: 0 });
   const brusselsFormat = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Europe/Brussels", year: "numeric", month: "2-digit", day: "2-digit"
+  });
+  const brusselsTimeFormat = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Brussels", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23"
   });
   let renderId = 0;
 
@@ -23,6 +28,12 @@
     if (typeof value !== "number" && typeof value !== "string") return 0;
     const result = Number(value);
     return Number.isFinite(result) ? result : 0;
+  }
+
+  function knownHours(value) {
+    if ((typeof value !== "number" && typeof value !== "string") || typeof value === "string" && !value.trim()) return null;
+    const result = Number(value);
+    return Number.isFinite(result) ? result : null;
   }
 
   function dateKey(value) {
@@ -60,8 +71,46 @@
   }
 
   function validYear(value) {
+    if (typeof value !== "number" && typeof value !== "string") return null;
     const year = Number(value);
     return Number.isInteger(year) && year >= 1 && year <= 9998 ? year : null;
+  }
+
+  function brusselsMidnight(day) {
+    let result = day;
+    // Resolve the requested local midnight without depending on the browser's
+    // timezone. A second pass accounts for an offset change near the boundary.
+    for (let pass = 0; pass < 3; pass++) {
+      const parts = Object.fromEntries(brusselsTimeFormat.formatToParts(new Date(result))
+        .map(part => [part.type, part.value]));
+      const wall = Date.parse(`${parts.year.padStart(4, "0")}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}Z`);
+      const correction = day - wall;
+      result += correction;
+      if (!correction) break;
+    }
+    return result;
+  }
+
+  function normalizeScope(scope) {
+    const isRange = scope && typeof scope === "object" &&
+      (Object.prototype.hasOwnProperty.call(scope, "startDate") || Object.prototype.hasOwnProperty.call(scope, "endDate"));
+    if (isRange) {
+      const validDate = value => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+        validYear(Number(value.slice(0, 4))) !== null && dateKey(value) === value;
+      if (!validDate(scope.startDate) || !validDate(scope.endDate) || scope.startDate > scope.endDate) return null;
+      const start = Date.parse(`${scope.startDate}T00:00:00Z`);
+      const end = Date.parse(`${scope.endDate}T00:00:00Z`) + 864e5;
+      return { kind: "range", years: [], startDate: scope.startDate, endDate: scope.endDate,
+        periods: [{ start, end }], planningPeriods: [{ start: brusselsMidnight(start), end: brusselsMidnight(end) }] };
+    }
+    const years = Array.from(new Set(Array.from(scope || []).map(validYear)
+      .filter(year => year !== null))).sort((a, b) => a - b).slice(0, MAX_YEARS);
+    if (!years.length) return null;
+    const periods = years.map(year => ({ start: yearStart(year), end: yearStart(year + 1) }));
+    return { kind: "years", years, startDate: `${String(years[0]).padStart(4, "0")}-01-01`,
+      endDate: `${String(years[years.length - 1]).padStart(4, "0")}-12-31`, periods,
+      // Preserve the established UTC-year slot allocation contract.
+      planningPeriods: periods.map(period => ({ ...period })) };
   }
 
   function availableYears(data) {
@@ -82,37 +131,36 @@
     return Array.from(years).filter(year => validYear(year)).sort((a, b) => a - b).slice(0, MAX_YEARS);
   }
 
-  function calendarProgress(years, now = new Date()) {
-    const selected = Array.from(new Set(Array.from(years || []).map(validYear)
-      .filter(year => year !== null))).sort((a, b) => a - b).slice(0, MAX_YEARS);
-    const today = dateKey(now);
-    if (!selected.length || !today) return null;
+  function calendarProgress(scope, now = new Date()) {
+    const selected = normalizeScope(scope);
+    const today = typeof now === "boolean" ? null : dateKey(now);
+    if (!selected || !today) return null;
     // Treat Brussels calendar dates as UTC ordinals so DST does not change
     // the weight of a day. Unselected years contribute no elapsed time.
     const day = new Date(`${today}T00:00:00Z`).getTime();
     let totalDays = 0, elapsedDays = 0;
-    for (const year of selected) {
-      const start = yearStart(year), end = yearStart(year + 1);
+    for (const { start, end } of selected.periods) {
       totalDays += (end - start) / 864e5;
       elapsedDays += Math.max(0, Math.min(day, end) - start) / 864e5;
     }
     // Day-position anchors Jan 1 at the center and the final Dec 31 at the rim.
-    const fraction = Math.max(0, Math.min(1, elapsedDays / (totalDays - 1)));
+    const fraction = totalDays === 1 ? Number(day >= selected.periods[0].start)
+      : Math.max(0, Math.min(1, elapsedDays / (totalDays - 1)));
     return { fraction, radiusRatio: Math.sqrt(fraction) };
   }
 
-  function projectCalendarProgress(years, startDate, endDate, now = new Date()) {
+  function projectCalendarProgress(scope, startDate, endDate, now = new Date()) {
     const projectDate = value => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)
       && !value.startsWith("0000") ? dateKey(value) : null;
     const first = projectDate(startDate), last = projectDate(endDate);
     const today = typeof now === "boolean" ? null : dateKey(now);
     if (!first || !last || first > last || !today) return null;
-    const selected = Array.from(new Set(Array.from(years || []).map(validYear)
-      .filter(year => year !== null))).sort((a, b) => a - b).slice(0, MAX_YEARS);
+    const selected = normalizeScope(scope);
+    if (!selected) return null;
     const projectStart = Date.parse(`${first}T00:00:00Z`);
     const projectEnd = Date.parse(`${last}T00:00:00Z`) + 864e5;
-    const periods = selected.map(year => ({
-      start: Math.max(projectStart, yearStart(year)), end: Math.min(projectEnd, yearStart(year + 1))
+    const periods = selected.periods.map(period => ({
+      start: Math.max(projectStart, period.start), end: Math.min(projectEnd, period.end)
     })).filter(period => period.end > period.start);
     if (!periods.length) return null;
     const day = Date.parse(`${today}T00:00:00Z`);
@@ -136,10 +184,9 @@
       String(a.id).localeCompare(String(b.id), "fr", { numeric: true });
   }
 
-  function summarizeProjects(data, years, now = new Date()) {
-    const selected = new Set(Array.from(years == null ? availableYears(data) : years)
-      .map(validYear).filter(year => year !== null).slice(0, MAX_YEARS));
-    if (!selected.size) return [];
+  function summarizeProjects(data, scope, now = new Date()) {
+    const selected = normalizeScope(scope == null ? availableYears(data) : scope);
+    if (!selected) return [];
     const today = dateKey(now);
     const knownPlanning = Boolean(data && data.planning && Array.isArray(data.planning.slots));
     const catalogue = new Map((data?.projects || []).filter(project => project && project.id != null)
@@ -160,7 +207,9 @@
     };
     for (const line of data?.timesheets?.lines || []) {
       const key = dateKey(line.date);
-      if (!key || !selected.has(Number(key.slice(0, 4)))) continue;
+      if (!key) continue;
+      const day = Date.parse(`${key}T00:00:00Z`);
+      if (!selected.periods.some(period => day >= period.start && day < period.end)) continue;
       const project = ensureProject(line);
       if (today && key <= today) project.actual += hours(line.hours);
     }
@@ -169,8 +218,8 @@
         const period = slotPeriod(slot);
         if (!period) continue;
         let overlap = 0;
-        for (const year of selected) {
-          overlap += Math.max(0, Math.min(period.end, yearStart(year + 1)) - Math.max(period.start, yearStart(year)));
+        for (const selectedPeriod of selected.planningPeriods) {
+          overlap += Math.max(0, Math.min(period.end, selectedPeriod.end) - Math.max(period.start, selectedPeriod.start));
         }
         if (overlap > 0) ensureProject(slot).planned += hours(slot.hours) * overlap / (period.end - period.start);
       }
@@ -186,6 +235,285 @@
       if (labelCounts.get(labelKey(project.name)) > 1) project.name = `${project.name} (ID ${project.id})`;
     });
     return result.sort(compareProjects);
+  }
+
+  function recommendationTitle(name) {
+    const text = String(name || "Projet").trim();
+    const tokens = Array.from(text.matchAll(/\[([^\[\]\r\n]+)\]/g));
+    const short = tokens.find(token => token[1].trim() && !/^\d+$/.test(token[1].trim()));
+    if (short) return short[1].trim();
+    const number = tokens.find(token => /^\d{5,}$/.test(token[1].trim()));
+    return (number ? text.replace(number[0], "") : text.replace(/^\d{5,}(?=\s|[·:|–—-]|\[|$)/, ""))
+      .replace(/^\s*[·:|–—-]+\s*/, "").replace(/\s+/g, " ").trim() || "Projet";
+  }
+
+  function recommendationPeriodLabel(selected) {
+    if (!selected) return "sur la période sélectionnée";
+    if (selected.kind === "years") return selected.years.length === 1 ? String(selected.years[0])
+      : `${selected.years.slice(0, -1).join(", ")} et ${selected.years.at(-1)}`;
+    const months = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+    const date = value => {
+      const day = Number(value.slice(8, 10));
+      return `${day === 1 ? "1er" : day} ${months[Number(value.slice(5, 7)) - 1]} ${Number(value.slice(0, 4))}`;
+    };
+    return `du ${date(selected.startDate)} au ${date(selected.endDate)}`;
+  }
+
+  function recommendationYearPeriods(selected) {
+    const result = [];
+    for (const period of selected.periods) {
+      let start = period.start;
+      while (start < period.end) {
+        if (result.length >= MAX_YEARS) return null;
+        const end = Math.min(period.end, yearStart(new Date(start).getUTCFullYear() + 1));
+        result.push({ start, end, planningStart: selected.kind === "range" ? brusselsMidnight(start) : start,
+          planningEnd: selected.kind === "range" ? brusselsMidnight(end) : end });
+        start = end;
+      }
+    }
+    return result;
+  }
+
+  function futurePersonalPlanning(data, projectId, projectStart, projectEnd, day) {
+    // /my-time supplies all accessible personal slots without a date filter.
+    // An aggregate or a missing/failed source cannot establish their absence.
+    const result = { status: "unavailable", hours: null };
+    if (day < projectStart || day >= projectEnd) return { status: "not-applicable", hours: null };
+    const planning = data?.planning;
+    if (data?.ok === false || planning?.ok !== true || !Array.isArray(planning.slots) || data.planningError ||
+      planning.complete === false || planning.partial === true || planning.truncated === true) return result;
+    // Include all of today: even a today's-only allocation makes an immediate
+    // instruction to stop entirely premature. This differs from the macro
+    // remaining-consumption projection, which starts tomorrow.
+    const start = brusselsMidnight(day), end = brusselsMidnight(projectEnd);
+    let total = 0;
+    for (const slot of planning.slots) {
+      if (!slot || typeof slot !== "object") return result;
+      const id = slot.projectId == null || slot.projectId === false ? "unassigned" : slot.projectId;
+      if (String(id) !== String(projectId)) continue;
+      const validDate = value => value instanceof Date ? Number.isFinite(value.getTime()) : typeof value === "string" &&
+        /^\d{4}-\d{2}-\d{2}(?:$|[ T])/.test(value.trim()) && dateKey(value.trim().slice(0, 10)) !== null;
+      const period = validDate(slot.start) && validDate(slot.end) ? slotPeriod(slot) : null;
+      if (!period) return result;
+      const overlap = Math.max(0, Math.min(period.end, end) - Math.max(period.start, start));
+      if (!overlap) continue;
+      const amount = knownHours(slot.hours);
+      // Signed corrections cannot prove a remaining allowance of zero, even
+      // when they cancel an allocation exactly. Preserve the original hours.
+      if (amount === null || amount < 0) return result;
+      total += amount * overlap / (period.end - period.start);
+    }
+    return Number.isFinite(total) ? { status: "available", hours: total } : result;
+  }
+
+  function buildRecommendations(projects, scope, options = {}) {
+    const list = Array.isArray(projects) ? projects : [];
+    const inputTolerance = knownHours(options.tolerancePercent);
+    const tolerancePercent = inputTolerance === null ? 15 : Math.max(0, Math.min(100, inputTolerance));
+    const selected = normalizeScope(scope == null ? availableYears(options.data) : scope);
+    const now = options.now === undefined ? new Date() : options.now;
+    const today = typeof now === "boolean" ? null : dateKey(now);
+    const periods = selected ? recommendationYearPeriods(selected) : null;
+    const model = { asOf: today, periodLabel: recommendationPeriodLabel(selected), tolerancePercent, rows: [], unavailable: [] };
+    const catalogue = new Map((options.data?.projects || []).filter(project => project && project.id != null)
+      .map(project => [String(project.id), project]));
+    const omit = (project, reason) => model.unavailable.push({ id: project.id, name: String(project.name || "Projet"), reason });
+    const strictDay = value => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+      !value.startsWith("0000") ? dateKey(value) : null;
+    const day = today ? Date.parse(`${today}T00:00:00Z`) : null;
+    for (const project of list) {
+      if (!project || project.id == null) continue;
+      if (!today) { omit(project, "Période ou date indisponible"); continue; }
+      const planned = knownHours(project.planned), actual = knownHours(project.actual);
+      if (planned === 0 && actual === 0) continue;
+      const source = catalogue.get(String(project.id)) || project;
+      const startDate = strictDay(source.startDate), endDate = strictDay(source.endDate);
+      const coherentDates = !startDate || !endDate || startDate <= endDate;
+      const start = startDate ? Date.parse(`${startDate}T00:00:00Z`) : null;
+      const end = endDate ? Date.parse(`${endDate}T00:00:00Z`) + 864e5 : null;
+      const futurePlanning = startDate && endDate && coherentDates ? futurePersonalPlanning(options.data, project.id, start, end, day)
+        : { status: "unavailable", hours: null };
+      const stopReasons = [];
+      if (endDate && coherentDates && endDate <= today) stopReasons.push({ code: "expired", endDate });
+      if (futurePlanning.status === "available" && futurePlanning.hours === 0) {
+        stopReasons.push({ code: "noPersonalPlan", startDate: today, endDate });
+      }
+      const budget = source.personnelBudget;
+      const conventionHours = knownHours(budget?.conventionHours), actualHours = knownHours(budget?.actualHours);
+      if (options.data?.ok !== false && budget?.status === "available" && budget.actualStatus === "available" &&
+        conventionHours !== null && conventionHours > 0 && actualHours !== null && actualHours >= conventionHours) {
+        stopReasons.push({ code: "budgetConsumed", conventionHours, actualHours });
+      }
+      const stopTracking = stopReasons.length > 0;
+      const base = { id: project.id, name: String(project.name || "Projet"), shortName: recommendationTitle(project.name),
+        planned, actual, projectEndDate: endDate, unplanned: planned === 0, stopTracking, stopReasons,
+        futurePlanningStatus: futurePlanning.status, futurePlannedHours: futurePlanning.hours };
+      const unavailable = reason => {
+        if (!stopTracking) { omit(project, reason); return; }
+        // A certain stop condition is useful even when the personal linear
+        // comparison cannot be calculated. Never fabricate a signed gap.
+        model.rows.push({ ...base, category: "stop", expected: null, variance: null, varianceRatio: null,
+          remainingDays: null, weeklyHours: null, endDate: selected?.endDate || endDate,
+          periodEnded: endDate !== null && endDate <= today, periodFuture: startDate !== null && startDate > today,
+          paceUnavailableReason: reason });
+      };
+      if (!selected || !periods) { unavailable("Période ou date indisponible"); continue; }
+      if (planned === null || planned < 0) { unavailable(planned < 0 ? "Planning négatif" : "Planning indisponible"); continue; }
+      if (actual === null || actual < 0) { unavailable(actual < 0 ? "Corrections d’heures négatives" : "Réalisé indisponible"); continue; }
+      if (!startDate || !endDate || !coherentDates) { unavailable("Dates de projet indisponibles ou incohérentes"); continue; }
+      let annual = periods.map(() => 0);
+      if (Array.isArray(options.data?.planning?.slots)) {
+        let invalid = false;
+        for (const slot of options.data.planning.slots) {
+          if (!slot) continue;
+          const id = slot.projectId == null || slot.projectId === false ? "unassigned" : slot.projectId;
+          if (String(id) !== String(project.id)) continue;
+          const validSlotDate = value => value instanceof Date ? Number.isFinite(value.getTime()) : typeof value === "string" &&
+            /^\d{4}-\d{2}-\d{2}(?:$|[ T])/.test(value.trim()) && strictDay(value.trim().slice(0, 10));
+          const slotDates = validSlotDate(slot.start) && validSlotDate(slot.end) ? slotPeriod(slot) : null;
+          if (!slotDates) { invalid = true; continue; }
+          const amount = knownHours(slot.hours);
+          periods.forEach((period, index) => {
+            const overlap = Math.max(0, Math.min(slotDates.end, period.planningEnd) - Math.max(slotDates.start, period.planningStart));
+            if (!overlap) return;
+            if (amount === null) invalid = true;
+            else annual[index] += amount * overlap / (slotDates.end - slotDates.start);
+          });
+        }
+        if (invalid || annual.some(value => value < 0) ||
+          Math.abs(annual.reduce((sum, value) => sum + value, 0) - planned) > Math.max(1e-8, Math.abs(planned) * 1e-9)) {
+          unavailable("Planning annuel indisponible ou non réconcilié"); continue;
+        }
+      } else if (periods.length === 1) annual = [planned];
+      else { unavailable("Planning annuel indisponible"); continue; }
+      let expected = 0, remainingDays = 0, planningOutsideProjectDates = false;
+      const activePeriods = [];
+      periods.forEach((period, index) => {
+        const first = Math.max(period.start, start), last = Math.min(period.end, end);
+        if (last <= first) { if (annual[index] !== 0) planningOutsideProjectDates = true; return; }
+        activePeriods.push({ start: first, end: last });
+        const elapsed = Math.max(0, Math.min(day + 864e5, last) - first);
+        expected += annual[index] * elapsed / (last - first);
+        remainingDays += Math.max(0, last - Math.max(day + 864e5, first)) / 864e5;
+      });
+      if (planningOutsideProjectDates) { unavailable("Planning hors des dates du projet"); continue; }
+      if (!activePeriods.length) { unavailable("Projet hors de la période sélectionnée"); continue; }
+      const periodEnded = day >= activePeriods.at(-1).end - 864e5;
+      const periodFuture = day < activePeriods[0].start;
+      const activeToday = activePeriods.some(period => day >= period.start && day < period.end);
+      if (!activeToday && !periodEnded && !(periodFuture && actual > 0)) {
+        unavailable(periodFuture ? "Projet non commencé" : "Période non active aujourd’hui"); continue;
+      }
+      const variance = actual - expected, limit = expected * tolerancePercent / 100;
+      const category = stopTracking ? "stop" : variance > limit ? "slow" : variance < -limit ? "increase" : "continue";
+      model.rows.push({ ...base, category, expected, variance, varianceRatio: expected > 0 ? variance / expected : null,
+        remainingDays, weeklyHours: !stopTracking && activeToday && remainingDays > 0 ? Math.max(0, planned - actual) * 7 / remainingDays : null,
+        endDate: new Date(activePeriods.at(-1).end - 864e5).toISOString().slice(0, 10), periodEnded, periodFuture });
+    }
+    const byName = (a, b) => a.name.localeCompare(b.name, "fr", { numeric: true }) || String(a.id).localeCompare(String(b.id), "fr", { numeric: true });
+    model.rows.sort(byName); model.unavailable.sort(byName);
+    return model;
+  }
+
+  function renderRecommendations(container, model, options = {}) {
+    if (!container) return null;
+    const doc = container.ownerDocument || document;
+    const node = (tag, className, text) => {
+      const element = doc.createElement(tag); element.className = className;
+      if (text != null) element.textContent = text;
+      return element;
+    };
+    let view = recommendationViews.get(container);
+    if (!view) {
+      const id = `personal-time-recommendations-${++renderId}`;
+      const section = node("section", "personal-time-recommendations"); section.setAttribute("aria-label", "Recommandations de rythme");
+      const heading = node("h3", "personal-time-recommendations-title"); section.append(heading);
+      const grid = node("div", "personal-time-recommendations-grid");
+      const unavailable = node("div", "personal-time-recommendation-unavailable");
+      const unavailableMessage = node("p", "personal-time-recommendation-unavailable-message");
+      const unavailableDetails = node("details", "personal-time-recommendation-unavailable-details");
+      unavailableDetails.append(node("summary", "", "Voir les raisons"));
+      const unavailableList = node("ul", "personal-time-recommendation-unavailable-list"); unavailableDetails.append(unavailableList);
+      unavailable.append(unavailableMessage, unavailableDetails);
+      const controls = node("div", "personal-time-recommendation-tolerance");
+      const label = node("label", "personal-time-recommendation-tolerance-label", "Tolérance"); label.setAttribute("for", `${id}-input`);
+      const input = node("input", "personal-time-recommendation-slider"); input.type = "range"; input.min = "0"; input.max = "100"; input.step = "1";
+      input.id = `${id}-input`; input.setAttribute("data-recommendation-tolerance", ""); input.setAttribute("aria-describedby", `${id}-helper`);
+      const output = node("output", "personal-time-recommendation-tolerance-value"); output.setAttribute("for", input.id);
+      const helper = node("p", "personal-time-recommendation-helper",
+        "La tolérance classe les écarts au prévu linéaire à ce jour. « Arrêter (ou clarifier) » indique un projet terminé, sans planning personnel restant ou au budget BW consommé.");
+      helper.id = `${id}-helper`;
+      const status = node("p", "personal-time-recommendation-status"); status.setAttribute("role", "status"); status.setAttribute("aria-live", "polite");
+      controls.append(label, input, output, helper); section.append(grid, unavailable, controls, status);
+      view = { section, heading, grid, unavailable, unavailableMessage, unavailableList, input, output, status, onToleranceChange: null };
+      input.addEventListener("input", () => {
+        const value = Math.max(0, Math.min(100, Number(input.value)));
+        if (!Number.isFinite(value)) return;
+        output.textContent = `${value} %`; input.setAttribute("aria-valuetext", `${value} % de tolérance`); view.onToleranceChange?.(value);
+      });
+      recommendationViews.set(container, view);
+    }
+    view.onToleranceChange = options.onToleranceChange;
+    view.heading.textContent = `Recommandations pour respecter le planning ${model?.periodLabel || "sur la période sélectionnée"} (interpolation linéaire)`;
+    const rows = Array.isArray(model?.rows) ? model.rows : [], unavailable = Array.isArray(model?.unavailable) ? model.unavailable : [];
+    const tolerance = knownHours(model?.tolerancePercent) ?? 15;
+    view.input.value = String(Math.max(0, Math.min(100, tolerance))); view.output.textContent = `${view.input.value} %`;
+    view.input.setAttribute("aria-valuetext", `${view.input.value} % de tolérance`);
+    const columns = [], counts = [];
+    for (const [category, title] of [["stop", "Arrêter (ou clarifier)"], ["slow", "Ralentir"], ["increase", "Augmenter"], ["continue", "Continuer"]]) {
+      const column = node("section", `personal-time-recommendation-column is-${category}`);
+      column.append(node("h3", "personal-time-recommendation-heading", title));
+      const list = node("ul", "personal-time-recommendation-list"), entries = rows.filter(row => row.category === category);
+      const gapSize = row => knownHours(row.variance) === null ? -1 : Math.abs(row.variance);
+      if (category !== "continue") entries.sort((a, b) => gapSize(b) - gapSize(a) ||
+        String(a.shortName || a.name || "").localeCompare(String(b.shortName || b.name || ""), "fr", { numeric: true }) ||
+        String(a.id).localeCompare(String(b.id), "fr", { numeric: true }));
+      counts.push(`${title} : ${entries.length}`);
+      for (const row of entries) {
+        const item = node("li", `personal-time-recommendation${row.stopTracking ? " is-stop" : ""}`); item.setAttribute("data-recommendation-id", String(row.id));
+        item.title = `${row.name}\nPrévu à ce jour : ${formatHours(row.expected)}\nRéalisé : ${formatHours(row.actual)}\nFin : ${row.endDate}`;
+        const variance = `${row.variance > 0 ? "+" : row.variance < 0 ? "−" : ""}${formatHours(Math.abs(row.variance))}`;
+        const deadline = /^\d{4}-\d{2}-\d{2}$/.test(row.endDate || "") ? `${row.endDate.slice(8, 10)}/${row.endDate.slice(5, 7)}/${row.endDate.slice(0, 4)}` : "date indisponible";
+        const rate = row.weeklyHours == null ? row.periodFuture ? "Projet non commencé ; pas de rythme conseillé." : `Période terminée le ${deadline}.` :
+          `${category === "slow" ? "Max." : "Cible"} ${numberFormat.format(row.weeklyHours)} h/sem. jusqu’au ${deadline}.`;
+        item.append(node("strong", "personal-time-recommendation-name", row.shortName));
+        if (category === "stop") {
+          const difference = row.variance > 0 ? "au-dessus du" : row.variance < 0 ? "en-dessous du" : "d’écart avec le";
+          const details = [item.title, knownHours(row.variance) === null
+            ? "Écart au prévu à ce jour indisponible." : `${variance} ${difference} prévu à ce jour.`];
+          const dateLabel = value => /^\d{4}-\d{2}-\d{2}$/.test(value || "") ? `${value.slice(8, 10)}/${value.slice(5, 7)}/${value.slice(0, 4)}` : "date indisponible";
+          const labels = [];
+          for (const reason of row.stopReasons || []) {
+            if (reason.code === "expired") {
+              labels.push("Projet terminé"); details.push(`Projet terminé le ${dateLabel(reason.endDate)}.`);
+            } else if (reason.code === "budgetConsumed") {
+              labels.push("Budget BW consommé");
+              details.push(`Le budget personnel BW du projet est consommé (${formatHours(reason.actualHours)} réalisées sur ${formatHours(reason.conventionHours)} prévues par la convention, hors Ormitters).`);
+            } else if (reason.code === "noPersonalPlan") {
+              labels.push("Non planifié");
+              details.push(`Aucun planning personnel restant d’aujourd’hui à la fin du projet (du ${dateLabel(reason.startDate)} au ${dateLabel(reason.endDate)}).`);
+            }
+          }
+          item.append(node("span", "personal-time-recommendation-stop", ` — ${labels.join(" · ") || "Motif indisponible"}`));
+          if (row.paceUnavailableReason) details.push(row.paceUnavailableReason);
+          item.title = details.join("\n"); item.setAttribute("aria-description", item.title);
+        } else if (category !== "continue") item.append(node("span", "personal-time-recommendation-values",
+          ` — ${variance} ${category === "slow" ? "au-dessus" : "en-dessous"} du prévu à ce jour. ${rate}`));
+        if (category !== "continue" && category !== "stop" && (row.unplanned || knownHours(row.expected) === 0 && row.varianceRatio === null && row.actual > 0)) {
+          item.append(node("span", "personal-time-recommendation-note", row.unplanned ? "Hors planning" : "Aucun prévu attendu à ce jour"));
+        }
+        list.append(item);
+      }
+      if (!entries.length) list.append(node("li", "personal-time-recommendation-empty", "Aucun projet"));
+      column.append(list); columns.push(column);
+    }
+    view.grid.replaceChildren(...columns);
+    view.unavailable.hidden = !unavailable.length;
+    view.unavailableMessage.textContent = unavailable.length ? `${unavailable.length} projet${unavailable.length > 1 ? "s" : ""} sans conseil chiffré.` : "";
+    view.unavailableList.replaceChildren(...unavailable.map(row => node("li", "", `${row.name} : ${row.reason}`)));
+    view.status.textContent = `${counts.join(". ")}.`;
+    if (!container.contains(view.section)) container.replaceChildren(view.section);
+    return view.section;
   }
 
   function hiddenKeys(hiddenIds) {
@@ -263,7 +591,8 @@
     const list = (Array.isArray(projects) ? [...projects] : []).sort(compareProjects);
     const visible = list.filter(project => !hidden.has(String(project.id)));
     const sectors = buildSectors(list, hidden);
-    const calendar = calendarProgress(options.years, options.now);
+    const selectedScope = normalizeScope(options.scope === undefined ? options.years : options.scope);
+    const calendar = calendarProgress(options.scope === undefined ? options.years : options.scope, options.now);
     const id = `personal-time-${++renderId}`;
     const node = (tag, className, text) => {
       const result = doc.createElement(tag);
@@ -418,7 +747,7 @@
       if (calendar) {
         const radius = 190 * calendar.radiusRatio;
         const reference = svgNode("g", { class: "personal-time-calendar-reference", role: "img",
-          "aria-label": `Repère calendaire : ${percentFormat.format(calendar.fraction)} de la période écoulée. Référence linéaire sur les années sélectionnées.` });
+          "aria-label": `Repère calendaire : ${percentFormat.format(calendar.fraction)} de la période écoulée. Référence linéaire sur la période sélectionnée.` });
         reference.append(svgNode("circle", { cx: 230, cy: 230, r: radius,
           class: "personal-time-calendar-halo", "aria-hidden": "true" }),
         svgNode("circle", { cx: 230, cy: 230, r: radius, class: "personal-time-calendar-ring",
@@ -476,9 +805,16 @@
       const text = node("span", "personal-time-legend-text");
       text.append(node("span", "personal-time-legend-name", project.name),
         node("span", "personal-time-legend-values", `${formatHours(project.actual)} réalisés · ${formatHours(project.planned)} prévus`));
+      const planned = knownHours(project.planned), actual = knownHours(project.actual);
       if (project.planned == null) text.append(node("span", "personal-time-legend-badge is-unknown", "Planning indisponible"));
       else if (hours(project.planned) <= 0 && hours(project.actual) > 0) text.append(node("span", "personal-time-legend-badge is-overrun", "Sans heures prévues"));
       else if (hours(project.actual) > hours(project.planned)) text.append(node("span", "personal-time-legend-badge is-overrun", `+${formatHours(hours(project.actual) - hours(project.planned))} au-delà du prévu`));
+      else if (planned > 0 && actual !== null && actual < planned) {
+        const endDate = selectedScope?.endDate;
+        const deadline = endDate ? `${endDate.slice(8, 10)}/${endDate.slice(5, 7)}/${endDate.slice(0, 4)}` : null;
+        text.append(node("span", "personal-time-legend-badge is-below", `Plus que ${formatHours(planned - actual)} prévues disponibles${deadline
+          ? ` d’ici au ${deadline}` : " sur la période sélectionnée (date de fin indisponible)"}`));
+      }
       if (hours(project.actual) < 0) text.append(node("span", "personal-time-legend-badge is-credit", "Correction nette"));
       const visibility = node("span", "personal-time-legend-visibility", shown ? "✓" : "+");
       visibility.setAttribute("aria-hidden", "true");
@@ -546,5 +882,5 @@
     return card;
   }
 
-  return { availableYears, calendarProgress, projectCalendarProgress, summarizeProjects, buildSectors, render };
+  return { availableYears, normalizeScope, calendarProgress, projectCalendarProgress, summarizeProjects, buildRecommendations, renderRecommendations, buildSectors, render };
 });
