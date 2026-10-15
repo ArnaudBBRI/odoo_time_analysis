@@ -81,6 +81,149 @@
     });
   }
 
+  function monthAxis(start, through) {
+    const count = (through.year - start.year) * 12 + through.month - start.month + 1;
+    if (count < 1 || count > MAX_MONTHS) return null;
+    const months = [], starts = [];
+    for (let index = 0; index < count; index++) {
+      const offset = start.month - 1 + index;
+      const year = start.year + Math.floor(offset / 12), month = offset % 12 + 1;
+      const key = `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}`;
+      months.push({ key, label: `${MONTH_NAMES[month - 1]} ${year}` });
+      starts.push(Date.parse(key + "-01T00:00:00Z"));
+    }
+    return { months, starts };
+  }
+
+  function planningSchedule(result, options, start, end, through, monthStarts, mode) {
+    const unavailable = warning => ({ status: "unavailable", warning, employees: [], total: null,
+      warnings: [warning], owners: new Map(), uncertain: [], personResources: [] });
+    if (!end || end.key < start.key) return unavailable("Dates du projet absentes ou invalides ; le planning mensuel est indisponible.");
+    if (!Array.isArray(result?.planning?.slots) || result.planning.ok === false || result.planningError) {
+      return unavailable("Le planning mensuel est indisponible avec les données accessibles.");
+    }
+    const projectId = positiveId(result?.project?.id), owners = new Map(), profiles = new Map(), resources = new Map();
+    const addOwner = (resourceId, employeeId) => {
+      if (!resourceId || !employeeId) return;
+      if (!owners.has(resourceId)) owners.set(resourceId, new Set());
+      owners.get(resourceId).add(employeeId);
+    };
+    for (const profile of Array.isArray(result.contributors) ? result.contributors : []) {
+      const employeeId = positiveId(profile?.employeeId);
+      if (employeeId && !profiles.has(employeeId)) profiles.set(employeeId, profile);
+      for (const value of Array.isArray(profile?.resourceIds) ? profile.resourceIds : []) addOwner(positiveId(value), employeeId);
+    }
+    for (const line of Array.isArray(result?.timesheets?.lines) ? result.timesheets.lines : []) {
+      if (positiveId(line?.projectId) === projectId) addOwner(positiveId(line.resourceId), positiveId(line.employeeId));
+    }
+    for (const resource of Array.isArray(result.planning.resources) ? result.planning.resources : []) {
+      const resourceId = positiveId(resource?.id);
+      if (!resourceId) continue;
+      if (!resources.has(resourceId)) resources.set(resourceId, resource);
+      else resources.set(resourceId, null);
+      if (resource.linkStatus === "linked" && resource.isToHire !== true) addOwner(resourceId, positiveId(resource.employeeId));
+    }
+    const groups = new Map(), warnings = new Set(), uncertain = [], personResources = [];
+    let unknownFunctions = false, roleFallback = false;
+    for (const slot of result.planning.slots) {
+      if (positiveId(slot?.projectId) !== projectId) continue;
+      if (slot.isSubcontractor === true && options.includeOrmitters !== true) continue;
+      const period = slotPeriod(slot);
+      if (!period) return unavailable("Certaines allocations ont des dates invalides ; le planning mensuel est indisponible.");
+      const left = Math.max(period.start, start.time), right = Math.min(period.end, end.time + DAY, through.time + DAY);
+      if (right <= left) continue;
+      const hours = numeric(slot.hours);
+      if (hours === null) return unavailable("Certaines allocations ont des heures invalides ; le planning mensuel est indisponible.");
+      if (hours === 0) continue;
+      const resourceId = positiveId(slot.resourceId), snapshot = slot.planningIdentity, resource = resources.get(resourceId);
+      let employeeId = null, identity = "unknown";
+      if (snapshot && typeof snapshot === "object") {
+        if (snapshot.status === "person" && positiveId(snapshot.employeeId)) { employeeId = positiveId(snapshot.employeeId); identity = "person"; }
+        else if (["to-hire", "unlinked"].includes(snapshot.status) && snapshot.employeeId === null && resourceId) identity = snapshot.status;
+      } else if (positiveId(slot.employeeId)) { employeeId = positiveId(slot.employeeId); identity = "person"; }
+      else if (slot.employeeId === null || slot.employeeId === undefined || slot.employeeId === false || slot.employeeId === "") {
+        if (resource?.isToHire === true) identity = "to-hire";
+        else if (resource?.linkStatus === "unlinked") identity = "unlinked";
+        else if (owners.get(resourceId)?.size === 1) { employeeId = [...owners.get(resourceId)][0]; identity = "person"; }
+      }
+      const id = employeeId ? `employee:${employeeId}` : resourceId ? `resource:${resourceId}` : "unassigned";
+      if (identity === "unknown") uncertain.push({ id, resourceId });
+      if (employeeId && resourceId) personResources.push({ id, resourceId });
+      if (!groups.has(id)) {
+        const profile = employeeId ? profiles.get(employeeId) : null;
+        const label = typeof profile?.name === "string" && profile.name.trim() ? profile.name.trim()
+          : !employeeId && typeof resource?.name === "string" && resource.name.trim() ? resource.name.trim()
+          : typeof slot.employee === "string" && slot.employee.trim() && identity !== "unknown" ? slot.employee.trim()
+          : employeeId ? `Employé ${employeeId}` : resourceId ? `Ressource ${resourceId}` : "Ressource non identifiée";
+        groups.set(id, { id, employeeId, resourceId, resourceIds: [], name: label,
+          photoDataUrl: photoSource(profile?.photoDataUrl), isSubcontractor: false, isToHire: identity === "to-hire",
+          planningIdentity: identity, values: Array(monthStarts.length).fill(0) });
+      }
+      const employee = groups.get(id);
+      if (resourceId && !employee.resourceIds.includes(resourceId)) employee.resourceIds.push(resourceId);
+      employee.isSubcontractor ||= slot.isSubcontractor === true;
+      employee.isToHire ||= identity === "to-hire";
+      if (identity === "unknown") employee.planningIdentity = "unknown";
+      for (let index = 0; index < monthStarts.length; index++) {
+        const next = new Date(monthStarts[index]); next.setUTCMonth(next.getUTCMonth() + 1);
+        const overlap = Math.max(0, Math.min(right, next.getTime()) - Math.max(left, monthStarts[index]));
+        employee.values[index] += hours * (overlap / (period.end - period.start));
+        if (!Number.isFinite(employee.values[index])) return unavailable("Les heures planifiées dépassent la capacité de calcul ; le planning mensuel est indisponible.");
+      }
+      unknownFunctions ||= !slot.subcontractorClassification || slot.subcontractorClassification === "unknown";
+      roleFallback ||= slot.subcontractorClassification === "planning-role";
+    }
+    const employees = [...groups.values()].filter(employee => employee.values.some(value => value !== 0))
+      .sort((a, b) => a.name.localeCompare(b.name, "fr", { numeric: true }) || a.id.localeCompare(b.id, "fr", { numeric: true }));
+    const total = Array(monthStarts.length).fill(0);
+    for (const employee of employees) employee.values.forEach((value, index) => { total[index] += value; });
+    if (mode === "cumulative") for (const values of [total, ...employees.map(employee => employee.values)]) {
+      for (let index = 1; index < values.length; index++) values[index] += values[index - 1];
+    }
+    if ([total, ...employees.map(employee => employee.values)].some(values => values.some(value => !Number.isFinite(value)))) {
+      return unavailable("Les heures planifiées dépassent la capacité de calcul ; le planning mensuel est indisponible.");
+    }
+    employees.forEach(employee => employee.resourceIds.sort((a, b) => a - b));
+    if (uncertain.length) warnings.add("Certaines ressources planifiées ne peuvent pas être reliées à un employé confirmé ; leurs heures restent dans des groupes de ressources distincts.");
+    if (employees.some(employee => employee.isToHire)) warnings.add("Les ressources TH sont des postes à pourvoir ; leurs heures restent incluses dans le planning.");
+    if (unknownFunctions) warnings.add("Certaines fonctions planifiées sont inconnues ; leurs heures restent incluses.");
+    if (roleFallback) warnings.add("Certaines fonctions sont déterminées à partir du rôle de planning.");
+    return { status: "available", warning: null, employees, total, warnings: [...warnings], owners, uncertain, personResources };
+  }
+
+  function scheduledEmployee(employee, schedule, count) {
+    const unavailable = warning => ({ scheduledPlanning: null, scheduledPlanningStatus: "unavailable", scheduledPlanningWarning: warning });
+    if (schedule.status !== "available") return unavailable(schedule.warning);
+    const employeeId = positiveId(employee.employeeId), resourceId = positiveId(employee.resourceId);
+    const owners = schedule.owners.get(resourceId);
+    const ownerId = !employeeId && owners?.size === 1 ? [...owners][0] : employeeId;
+    const key = ownerId ? `employee:${ownerId}` : resourceId ? `resource:${resourceId}` : "unassigned";
+    const resources = new Set(employee.resourceIds || []); if (resourceId) resources.add(resourceId);
+    if (ownerId && schedule.uncertain.some(item => !item.resourceId || resources.size === 0 || resources.has(item.resourceId))
+      || !ownerId && resourceId && schedule.personResources.some(item => item.resourceId === resourceId)) {
+      return unavailable("L’identité de certaines allocations ne permet pas de confirmer le planning mensuel individuel.");
+    }
+    const values = schedule.employees.find(person => person.id === key)?.values || Array(count).fill(0);
+    return { scheduledPlanning: values.slice(), scheduledPlanningStatus: "available", scheduledPlanningWarning: null };
+  }
+
+  function summarizePlanning(result, options = {}) {
+    const mode = options.mode === "cumulative" ? "cumulative" : "monthly";
+    const start = calendarDate(result?.lifetime?.startDate), end = calendarDate(result?.lifetime?.endDate);
+    const output = { status: "unavailable", startDate: start?.key || null, endDate: end?.key || null,
+      throughDate: end?.key || null, months: [], employees: [], total: [], convention: null,
+      budgetStatus: "unavailable", warnings: [], mode, kind: "planned" };
+    if (!start || !end || end.key < start.key || !positiveId(result?.project?.id)) {
+      output.warnings.push("Dates ou identité du projet absentes ou invalides ; le planning mensuel est indisponible."); return output;
+    }
+    const axis = monthAxis(start, end);
+    if (!axis) { output.warnings.push("La période dépasse 2 400 mois ; le planning mensuel est indisponible."); return output; }
+    const schedule = planningSchedule(result, options, start, end, end, axis.starts, mode);
+    output.status = schedule.status; output.warnings = schedule.warnings;
+    if (schedule.status === "available") { output.months = axis.months; output.employees = schedule.employees; output.total = schedule.total; }
+    return output;
+  }
+
   function employeePlanning(result, employees, start, end, through, monthStarts, options, mode) {
     const unavailable = warning => ({ plannedHours: null, plannedStatus: "unavailable", plannedReference: null, plannedWarning: warning });
     const plans = new Map();
@@ -89,7 +232,7 @@
       return plans;
     };
     if (!end || end.key < start.key) return failAll("Dates du projet absentes ou invalides ; la référence de planning individuelle est indisponible.");
-    if (!Array.isArray(result?.planning?.slots) || result.planning.ok === false) {
+    if (!Array.isArray(result?.planning?.slots) || result.planning.ok === false || result.planningError) {
       return failAll("Le planning individuel est indisponible avec les données accessibles.");
     }
     const resourceOwners = new Map();
@@ -188,7 +331,7 @@
     const warnings = new Set();
     const output = { status: "unavailable", startDate: start?.key || null, throughDate: through?.key || null,
       endDate: end?.key || null, months: [], employees: [], total: [], convention: null,
-      budgetStatus: budget.status, warnings: [], mode };
+      budgetStatus: budget.status, warnings: [], mode, planning: null, planningStatus: "unavailable", planningWarning: null };
     const finish = () => { output.warnings = [...warnings]; return output; };
     if (!start) {
       warnings.add("Date de début du projet absente ou invalide ; le suivi mensuel est indisponible.");
@@ -297,10 +440,14 @@
       return finish();
     }
     const plans = employeePlanning(result, employees, start, end, through, monthStarts, options, mode);
+    const schedule = planningSchedule(result, options, start, end, through, monthStarts, mode);
+    output.planning = schedule.total; output.planningStatus = schedule.status; output.planningWarning = schedule.warning;
+    schedule.warnings.forEach(warning => warnings.add(warning));
     output.employees = employees.map(employee => {
       const { cents, ...profile } = employee;
       return { ...profile, resourceIds: profile.resourceIds.sort((a, b) => a - b),
-        values: (mode === "cumulative" ? prefix(cents) : cents).map(value => value / 100), ...plans.get(employee.id) };
+        values: (mode === "cumulative" ? prefix(cents) : cents).map(value => value / 100), ...plans.get(employee.id),
+        ...scheduledEmployee(employee, schedule, monthCount) };
     });
     output.total = (mode === "cumulative" ? prefix(total) : total).map(value => value / 100);
     if (end && end.key >= start.key && budget.hours !== null) {
@@ -312,5 +459,5 @@
     return finish();
   }
 
-  return { summarize };
+  return { summarize, summarizePlanning };
 });

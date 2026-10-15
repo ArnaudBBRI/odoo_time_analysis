@@ -1,8 +1,8 @@
 (function (root, factory) {
-  const api = factory();
+  const api = factory(typeof module === "object" && module.exports ? require("./project-card") : root.ProjectCard);
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.ProjectBrowser = api;
-})(typeof globalThis !== "undefined" ? globalThis : this, function () {
+})(typeof globalThis !== "undefined" ? globalThis : this, function (ProjectCard) {
   "use strict";
 
   const numberFormat = new Intl.NumberFormat("fr-BE", { maximumFractionDigits: 2 });
@@ -13,6 +13,7 @@
   const employeePalette = ["#008bab", "#1c9c8c", "#6368ae", "#cd8747", "#b65c7b", "#488c62", "#5b88b4", "#8865a5", "#bc7057", "#86933f", "#448d8d", "#637d94"];
   let extraEmployeeColor = 0;
   const monthlyLifecycles = new WeakMap(), budgetLifecycles = new WeakMap(), revealedMonthlyProjects = new Map();
+  const timelineLifecycles = new WeakMap();
 
   function employeeColor(id) {
     const key = String(id);
@@ -51,6 +52,198 @@
     return { value, label: `${value.slice(8, 10)}/${value.slice(5, 7)}/${value.slice(0, 4)}` };
   }
 
+  function periodTitle(scope, years, subject = "Mes heures") {
+    const selected = scope == null ? years : scope;
+    const fallback = `${subject} · période sélectionnée`;
+    if (selected && typeof selected === "object" && selected.kind !== "years" &&
+      (Object.hasOwn(selected, "startDate") || Object.hasOwn(selected, "endDate"))) {
+      const start = projectDate(selected.startDate), end = projectDate(selected.endDate);
+      if (!start || !end || start.value > end.value || Number(start.value.slice(0, 4)) < 1 ||
+        Number(end.value.slice(0, 4)) > 9998) return fallback;
+      const months = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+      const date = value => {
+        const day = Number(value.slice(8, 10));
+        return `${day === 1 ? "1er" : day} ${months[Number(value.slice(5, 7)) - 1]} ${Number(value.slice(0, 4))}`;
+      };
+      return `${subject} du ${date(start.value)} au ${date(end.value)}`;
+    }
+    const values = selected?.kind === "years" ? selected.years : selected;
+    if (typeof values === "string" || typeof values?.[Symbol.iterator] !== "function") return fallback;
+    const valid = [...new Set(Array.from(values).map(value => numeric(value))
+      .filter(value => Number.isInteger(value) && value >= 1 && value <= 9998))].sort((a, b) => a - b);
+    if (!valid.length) return fallback;
+    const period = valid.length === 1 ? String(valid[0]) : `${valid.slice(0, -1).join(", ")} et ${valid.at(-1)}`;
+    return `${subject} en ${period}`;
+  }
+
+  function selectedPeriodEnd(scope, years) {
+    const selected = scope == null ? years : scope;
+    if (selected && typeof selected === "object" && selected.kind !== "years" &&
+      (Object.hasOwn(selected, "startDate") || Object.hasOwn(selected, "endDate"))) {
+      const start = projectDate(selected.startDate), end = projectDate(selected.endDate);
+      return start && end && start.value <= end.value && Number(start.value.slice(0, 4)) >= 1 &&
+        Number(end.value.slice(0, 4)) <= 9998 ? end : null;
+    }
+    const values = selected?.kind === "years" ? selected.years : selected;
+    if (typeof values === "string" || typeof values?.[Symbol.iterator] !== "function") return null;
+    const valid = Array.from(values).map(value => numeric(value))
+      .filter(value => Number.isInteger(value) && value >= 1 && value <= 9998);
+    return valid.length ? projectDate(`${String(valid.reduce((latest, value) => Math.max(latest, value), 0)).padStart(4, "0")}-12-31`) : null;
+  }
+
+  function planningInfoView(node, data, id, openDetails, infoOpen = false) {
+    const info = data.planningInfo;
+    const section = node("section", "project-planning-info"), controls = new Map();
+    section.setAttribute("data-project-planning-info", "");
+    const heading = node("h4", "project-planning-info-title", "Convention et planning"); heading.id = `${id}-planning-info`;
+    const header = node("div", "project-planning-info-header"), anchor = node("div", "project-planning-info-anchor");
+    const infoButton = node("button", "project-planning-info-button", "i"); infoButton.type = "button";
+    infoButton.setAttribute("aria-label", "Informations sur la convention et le planning");
+    infoButton.setAttribute("data-planning-info-control", "");
+    const notes = node("div", "project-planning-info-popover"); notes.id = `${id}-planning-notes`;
+    notes.setAttribute("role", "region"); notes.setAttribute("aria-label", "Informations sur la convention et le planning");
+    notes.setAttribute("data-planning-info-popover", ""); notes.hidden = !infoOpen;
+    infoButton.setAttribute("aria-controls", notes.id); infoButton.setAttribute("aria-expanded", String(infoOpen));
+    let pinned = infoOpen, hovered = false, suppressFocus = false, listening = false, stopped = false;
+    const show = () => {
+      if (stopped) return;
+      notes.hidden = false; infoButton.setAttribute("aria-expanded", "true");
+      if (!listening) { section.ownerDocument.addEventListener?.("pointerdown", outsidePointer); section.ownerDocument.addEventListener?.("focusin", outsideFocus); listening = true; }
+    };
+    const hide = () => {
+      notes.hidden = true; infoButton.setAttribute("aria-expanded", "false");
+      section.ownerDocument.removeEventListener?.("pointerdown", outsidePointer); section.ownerDocument.removeEventListener?.("focusin", outsideFocus); listening = false;
+    };
+    anchor.addEventListener("pointerenter", () => { hovered = true; show(); });
+    anchor.addEventListener("pointerleave", () => { hovered = false; if (!pinned && !anchor.contains(section.ownerDocument.activeElement)) hide(); });
+    infoButton.addEventListener("focus", () => { if (suppressFocus) suppressFocus = false; else show(); });
+    anchor.addEventListener("focusout", event => { if (!pinned && !hovered && !anchor.contains(event.relatedTarget)) hide(); });
+    infoButton.addEventListener("click", () => { pinned = !pinned; if (pinned) show(); else hide(); });
+    anchor.addEventListener("keydown", event => {
+      if (event.key !== "Escape") return;
+      pinned = false; hide();
+      suppressFocus = section.ownerDocument.activeElement !== infoButton;
+      if (suppressFocus) infoButton.focus();
+    });
+    const outsidePointer = event => { if (!anchor.contains(event.target)) { pinned = false; hide(); } };
+    const outsideFocus = event => { if (!anchor.contains(event.target) && !hovered) { pinned = false; hide(); } };
+    if (infoOpen) show();
+    const cleanup = () => {
+      stopped = true; section.ownerDocument.removeEventListener?.("pointerdown", outsidePointer); section.ownerDocument.removeEventListener?.("focusin", outsideFocus); listening = false;
+    };
+    anchor.append(infoButton, notes); header.append(heading, anchor);
+    section.setAttribute("aria-labelledby", heading.id); section.append(header);
+    if (!info || typeof info !== "object") {
+      const loading = Boolean(data.loading);
+      section.setAttribute("data-planning-info-status", loading ? "loading" : "unavailable");
+      section.setAttribute("aria-busy", String(loading));
+      const message = node("p", "project-planning-info-note", loading ? "Chargement des informations de planning…" : "Informations de planning indisponibles.");
+      message.setAttribute("role", "status"); section.append(message); notes.append(node("p", "project-planning-info-note", loading ? "Les détails seront disponibles après le chargement du planning." : "Les informations détaillées de planning sont indisponibles."));
+      return { section, controls, infoButton, cleanup };
+    }
+    section.setAttribute("data-planning-info-status", ["available", "partial", "unavailable"].includes(info.status) ? info.status : "unavailable");
+    const start = projectDate(info.startDate), end = projectDate(info.endDate);
+    section.append(node("p", "project-planning-info-period", `${start && end && start.value <= end.value ? `Du ${start.label} au ${end.label}` : "Dates du projet indisponibles"} · durée totale du projet · indépendamment de la période sélectionnée · hors Ormitters.`));
+    const metrics = node("dl", "project-planning-info-metrics");
+    const delta = info.projectionStatus === "unavailable" ? null : numeric(info.projectionDifference);
+    const roundedDelta = delta === null ? null : Math.abs(delta) <= 0.005 ? 0 : delta;
+    const definitions = [["convention", "prévues par la convention", info.conventionHours],
+      ["actual", "déjà prestées au total depuis le début du projet", info.actualStatus === "unavailable" ? null : info.actualHours],
+      ["remaining", "restantes planifiées au total", info.remainingPlannedStatus === "unavailable" ? null : info.remainingPlannedHours],
+      ["projection", roundedDelta === null ? "écart projeté avec la convention" : roundedDelta > 0 ? "planifiées en trop par rapport à la convention"
+        : roundedDelta < 0 ? "en moins par rapport à la convention" : "d’écart avec la convention", roundedDelta]];
+    for (const [key, title, value] of definitions) {
+      const metric = node("div", "project-planning-info-metric"); metric.setAttribute("data-planning-metric", key);
+      const amount = numeric(value);
+      const text = key === "convention" && amount === null && info.conventionStatus === "empty" ? "Non renseigné"
+        : key === "projection" && amount !== null ? `${amount > 0 ? "+" : amount < 0 ? "−" : ""}${formatHours(Math.abs(amount))}` : formatHours(value);
+      const label = node("dt", "project-planning-info-caption", title);
+      const valueNode = node("dd", "project-planning-info-value", text);
+      valueNode.setAttribute("data-planning-value", key);
+      if (key === "projection") {
+        metric.setAttribute("data-planning-projection-direction", roundedDelta === null ? "unknown" : roundedDelta > 0 ? "over" : roundedDelta < 0 ? "under" : "balanced");
+      } else if (key === "actual") {
+        const through = projectDate(info.actualThroughDate);
+        label.append(node("em", "project-planning-info-card-note", `Hors Ormitters${through ? ` · jusqu’au ${through.label}` : ""}.`));
+      } else if (key === "remaining") {
+        const knownHire = numeric(info.remainingToHireHours);
+        const hireText = info.remainingToHireStatus === "unavailable" || knownHire === null ? "Part des heures TH indisponible."
+          : `dont ${formatHours(knownHire)} à recruter (TH)${info.remainingToHireStatus === "partial" ? " identifiées" : ""}.`;
+        const hireNote = node("strong", "project-planning-info-card-th", hireText); hireNote.setAttribute("data-planning-remaining-to-hire", "");
+        label.append(hireNote);
+        const remainingStart = projectDate(info.remainingStartDate);
+        if (remainingStart) label.append(node("em", "project-planning-info-card-note", `À partir du ${remainingStart.label}.`));
+      }
+      metric.append(label, valueNode); metrics.append(metric);
+    }
+    section.append(metrics);
+    const comparisons = node("div", "project-planning-info-comparisons");
+    for (const [key, reference, status, difference] of [
+      ["planning", "au planning daté", info.plannedToDateStatus, info.planningToDateDifference],
+      ["convention", "à la convention (interpolation linéaire)", info.conventionToDateStatus, info.conventionToDateDifference]
+    ]) {
+      const delta = status === "available" && info.actualStatus !== "unavailable" ? numeric(difference) : null;
+      const rounded = delta === null ? null : Math.abs(delta) <= 0.005 ? 0 : delta;
+      const text = rounded === null ? `Comparaison ${reference} à ce jour indisponible.` : rounded === 0
+        ? `À ce jour, les heures pointées correspondent ${reference}.`
+        : `À ce jour, ${formatHours(Math.abs(rounded))} pointées ${rounded > 0 ? "en trop" : "en moins"} par rapport ${reference}.`;
+      const sentence = node("p", `project-planning-info-comparison${rounded > 0 ? " is-over" : ""}`, text);
+      sentence.setAttribute("data-planning-to-date-comparison", key); comparisons.append(sentence);
+    }
+    section.append(comparisons);
+    notes.append(node("p", "project-planning-info-note", "Écart projeté = heures déjà prestées + heures restantes planifiées (TH inclus) − convention. Tous ces chiffres sont hors Ormitters."));
+    notes.append(node("p", "project-planning-info-note", "Les comparaisons à ce jour utilisent le planning réellement daté et la convention répartie linéairement sur les dates du projet. Elles sont indépendantes de la période sélectionnée."));
+    const details = (key, summaryText, items) => {
+      const group = node("details", "project-planning-info-details"); group.open = openDetails.has(key); group.setAttribute("data-planning-details", key);
+      const summary = node("summary", "", summaryText); summary.setAttribute("data-planning-detail-control", key);
+      const list = node("ul", ""); items.forEach(text => list.append(node("li", "", text)));
+      group.append(summary, list); notes.append(group); controls.set(key, summary);
+    };
+    const coverage = info.coverage || {}, first = projectDate(coverage.startDate), last = projectDate(coverage.endDate);
+    if (coverage.status === "gaps") {
+      const gaps = Array.isArray(coverage.gaps) ? coverage.gaps : [];
+      const gapText = gap => {
+        const from = projectDate(gap.startDate), to = projectDate(gap.endDate), count = numeric(gap.days);
+        return `${from && to ? `du ${from.label} au ${to.label}` : "dates indisponibles"}${count === null ? "" : ` (${numberFormat.format(count)} jours calendaires)`}`;
+      };
+      const periods = gaps.slice(0, 2).map(gapText).join(" ; ");
+      const note = node("p", "project-planning-info-warning", `Planning futur : aucune personne réellement planifiée${periods ? ` ${periods}` : " sur certaines périodes d’au moins un mois"}${gaps.length > 2 ? ` ; et ${gaps.length - 2} autre${gaps.length === 3 ? " période" : "s périodes"}` : ""}.`);
+      note.setAttribute("data-planning-coverage", "gaps"); notes.append(note);
+      if (gaps.length) details("gaps", `Voir ${gaps.length === 1 ? "la période" : `les ${gaps.length} périodes`} sans personne planifiée`, gaps.map(gap => {
+        const from = projectDate(gap.startDate), to = projectDate(gap.endDate), count = numeric(gap.days);
+        return `${from && to ? `Du ${from.label} au ${to.label}` : "Dates indisponibles"}${count === null ? "" : ` · ${numberFormat.format(count)} jour${count === 1 ? " calendaire" : "s calendaires"}`}.`;
+      }));
+    } else {
+      const knownCoverage = ["complete", "no-substantial-gaps"].includes(coverage.status);
+      const text = knownCoverage ? first && last && first.value <= last.value
+        ? "Aucune période sans personne réellement planifiée d’au moins un mois." : "Aucune période future à couvrir."
+        : "Couverture future indéterminée : le planning ou les identités accessibles ne permettent pas de confirmer les périodes sans personne planifiée.";
+      const note = node("p", knownCoverage ? "project-planning-info-note" : "project-planning-info-warning", text);
+      note.setAttribute("data-planning-coverage", knownCoverage ? coverage.status : "unavailable"); notes.append(note);
+    }
+    notes.append(node("p", "project-planning-info-note", "Seules les interruptions continues d’au moins un mois sont signalées."));
+    const toHire = Array.isArray(info.toHireResources) ? info.toHireResources : [];
+    const resourceText = resource => `${typeof resource.name === "string" && resource.name.trim() ? resource.name : `Ressource ${resource.id}`} · ${formatHours(resource.hours)}.`;
+    if (toHire.length) {
+      const hours = numeric(info.knownToHireHours);
+      details("to-hire", `Ressources TH · durée totale du projet : ${toHire.length} ressource${toHire.length === 1 ? "" : "s"}${hours === null ? "" : ` · ${formatHours(hours)} identifiées`}`, toHire.map(resourceText));
+      notes.append(node("p", "project-planning-info-note", "Les ressources TH représentent des postes à pourvoir ; leurs heures restent incluses dans le planning et dans l’écart projeté."));
+    }
+    if (info.toHireStatus !== "complete") {
+      const note = node("p", "project-planning-info-warning", info.toHireStatus === "partial"
+        ? "Identification des ressources TH incomplète : seules les heures TH confirmées peuvent être distinguées dans le planning."
+        : "Identification des ressources TH indisponible : leur part dans le planning ne peut pas être confirmée.");
+      note.setAttribute("data-planning-to-hire-coverage", info.toHireStatus === "partial" ? "partial" : "unavailable"); notes.append(note);
+    }
+    const unlinked = Array.isArray(info.unlinkedResources) ? info.unlinkedResources : [];
+    if (unlinked.length) details("unlinked", `${unlinked.length} autre${unlinked.length === 1 ? "" : "s"} ressource${unlinked.length === 1 ? "" : "s"} sans personne attribuée`, unlinked.map(resourceText));
+    const warnings = Array.isArray(info.warnings) ? [...new Set(info.warnings.filter(value => typeof value === "string" && value.trim()))] : [];
+    if (warnings.length) {
+      const list = node("ul", "project-planning-info-notes"); warnings.forEach(warning => list.append(node("li", "", warning))); notes.append(list);
+    }
+    return { section, controls, infoButton, cleanup };
+  }
+
   function barGeometry(planned, actual, fraction) {
     const plan = numeric(planned), done = numeric(actual), date = numeric(fraction);
     const scaleAvailable = plan !== null && plan > 0;
@@ -87,14 +280,17 @@
     const series = [], positive = months.map(() => 0), negative = months.map(() => 0);
     const employees = Array.isArray(data?.employees) ? data.employees : [];
     const selectedEmployee = employeeId == null ? null : employees.find(employee => employee?.id != null && String(employee.id) === String(employeeId));
-    if (selectedEmployee) {
+    const isPlanned = data?.kind === "planned";
+    const planningValues = selectedEmployee ? selectedEmployee.scheduledPlanning : data?.planning;
+    const planningStatus = selectedEmployee ? selectedEmployee.scheduledPlanningStatus : data?.planningStatus;
+    if (selectedEmployee && !isPlanned) {
       const id = String(selectedEmployee.id);
       series.push({ key: id, id, kind: "employee-actual", values: values(selectedEmployee.values) });
       if (selectedEmployee.plannedStatus === "available" && Array.isArray(selectedEmployee.plannedReference)
         && selectedEmployee.plannedReference.length === months.length && selectedEmployee.plannedReference.every(value => numeric(value) !== null)) {
         series.push({ key: `planned:${id}`, id, kind: "employee-planned", values: values(selectedEmployee.plannedReference) });
       }
-    } else for (const employee of employees) {
+    } else for (const employee of selectedEmployee ? [selectedEmployee] : employees) {
       if (employee?.id == null) continue;
       const item = { key: String(employee.id), id: String(employee.id), kind: "employee", values: values(employee.values), areas: [] };
       for (const sign of ["positive", "negative"]) {
@@ -106,9 +302,12 @@
       }
       series.push(item);
     }
-    if (!selectedEmployee) {
+    if (!selectedEmployee || isPlanned) {
       if (Array.isArray(data?.convention)) series.push({ key: "convention", kind: "convention", values: values(data.convention) });
-      series.push({ key: "total", kind: "total", values: values(data?.total) });
+      series.push({ key: "total", kind: "total", values: values(selectedEmployee ? selectedEmployee.values : data?.total) });
+    }
+    if (!isPlanned && planningStatus === "available" && Array.isArray(planningValues) && planningValues.length === months.length && planningValues.every(value => numeric(value) !== null)) {
+      series.push({ key: "planning", kind: "planning", values: values(planningValues) });
     }
     let low = 0, high = 0;
     for (const item of series) for (const value of item.values) { low = Math.min(low, value); high = Math.max(high, value); }
@@ -149,14 +348,18 @@
       selectedEmployeeId: selectedEmployee ? String(selectedEmployee.id) : null };
   }
 
-  function monthlyView(doc, node, selected, data, options, makeAvatar, id, focusMonth, tableOpen) {
-    const summary = data.monthly;
+  function monthlyView(doc, node, selected, data, options, makeAvatar, id, focusMonth, tableOpen, kind = "actual") {
+    const isPlanned = kind === "planned";
+    if (isPlanned) id = `${id}-planned`;
+    const summary = isPlanned ? data.plannedMonthly : data.monthly;
+    const onEmployeeChange = isPlanned ? options.onPlannedMonthlyEmployeeChange : options.onMonthlyEmployeeChange;
     const mode = data.monthlyMode === "monthly" || data.monthlyMode === "cumulative" ? data.monthlyMode : summary?.mode === "cumulative" ? "cumulative" : "monthly";
     const cumulative = mode === "cumulative";
     const section = node("section", "project-monthly project-browser-section");
     section.setAttribute("data-monthly-project", String(selected.id));
+    section.setAttribute("data-monthly-kind", kind);
     section.setAttribute("data-monthly-mode", mode);
-    const heading = node("h3", "project-browser-section-title", "Projets · 02 / Évolution mensuelle");
+    const heading = node("h3", "project-browser-section-title", isPlanned ? "Projets · 03 / Planning mensuel · durée du projet" : "Projets · 02 / Évolution mensuelle · durée du projet");
     heading.id = `${id}-monthly`;
     section.setAttribute("aria-labelledby", heading.id);
     section.append(heading);
@@ -171,7 +374,7 @@
       label.append(toggle, node("span", "", "Inclure les heures des Ormitters")); controls.append(label);
     }
     const modeGroup = node("fieldset", "project-monthly-mode-toggle"), modeInputs = [];
-    modeGroup.append(node("legend", "project-browser-sr-only", "Affichage des heures"));
+    modeGroup.append(node("legend", "project-browser-sr-only", isPlanned ? "Affichage des heures planifiées" : "Affichage des heures réalisées"));
     for (const [value, text] of [["monthly", "Par mois"], ["cumulative", "Cumulé"]]) {
       const label = node("label", "project-monthly-mode-choice"), input = node("input", "project-monthly-mode-input");
       input.type = "radio"; input.name = `${id}-monthly-mode`; input.value = value; input.checked = mode === value;
@@ -200,7 +403,7 @@
       if (outsideFocus) doc.removeEventListener?.("focusin", outsideFocus);
     };
     if (status !== "available" || !Array.isArray(summary?.months) || !summary.months.length) {
-      const message = node("p", "project-monthly-status", status === "loading" ? "Chargement de l’évolution mensuelle…" :
+      const message = node("p", "project-monthly-status", isPlanned ? status === "loading" ? "Chargement du planning mensuel…" : "Planning mensuel indisponible : vérifiez le planning et les dates du projet." : status === "loading" ? "Chargement de l’évolution mensuelle…" :
         status === "not-started" ? "Le projet n’a pas encore commencé." : "Évolution mensuelle indisponible : vérifiez les dates du projet.");
       message.setAttribute("role", "status"); section.append(message); addWarnings();
       return { section, toggle, modeInputs, cleanup, mount() {}, focus() {} };
@@ -210,34 +413,46 @@
     const names = new Map();
     employees.forEach(employee => names.set(employee.name, (names.get(employee.name) || 0) + 1));
     employees.forEach(employee => { employee.label = names.get(employee.name) > 1 ? `${employee.name} (ID ${employee.id})` : employee.name; });
-    const selectedEmployee = data.monthlyEmployeeId == null ? null : employees.find(employee => String(employee.id) === String(data.monthlyEmployeeId));
+    const requestedEmployee = isPlanned ? data.plannedMonthlyEmployeeId : data.monthlyEmployeeId;
+    const selectedEmployee = requestedEmployee == null ? null : employees.find(employee => String(employee.id) === String(requestedEmployee));
     const visibleEmployees = selectedEmployee ? [selectedEmployee] : employees;
-    const plannedLabel = cumulative ? "Prévu cumulé · projection linéaire" : "Prévu · projection linéaire";
+    const plannedLabel = `Planning individuel · référence linéaire${cumulative ? " cumulée" : ""} sur tout le projet`;
     const plannedAvailable = selectedEmployee?.plannedStatus === "available" && Array.isArray(selectedEmployee.plannedReference)
       && selectedEmployee.plannedReference.length === summary.months.length && selectedEmployee.plannedReference.every(value => numeric(value) !== null);
     const plannedValues = plannedAvailable ? selectedEmployee.plannedReference : null;
+    const scheduledPlanning = selectedEmployee ? selectedEmployee.scheduledPlanning : summary.planning;
+    const scheduledPlanningStatus = selectedEmployee ? selectedEmployee.scheduledPlanningStatus : summary.planningStatus;
+    const datedPlanningAvailable = !isPlanned && scheduledPlanningStatus === "available" && Array.isArray(scheduledPlanning)
+      && scheduledPlanning.length === summary.months.length && scheduledPlanning.every(value => numeric(value) !== null);
+    const datedPlanningLabel = cumulative ? "Planning daté cumulé à ce jour" : "Planning daté à ce jour";
+    const shownTotal = selectedEmployee && isPlanned ? selectedEmployee.values : summary.total;
     const employeeButtons = [];
     let employeeReset = null;
     section.setAttribute("data-monthly-selected-employee", selectedEmployee ? String(selectedEmployee.id) : "");
     if (selectedEmployee) {
       employeeReset = node("button", "project-monthly-employee-reset", "Tous les employés"); employeeReset.type = "button";
       employeeReset.setAttribute("data-monthly-employee-reset", "");
-      employeeReset.addEventListener("click", () => options.onMonthlyEmployeeChange?.(null)); controls.append(employeeReset);
+      employeeReset.addEventListener("click", () => onEmployeeChange?.(null)); controls.append(employeeReset);
     }
-    const start = projectDate(summary.startDate), through = projectDate(summary.throughDate);
+    const start = projectDate(summary.startDate), through = projectDate(summary.throughDate), end = projectDate(summary.endDate);
+    const planningPeriod = start && end ? `Du ${start.label} au ${end.label} · totalité du planning individuel, indépendamment de la période sélectionnée.`
+      : "Totalité du planning individuel sur les dates du projet, indépendamment de la période sélectionnée.";
+    const projectPeriod = start && end ? `Dates du projet : du ${start.label} au ${end.label}.` : "Dates de référence du projet indisponibles.";
+    heading.title = `${start && through ? `Heures du ${start.label} au ${through.label}. ` : ""}${selectedEmployee ? planningPeriod : `${projectPeriod} Indépendamment de la période sélectionnée.`}`;
     const period = node("p", "project-monthly-period", start && through ?
-      `Du ${start.label} au ${through.label} · hors filtre d’années · ${data.includeOrmitters ? "Ormitters inclus" : "hors Ormitters"}` : "Période du projet · hors filtre d’années");
+      `Du ${start.label} au ${through.label} · hors période sélectionnée · ${data.includeOrmitters ? "Ormitters inclus" : "hors Ormitters"}` : "Période du projet · hors période sélectionnée");
     section.append(period);
     const months = summary.months;
-    const currentKey = summary.throughDate?.slice(0, 7);
+    const currentKey = isPlanned ? null : summary.throughDate?.slice(0, 7);
     const monthLabel = month => `${month.label || month.key}${month.key === currentKey ? ` · au ${through?.label || summary.throughDate} (mois en cours)` : ""}`;
-    section.append(node("p", "project-monthly-note", selectedEmployee ?
-      `${selectedEmployee.label} · ${cumulative ? "heures cumulées" : "heures de chaque mois"}, du début du projet à aujourd’hui. Le mois en cours est partiel. La projection répartit ses heures planifiées linéairement sur les dates du projet.` : cumulative ?
+    section.append(node("p", "project-monthly-note", isPlanned ?
+      `Heures planifiées ${cumulative ? "cumulées mois après mois" : "par mois"}, réparties selon les dates des créneaux sur toute la durée du projet, y compris les allocations futures et les ressources à recruter (TH). Indépendamment de la période sélectionnée.` : selectedEmployee ?
+      `${selectedEmployee.label} · ${cumulative ? "heures cumulées" : "heures de chaque mois"}, du début du projet à aujourd’hui. Le mois en cours est partiel. La référence répartit son planning total, y compris les allocations futures, linéairement sur toute la durée du projet. Elle est indépendante de la période sélectionnée.` : cumulative ?
       "Heures cumulées mois après mois depuis le début du projet. Le mois en cours est partiel. La convention s’accumule au prorata des jours du projet, puis reste constante après sa fin." :
       "Heures de chaque mois, du début du projet à aujourd’hui. Le mois en cours est partiel. La convention est répartie par jour sur les dates du projet, puis nulle après sa fin."));
-    if (selectedEmployee) {
+    if (selectedEmployee && !isPlanned) {
       const planning = node("p", "project-monthly-note", plannedAvailable ?
-        `Planning de ${selectedEmployee.label} sur la durée du projet : ${formatHours(selectedEmployee.plannedHours)}${numeric(selectedEmployee.plannedHours) === 0 ? " · aucune heure planifiée." : "."}` :
+        `Planning total de ${selectedEmployee.label} sur toute la durée du projet : ${formatHours(selectedEmployee.plannedHours)}${numeric(selectedEmployee.plannedHours) === 0 ? " · aucune heure planifiée." : "."}` :
         `Planning de ${selectedEmployee.label} indisponible ; la projection linéaire ne peut pas être affichée.`);
       planning.setAttribute("data-monthly-employee-planning", plannedAvailable ? "available" : "unavailable"); section.append(planning);
       if (typeof selectedEmployee.plannedWarning === "string" && selectedEmployee.plannedWarning.trim()) {
@@ -245,11 +460,19 @@
         warning.setAttribute("data-monthly-planned-warning", ""); section.append(warning);
       }
     }
+    if (!isPlanned) {
+      const notice = node("p", "project-monthly-note", datedPlanningAvailable ?
+        "La ligne rouge continue suit les heures des créneaux de planning datés, jusqu’à aujourd’hui ; elle ne représente pas une interpolation linéaire." :
+        "Planning daté indisponible : la ligne rouge de comparaison ne peut pas être affichée.");
+      notice.setAttribute("data-monthly-dated-planning", datedPlanningAvailable ? "available" : "unavailable"); section.append(notice);
+      const warning = selectedEmployee ? selectedEmployee.scheduledPlanningWarning : summary.planningWarning;
+      if (typeof warning === "string" && warning.trim()) section.append(node("p", "project-monthly-note", warning));
+    }
     if (visibleEmployees.some(employee => employee.values?.some(value => numeric(value) < 0))) {
       const note = node("p", "project-monthly-note", selectedEmployee ? "Les corrections négatives restent visibles sous zéro." : "Les corrections négatives sont empilées sous zéro. La ligne Total indique la somme nette des employés.");
       note.setAttribute("data-monthly-corrections", ""); section.append(note);
     }
-    const totalLabel = cumulative ? "Total cumulé du projet" : "Total du projet";
+    const totalLabel = isPlanned ? `${selectedEmployee ? "Total individuel" : "Total du projet"} planifié${cumulative ? " cumulé" : ""}` : cumulative ? "Total cumulé du projet" : "Total du projet";
     const conventionLabel = cumulative ? "Convention cumulée · prorata journalier" : "Convention · prorata journalier";
     const legend = node("ul", "project-monthly-legend"); legend.setAttribute("aria-label", "Choisir un employé ou afficher tous les employés");
     const legendItem = (key, label, kind, color, employee) => {
@@ -261,31 +484,33 @@
         content = node("button", "project-monthly-employee-choice"); content.type = "button";
         content.setAttribute("data-monthly-employee-choice", String(employee.id)); content.setAttribute("aria-pressed", String(Boolean(isSelected)));
         content.setAttribute("aria-label", `${isSelected ? "Afficher tous les employés" : "Afficher uniquement"} : ${employee.label}`);
-        content.addEventListener("click", () => options.onMonthlyEmployeeChange?.(isSelected ? null : String(employee.id)));
+        content.addEventListener("click", () => onEmployeeChange?.(isSelected ? null : String(employee.id)));
         item.append(content); employeeButtons.push(content);
       }
       const sample = node("span", `project-monthly-legend-line is-${kind}`); sample.style.borderTopColor = color;
-      if (kind === "employee" && !selectedEmployee) sample.style.backgroundColor = color;
-      if (kind === "employee" && selectedEmployee) sample.classList.add("is-line");
+      if (kind === "employee" && (!selectedEmployee || isPlanned)) sample.style.backgroundColor = color;
+      if (kind === "employee" && selectedEmployee && !isPlanned) sample.classList.add("is-line");
       sample.setAttribute("aria-hidden", "true");
       content.append(sample);
       if (employee) content.append(makeAvatar(employee));
-      content.append(node("span", "project-monthly-legend-name", label), node("span", "project-browser-sr-only", kind === "convention" || kind === "employee-planned" ? "courbe pointillée" : kind === "total" ? "courbe pleine épaisse" : selectedEmployee ? "courbe pleine" : "aire empilée"));
+      content.append(node("span", "project-monthly-legend-name", label), node("span", "project-browser-sr-only", kind === "convention" || kind === "employee-planned" ? "courbe pointillée" : kind === "total" ? "courbe pleine épaisse" : kind === "planning" || selectedEmployee && !isPlanned ? "courbe pleine" : "aire empilée"));
       if (employee?.isSubcontractor) content.append(node("span", "project-hours-employee-tag", "Ormitter"));
       legend.append(item);
+      return item;
     };
     employees.forEach(employee => legendItem(String(employee.id), employee.label, "employee", employeeColor(employee.id), employee));
-    if (selectedEmployee) {
-      if (plannedAvailable) legendItem(`planned:${selectedEmployee.id}`, plannedLabel, "employee-planned", employeeColor(selectedEmployee.id));
+    if (selectedEmployee && !isPlanned) {
+      if (plannedAvailable) legendItem(`planned:${selectedEmployee.id}`, plannedLabel, "employee-planned", employeeColor(selectedEmployee.id)).title = planningPeriod;
     } else {
       legendItem("total", totalLabel, "total", "#183b53");
       if (Array.isArray(summary.convention)) legendItem("convention", conventionLabel, "convention", "#8496a2");
     }
+    if (datedPlanningAvailable) legendItem("planning", datedPlanningLabel, "planning", "#cf3347");
     section.append(legend);
     const chart = node("div", "project-monthly-chart-wrap");
     const svg = doc.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("class", "project-monthly-chart"); svg.setAttribute("data-monthly-chart", "");
-    svg.setAttribute("role", "group"); svg.setAttribute("aria-label", `${cumulative ? "Évolution cumulée" : "Évolution mensuelle"} de ${selectedEmployee ? selectedEmployee.label : selected.name}, ${selectedEmployee ? "réalisé et prévu en lignes" : "en aires empilées"} et en heures. Flèches gauche et droite pour parcourir les mois.`);
+    svg.setAttribute("role", "group"); svg.setAttribute("aria-label", `${cumulative ? "Évolution cumulée" : "Évolution mensuelle"} ${isPlanned ? "du planning " : ""}de ${selectedEmployee ? selectedEmployee.label : selected.name}, ${selectedEmployee && !isPlanned ? "réalisé et prévu en lignes" : "en aires empilées"} et en heures, ${isPlanned ? "sur toute la durée du projet" : "depuis le début du projet"} et indépendamment de la période sélectionnée. Flèches gauche et droite pour parcourir les mois.`);
     chart.append(svg); section.append(chart);
     const tooltip = node("div", "project-monthly-tooltip"); tooltip.id = `${id}-monthly-tooltip`;
     tooltip.setAttribute("role", "tooltip"); tooltip.setAttribute("data-monthly-tooltip", ""); tooltip.hidden = true; section.append(tooltip);
@@ -309,14 +534,15 @@
         const dot = node("span", "project-monthly-value-dot"); dot.style.backgroundColor = color; dot.setAttribute("aria-hidden", "true");
         row.append(dot, node("span", "", label), node("strong", "", formatHours(value))); list.append(row);
       };
-      if (selectedEmployee) {
+      if (selectedEmployee && !isPlanned) {
         valueItem(String(selectedEmployee.id), `${selectedEmployee.label} · Réalisé${cumulative ? " cumulé" : ""}`, selectedEmployee.values?.[index], "employee-actual", employeeColor(selectedEmployee.id));
         valueItem(`planned:${selectedEmployee.id}`, plannedLabel, plannedValues?.[index], "employee-planned", employeeColor(selectedEmployee.id));
       } else {
-        valueItem("total", totalLabel, summary.total?.[index], "total", "#183b53");
+        valueItem("total", totalLabel, shownTotal?.[index], "total", "#183b53");
         if (Array.isArray(summary.convention)) valueItem("convention", cumulative ? "Convention cumulée" : "Convention", summary.convention[index], "convention", "#8496a2");
-        employees.forEach(employee => valueItem(String(employee.id), employee.label, employee.values?.[index], "employee", employeeColor(employee.id)));
+        visibleEmployees.forEach(employee => valueItem(String(employee.id), employee.label, employee.values?.[index], "employee", employeeColor(employee.id)));
       }
+      if (!isPlanned) valueItem("planning", datedPlanningLabel, datedPlanningAvailable ? scheduledPlanning[index] : null, "planning", "#cf3347");
       tooltip.append(list); tooltip.hidden = false;
       cursor.setAttribute("x1", geometry.x[index]); cursor.setAttribute("x2", geometry.x[index]); cursor.setAttribute("visibility", "visible");
       const bounds = section.getBoundingClientRect(), chartBounds = svg.getBoundingClientRect(), own = tooltip.getBoundingClientRect();
@@ -334,19 +560,23 @@
     const tableDetails = node("details", "project-monthly-details"); tableDetails.open = Boolean(tableOpen);
     const tableToggle = node("summary", "project-monthly-table-toggle", cumulative ? "Voir les valeurs cumulées par mois" : "Voir les valeurs exactes par mois"); tableToggle.setAttribute("data-monthly-table-toggle", ""); tableDetails.append(tableToggle);
     const tableWrap = node("div", "project-monthly-table-wrap"), table = node("table", "project-monthly-table"); table.setAttribute("data-monthly-table", "");
-    table.append(node("caption", "project-browser-sr-only", `Heures ${cumulative ? "cumulées" : "mensuelles"} de ${selectedEmployee ? selectedEmployee.label : selected.name}`));
+    table.append(node("caption", "project-browser-sr-only", `Heures ${cumulative ? "cumulées" : "mensuelles"} de ${selectedEmployee ? selectedEmployee.label : selected.name} depuis le début du projet, indépendamment de la période sélectionnée`));
     const tableHead = node("thead", ""), headerRow = node("tr", "");
-    const columnLabels = selectedEmployee ? ["Mois", `${selectedEmployee.label} · Réalisé${cumulative ? " cumulé" : ""}`, plannedLabel] :
-      ["Mois", ...employees.map(employee => employee.label), totalLabel, ...(Array.isArray(summary.convention) ? [cumulative ? "Convention cumulée" : "Convention"] : [])];
+    const columnLabels = selectedEmployee && !isPlanned ? ["Mois", `${selectedEmployee.label} · Réalisé${cumulative ? " cumulé" : ""}`, plannedLabel] :
+      ["Mois", ...visibleEmployees.map(employee => employee.label), totalLabel, ...(Array.isArray(summary.convention) ? [cumulative ? "Convention cumulée" : "Convention"] : [])];
+    if (!isPlanned) columnLabels.push(datedPlanningLabel);
     for (const text of columnLabels) {
-      const cell = node("th", "", text); cell.setAttribute("scope", "col"); headerRow.append(cell);
+      const cell = node("th", "", text); cell.setAttribute("scope", "col");
+      if (selectedEmployee && text === plannedLabel) cell.title = planningPeriod;
+      headerRow.append(cell);
     }
     tableHead.append(headerRow); table.append(tableHead);
     const body = node("tbody", "");
     months.forEach((month, index) => {
       const row = node("tr", ""), label = node("th", "", monthLabel(month)); label.setAttribute("scope", "row"); row.append(label);
-      const values = selectedEmployee ? [selectedEmployee.values?.[index], plannedValues?.[index]] :
-        [...employees.map(employee => employee.values?.[index]), summary.total?.[index], ...(Array.isArray(summary.convention) ? [summary.convention[index]] : [])];
+      const values = selectedEmployee && !isPlanned ? [selectedEmployee.values?.[index], plannedValues?.[index]] :
+        [...visibleEmployees.map(employee => employee.values?.[index]), shownTotal?.[index], ...(Array.isArray(summary.convention) ? [summary.convention[index]] : [])];
+      if (!isPlanned) values.push(datedPlanningAvailable ? scheduledPlanning[index] : null);
       values.forEach(value => row.append(node("td", "", numeric(value) === null ? "Indisponible" : `${exactNumberFormat.format(Number(value))} h`)));
       body.append(row);
     });
@@ -359,7 +589,7 @@
     };
     let measuredWidth = 0;
     const draw = width => {
-      const focusKey = doc.activeElement?.getAttribute?.("data-monthly-month");
+      const focusKey = section.contains(doc.activeElement) ? doc.activeElement?.getAttribute?.("data-monthly-month") : null;
       if (section.getAttribute("data-monthly-reveal") === "running") section.setAttribute("data-monthly-reveal", "complete");
       geometry = monthlyGeometry(summary, width, selectedEmployee?.id); measuredWidth = geometry.width; targets = [];
       svg.setAttribute("viewBox", `0 0 ${geometry.width} ${geometry.height}`); svg.replaceChildren();
@@ -379,13 +609,13 @@
         svg.append(svgNode("line", { x1: geometry.x[index], x2: geometry.x[index], y1: lastY, y2: lastY + 5, class: "project-monthly-axis" }));
         svg.append(svgNode("text", { x: geometry.x[index], y: lastY + 23, "text-anchor": index === 0 ? "start" : index === months.length - 1 ? "end" : "middle", class: "project-monthly-axis-label" }, `${text}${month.key === currentKey ? "*" : ""}`));
       }
-      svg.append(svgNode("text", { x: plot.left + plot.width, y: geometry.height - 8, "text-anchor": "end", class: "project-monthly-axis-title" }, "Mois · * en cours"));
+      svg.append(svgNode("text", { x: plot.left + plot.width, y: geometry.height - 8, "text-anchor": "end", class: "project-monthly-axis-title" }, isPlanned ? "Mois" : "Mois · * en cours"));
       const definitions = svgNode("defs"), clip = svgNode("clipPath", { id: `${id}-monthly-clip`, clipPathUnits: "userSpaceOnUse" });
       const reveal = svgNode("rect", { x: plot.left - 4, y: plot.top - 5, width: plot.width + 8, height: plot.height + 10, class: "project-monthly-reveal-window" });
       reveal.addEventListener("animationend", () => section.setAttribute("data-monthly-reveal", "complete")); clip.append(reveal); definitions.append(clip); svg.append(definitions);
       const lines = svgNode("g", { "clip-path": `url(#${id}-monthly-clip)`, "data-monthly-lines": "" });
       for (const item of geometry.series) {
-        const color = item.id ? employeeColor(item.id) : item.kind === "total" ? "#183b53" : "#8496a2";
+        const color = item.kind === "planning" ? "#cf3347" : item.id ? employeeColor(item.id) : item.kind === "total" ? "#183b53" : "#8496a2";
         const group = svgNode("g", { "data-monthly-series": item.kind, ...(item.id ? { "data-monthly-employee-id": item.id } : {}) });
         if (item.kind === "employee") {
           for (const area of item.areas) group.append(svgNode("path", { d: area.path, fill: color, stroke: color,
@@ -404,8 +634,8 @@
         const left = index === 0 ? plot.left : (geometry.x[index - 1] + geometry.x[index]) / 2;
         const right = index === months.length - 1 ? plot.left + plot.width : (geometry.x[index] + geometry.x[index + 1]) / 2;
         const target = svgNode("g", { tabindex: index === activeIndex ? 0 : -1, role: "button", "data-monthly-month": month.key,
-          "aria-label": selectedEmployee ? `${monthLabel(month)} : ${selectedEmployee.label}, ${formatHours(selectedEmployee.values?.[index])} réalisé${cumulative ? " cumulé" : ""} ; ${plannedLabel}, ${formatHours(plannedValues?.[index])}. Afficher le détail.` :
-            `${monthLabel(month)} : ${formatHours(summary.total?.[index])} au total. Afficher le détail.`, "aria-describedby": tooltip.id, class: "project-monthly-month" });
+          "aria-label": selectedEmployee && !isPlanned ? `${monthLabel(month)} : ${selectedEmployee.label}, ${formatHours(selectedEmployee.values?.[index])} réalisé${cumulative ? " cumulé" : ""} ; ${plannedLabel}, ${formatHours(plannedValues?.[index])}. Afficher le détail.` :
+            `${monthLabel(month)} : ${formatHours(shownTotal?.[index])} ${isPlanned ? "planifiées" : "au total"}. Afficher le détail.`, "aria-describedby": tooltip.id, class: "project-monthly-month" });
         target.append(svgNode("rect", { x: left, y: plot.top, width: Math.max(1, right - left), height: plot.height, fill: "transparent" }));
         target.addEventListener("pointerenter", event => show(index, event));
         target.addEventListener("pointerleave", () => { if (pinnedMonth === null) hide(); });
@@ -428,7 +658,7 @@
     };
     const mount = () => {
       draw(chart.getBoundingClientRect().width || 800);
-      const projectKey = String(selected.id), revision = numeric(data.monthlyRevealKey) ?? 0;
+      const projectKey = `${selected.id}${isPlanned ? ":planned" : ""}`, revision = numeric(data.monthlyRevealKey) ?? 0;
       let reduced = false;
       try { reduced = Boolean(view?.matchMedia?.("(prefers-reduced-motion: reduce)").matches); } catch (_) {}
       const reveal = () => {
@@ -466,6 +696,13 @@
 
   function render(container, options = {}) {
     if (!container) return null;
+    const priorTimeline = timelineLifecycles.get(container);
+    const priorTimelineFocus = priorTimeline?.host.contains(priorTimeline.host.ownerDocument.activeElement)
+      ? priorTimeline.host.ownerDocument.activeElement : null;
+    const focusedTimelineId = priorTimelineFocus?.getAttribute?.("data-unit-project-select");
+    const focusedTimelineKind = priorTimelineFocus?.getAttribute?.("data-unit-project-kind");
+    priorTimeline?.renderer.cleanup?.(priorTimeline.host);
+    timelineLifecycles.delete(container);
     monthlyLifecycles.get(container)?.(); monthlyLifecycles.delete(container);
     const doc = container.ownerDocument || document;
     const node = (tag, className, text) => {
@@ -491,7 +728,7 @@
       const hadBackFocus = Array.from(previous?.querySelectorAll("[data-project-back]") || []).includes(doc.activeElement);
       const focusedPanel = previous?.contains(doc.activeElement) ? doc.activeElement?.getAttribute?.("data-project-view") : null;
       const focusedBudgetControl = (previous?.contains(doc.activeElement) ?
-        ["data-budget-convention-choice", "data-budget-details", "data-budget-retry", "data-budget-exclude-ormitter-costs", "data-budget-code-detail"].map(attribute =>
+        ["data-budget-convention-choice", "data-budget-details", "data-budget-retry", "data-budget-exclude-ormitter-costs", "data-budget-show-bw-personnel-costs", "data-budget-code-detail"].map(attribute =>
           ({ attribute, value: doc.activeElement?.getAttribute?.(attribute) })).find(control => control.value !== null) : null) ||
         (closedBudgetTrigger && String(priorBudget.projectId) === String(selected.id) && options.panel === "budget"
           ? { attribute: "data-budget-code-detail", value: closedBudgetTrigger } : null);
@@ -502,8 +739,15 @@
       const focusedMonthlyEmployee = previous?.contains(doc.activeElement) ? doc.activeElement?.getAttribute?.("data-monthly-employee-choice") : null;
       const hadMonthlyResetFocus = Array.from(previous?.querySelectorAll("[data-monthly-employee-reset]") || []).includes(doc.activeElement);
       const hadMonthlyTableFocus = Array.from(previous?.querySelectorAll("[data-monthly-table-toggle]") || []).includes(doc.activeElement);
-      const tableOpen = Array.from(previous?.querySelectorAll(".project-monthly-details") || []).some(element => element.open);
+      const previousMonthly = Array.from(previous?.querySelectorAll("[data-monthly-kind]") || []);
+      const focusedMonthlyKind = previousMonthly.find(section => section.contains(doc.activeElement))?.getAttribute("data-monthly-kind") || "actual";
+      const tableOpen = kind => previousMonthly.find(section => section.getAttribute("data-monthly-kind") === kind)?.querySelectorAll(".project-monthly-details")[0]?.open === true;
       const focusedMonth = previous?.contains(doc.activeElement) ? doc.activeElement?.getAttribute?.("data-monthly-month") : null;
+      const hadPlanningInfoFocus = Array.from(previous?.querySelectorAll("[data-planning-info-control]") || []).includes(doc.activeElement);
+      const planningInfoOpen = Array.from(previous?.querySelectorAll("[data-planning-info-popover]") || []).some(element => !element.hidden);
+      const focusedPlanningDetail = previous?.contains(doc.activeElement) ? doc.activeElement?.getAttribute?.("data-planning-detail-control") : null;
+      const openPlanningDetails = new Set(Array.from(previous?.querySelectorAll("[data-planning-details]") || [])
+        .filter(group => group.open).map(group => group.getAttribute("data-planning-details")));
       const focusedEmployee = previous?.contains(doc.activeElement) ? doc.activeElement?.getAttribute?.("data-employee-id") : null;
       const focusedEmployeeKind = focusedEmployee == null ? null : doc.activeElement.getAttribute("data-employee-kind");
       const focusedComparison = focusedEmployee == null ? null : doc.activeElement.getAttribute("data-employee-comparison");
@@ -519,9 +763,6 @@
       header.append(back, heading);
       const budgetMode = options.panel === "budget";
       if (budgetMode) header.append(node("span", "project-hours-period", "Durée totale du projet"));
-      else if (options.years && Array.from(options.years).length) {
-        header.append(node("span", "project-hours-period", Array.from(options.years).join(" · ")));
-      }
       detail.append(header);
       const switcher = node("div", "project-view-switch");
       switcher.setAttribute("role", "group"); switcher.setAttribute("aria-label", "Vue du projet");
@@ -544,8 +785,10 @@
           loading: Boolean(finance.loading), error: finance.error || "",
           selectedConventionId: finance.selectedConventionId,
           excludeOrmitterCosts: finance.excludeOrmitterCosts === true,
+          showBwPersonnelCosts: finance.showBwPersonnelCosts === true,
           onRetry: options.onBudgetRetry, onConventionChange: options.onConventionChange,
-          onExcludeOrmitterCostsChange: options.onExcludeOrmitterCostsChange
+          onExcludeOrmitterCostsChange: options.onExcludeOrmitterCostsChange,
+          onShowBwPersonnelCostsChange: options.onShowBwPersonnelCostsChange
         });
         else host.append(node("p", "project-browser-status", "La vue Budget est indisponible. Rechargez le tableau de bord."));
         detail.append(host);
@@ -601,7 +844,7 @@
           if (pinnedEmployee !== null && pinnedEmployee !== tooltipKey) pinnedEmployee = null;
           employeeTooltip.replaceChildren(node("strong", "", employee.label),
             node("span", "", `${formatHours(employee.actual)} réalisés`),
-            node("span", "", comparisonKey === "lifetime" ? "Sur les dates du projet" : "Sur les années sélectionnées"));
+            node("span", "", comparisonKey === "lifetime" ? "Sur les dates du projet" : "Sur la période sélectionnée"));
           if (employee.isSubcontractor) employeeTooltip.append(node("span", "project-hours-employee-tag", "Ormitter"));
           employeeTooltip.hidden = false;
           const bounds = detail.getBoundingClientRect(), anchor = element.getBoundingClientRect(), own = employeeTooltip.getBoundingClientRect();
@@ -621,10 +864,11 @@
       };
       detail.addEventListener("keydown", event => { if (event.key === "Escape") hideEmployeeTooltip(true); });
       const inclusionLabel = data.includeOrmitters ? "Ormitters inclus" : "hors Ormitters";
-      for (const [key, title] of [["personal", "Mes heures"], ["project", `Heures du projet · tous les employés (${inclusionLabel})`],
+      for (const [key, title] of [["personal", periodTitle(options.scope, options.years)], ["project", `${periodTitle(options.scope, options.years, "Heures du projet")} · tous les employés (${inclusionLabel})`],
         ["lifetime", `Convention · durée du projet (${inclusionLabel})`]]) {
         const lifetime = key === "lifetime";
         const source = data[key];
+        if (key === "personal" && source && numeric(source.planned) === 0 && numeric(source.actual) === 0) continue;
         const startDate = lifetime ? projectDate(source?.startDate) : null, endDate = lifetime ? projectDate(source?.endDate) : null;
         const validDates = Boolean(startDate && endDate && startDate.value <= endDate.value);
         const summary = lifetime && source && !validDates ? { ...source, actual: null, employees: [], calendarFraction: null } : source;
@@ -638,12 +882,12 @@
         comparison.append(titleNode);
         if (lifetime) {
           const period = node("p", "project-hours-lifetime-period", validDates ?
-            `Du ${startDate.label} au ${endDate.label} · hors filtre d’années` : "Dates du projet indisponibles · hors filtre d’années");
+            `Du ${startDate.label} au ${endDate.label} · hors période sélectionnée` : "Dates du projet indisponibles · hors période sélectionnée");
           period.setAttribute("data-project-lifetime-period", "");
           comparison.append(period);
         } else if (hasCalendarScope && validCalendarScope) {
           const period = node("p", "project-hours-scale-note",
-            `Repère linéaire du ${scopedStart.label} au ${scopedEnd.label} · années sélectionnées dans les dates du projet.`);
+            `Repère linéaire du ${scopedStart.label} au ${scopedEnd.label} · période sélectionnée dans les dates du projet.`);
           period.setAttribute("data-project-calendar-period", "");
           comparison.append(period);
         }
@@ -699,6 +943,10 @@
           if (missingBudget) pair.classList.add("is-actual-only");
           const labels = node("div", "project-hours-labels");
           const tracks = node("div", "project-hours-tracks");
+          const warningStart = key === "personal" && geometry.actualWidth > 0 ? geometry.unplanned ? 0 :
+            geometry.scaleAvailable ? Math.min(75, geometry.tickPosition ?? 75) : null : null;
+          const hasOverpointing = warningStart !== null && geometry.actualWidth - warningStart > 1e-8;
+          if (hasOverpointing) pair.classList.add("has-personal-overpointing");
           tracks.setAttribute("role", stacked ? "group" : "img");
           tracks.setAttribute("aria-label", lifetime ?
             `${title} : ${missingBudget ? "budget conventionnel indisponible" : `${formatHours(plan)} conventionnelles`}, ${formatHours(actual)} réalisés sur les dates du projet à ce jour.` :
@@ -718,7 +966,19 @@
               const fill = node("span", `project-hours-fill is-${kind}`);
               fill.style.width = `${width}%`;
               fill.setAttribute("data-hours-width", String(width));
-              if (kind === "actual" && stacked) {
+              if (kind === "actual" && key === "personal" && (geometry.scaleAvailable || geometry.unplanned)) {
+                fill.classList.add("is-personal-segmented");
+                const end = geometry.actualWidth;
+                const normalEnd = geometry.unplanned ? 0 : Math.min(end, geometry.tickPosition ?? 75);
+                const orangeEnd = geometry.unplanned ? 0 : Math.min(end, 75);
+                for (const [name, from, to] of [["standard", 0, normalEnd], ["above-today", normalEnd, orangeEnd], ["above-plan", orangeEnd, end]]) {
+                  if (!(to > from) || !(end > 0)) continue;
+                  const segment = node("span", `project-hours-personal-segment is-${name}`);
+                  segment.style.width = `${100 * (to - from) / end}%`;
+                  segment.setAttribute("data-personal-actual-segment", name);
+                  segment.setAttribute("data-personal-segment-width", String(to - from)); fill.append(segment);
+                }
+              } else if (kind === "actual" && stacked) {
                 fill.classList.add("is-stacked");
                 fill.setAttribute("data-employee-total", String(employeeTotal));
                 let used = 0;
@@ -754,20 +1014,29 @@
             tracks.append(tick);
             tracks.setAttribute("aria-label", tracks.getAttribute("aria-label") + ` Repère du jour : ${percentFormat.format(Math.min(1, Math.max(0, comparisonFraction)))} de la période écoulée.`);
           }
+          if (hasOverpointing) {
+            const badge = node("span", `project-hours-overpointing${geometry.unplanned || geometry.actualWidth > 75 ? " is-over-plan" : ""}`, "Surpointage");
+            badge.setAttribute("data-personal-surpointage", "");
+            badge.style.left = `clamp(44px, ${(warningStart + geometry.actualWidth) / 2}%, calc(100% - 44px))`;
+            badge.setAttribute("aria-hidden", "true"); tracks.append(badge);
+            tracks.setAttribute("aria-label", tracks.getAttribute("aria-label") +
+              `${geometry.unplanned || geometry.actualWidth > 75 ? " Surpointage : le réalisé dépasse le maximum planifié de la période (rouge)." : ""}` +
+              `${geometry.tickPosition !== null && geometry.actualWidth > geometry.tickPosition && geometry.tickPosition < 75 ? " Surpointage : le réalisé dépasse le repère linéaire d’aujourd’hui (orange)." : ""}`);
+          }
           pair.append(labels, tracks);
           comparison.append(pair);
           const note = missingBudget ? "Répartition du réalisé · sans échelle conventionnelle." : lifetime ?
             "Convention : Budget personnel BW, réparti linéairement sur les dates du projet ; le repère du jour suit le calendrier." :
             geometry.scaleAvailable ? hasCalendarScope ? validCalendarScope ?
-              "Prévu réparti linéairement sur les années sélectionnées, dans les dates du projet ; le repère du jour suit cette période." :
-              "Prévu sur les années sélectionnées ; repère linéaire indisponible sans dates valides du projet." :
-              "Prévu réparti linéairement sur les années sélectionnées ; le repère du jour suit le calendrier." :
+              "Prévu réparti linéairement sur la période sélectionnée, dans les dates du projet ; le repère du jour suit cette période." :
+              "Prévu sur la période sélectionnée ; repère linéaire indisponible sans dates valides du projet." :
+              "Prévu réparti linéairement sur la période sélectionnée ; le repère du jour suit le calendrier." :
             geometry.unplanned ? "Hors planning · aucune heure prévue sur la période." : plan === null ? "Planning indisponible · échelle de comparaison indisponible." :
               plan < 0 ? "Planning net négatif après corrections · échelle de comparaison indisponible." : "Aucune heure prévue · échelle de comparaison indisponible.";
           comparison.append(node("p", "project-hours-scale-note", note));
           if (lifetime && !validDates) comparison.append(node("p", "project-hours-date-warning", "Dates du projet absentes ou invalides ; le réalisé est indisponible."));
           if (!lifetime && hasCalendarScope && !validCalendarScope) comparison.append(node("p", "project-hours-date-warning",
-            "Repère du jour indisponible · dates du projet absentes, invalides ou hors des années sélectionnées."));
+            "Repère du jour indisponible · dates du projet absentes, invalides ou hors de la période sélectionnée."));
           if (key !== "personal" && employees.length) {
             if (negativeContributions) comparison.append(node("p", "project-hours-breakdown-note", "La barre montre le réalisé net. Les corrections négatives restent dans le détail signé ; elles ne sont pas dessinées comme des surfaces positives."));
             else if (!reconciled) comparison.append(node("p", "project-hours-breakdown-note", "Le détail par employé ne se réconcilie pas avec le total affiché ; la barre conserve le total net."));
@@ -797,6 +1066,12 @@
           const baseline = lifetime ? "de la convention" : "du prévu";
           if (geometry.capped) comparison.append(node("p", "project-hours-badge is-capped", `Barre plafonnée · +${formatHours(actual - plan)} au-delà ${baseline}`));
           else if (plan > 0 && actual > plan) comparison.append(node("p", "project-hours-badge", `+${formatHours(actual - plan)} au-delà ${baseline}`));
+          else if (plan > 0 && actual !== null && actual < plan) {
+            const end = key === "personal" ? selectedPeriodEnd(options.scope, options.years) : null;
+            const text = key === "personal" ? `Plus que ${formatHours(plan - actual)} prévues disponibles${end ? ` d’ici au ${end.label}`
+              : " sur la période sélectionnée (date de fin indisponible)"}` : `−${formatHours(plan - actual)} en-dessous ${baseline}`;
+            comparison.append(node("p", "project-hours-badge is-below", text));
+          }
           if (actual !== null && actual < 0) comparison.append(node("p", "project-hours-credit", "Réalisé négatif après corrections ; le total signé est conservé."));
           const warnings = Array.isArray(summary.warnings) ? summary.warnings : typeof summary.warnings === "string" ? [summary.warnings] : [];
           if (warnings.length) {
@@ -810,10 +1085,15 @@
       }
       const overview = node("section", "project-browser-section project-browser-overview");
       const overviewTitle = node("h3", "project-browser-section-title", "Projets · 01 / Vue d’ensemble"); overviewTitle.id = `${id}-overview`;
-      overview.setAttribute("aria-labelledby", overviewTitle.id); overview.append(overviewTitle, comparisons); detail.append(overview);
+      const planningInfo = planningInfoView(node, data, id, openPlanningDetails, planningInfoOpen);
+      overview.setAttribute("aria-labelledby", overviewTitle.id); overview.append(overviewTitle, planningInfo.section, comparisons); detail.append(overview);
       detail.append(employeeTooltip);
-      const monthly = monthlyView(doc, node, selected, data, options, employeeAvatar, id, focusedMonth, tableOpen);
-      detail.append(monthly.section); monthlyLifecycles.set(container, monthly.cleanup);
+      const monthly = monthlyView(doc, node, selected, data, options, employeeAvatar, id, focusedMonthlyKind === "actual" ? focusedMonth : null, tableOpen("actual"));
+      const plannedMonthly = Object.hasOwn(data, "plannedMonthly") ? monthlyView(doc, node, selected, data, options, employeeAvatar, id,
+        focusedMonthlyKind === "planned" ? focusedMonth : null, tableOpen("planned"), "planned") : null;
+      detail.append(monthly.section); if (plannedMonthly) detail.append(plannedMonthly.section);
+      monthlyLifecycles.set(container, () => { monthly.cleanup(); plannedMonthly?.cleanup(); planningInfo.cleanup(); });
+      const focusedMonthlyView = focusedMonthlyKind === "planned" ? plannedMonthly || monthly : monthly;
       let retryButton = null;
       if (data.error) {
         const failure = node("div", "project-hours-error");
@@ -832,18 +1112,20 @@
       }
       content.append(detail);
       container.replaceChildren(content);
-      monthly.mount();
+      monthly.mount(); plannedMonthly?.mount();
       if (options.focusDetail || hadHeadingFocus) heading.focus();
       else if (hadBackFocus) back.focus();
       else if (focusedPanel != null) panelButtons.find(button => button.getAttribute("data-project-view") === focusedPanel)?.focus();
+      else if (hadPlanningInfoFocus) planningInfo.infoButton.focus();
+      else if (focusedPlanningDetail != null) (planningInfo.controls.get(focusedPlanningDetail) || heading).focus();
       else if (hadRetryFocus) (retryButton || heading).focus();
       else if (hadToggleFocus) (includeToggle || heading).focus();
-      else if (hadMonthlyToggleFocus) (monthly.toggle || heading).focus();
-      else if (focusedMonthlyMode !== null) (monthly.modeInputs?.find(input => input.value === focusedMonthlyMode) || heading).focus();
-      else if (focusedMonthlyEmployee !== null) (monthly.employeeButtons?.find(button => button.getAttribute("data-monthly-employee-choice") === focusedMonthlyEmployee) || monthly.employeeButtons?.[0] || heading).focus();
-      else if (hadMonthlyResetFocus) (monthly.employeeReset || monthly.employeeButtons?.[0] || heading).focus();
-      else if (hadMonthlyTableFocus) (monthly.tableToggle || heading).focus();
-      else if (focusedMonth !== null) monthly.focus(focusedMonth);
+      else if (hadMonthlyToggleFocus) (focusedMonthlyView.toggle || heading).focus();
+      else if (focusedMonthlyMode !== null) (focusedMonthlyView.modeInputs?.find(input => input.value === focusedMonthlyMode) || heading).focus();
+      else if (focusedMonthlyEmployee !== null) (focusedMonthlyView.employeeButtons?.find(button => button.getAttribute("data-monthly-employee-choice") === focusedMonthlyEmployee) || focusedMonthlyView.employeeButtons?.[0] || heading).focus();
+      else if (hadMonthlyResetFocus) (focusedMonthlyView.employeeReset || focusedMonthlyView.employeeButtons?.[0] || heading).focus();
+      else if (hadMonthlyTableFocus) (focusedMonthlyView.tableToggle || heading).focus();
+      else if (focusedMonth !== null) focusedMonthlyView.focus(focusedMonth);
       else if (focusedEmployee !== null) {
         const employeeButtons = Array.from(detail.querySelectorAll("[data-employee-id]"))
           .filter(button => button.getAttribute("data-employee-comparison") === focusedComparison);
@@ -887,12 +1169,23 @@
           image.addEventListener("error", () => { image.hidden = true; });
           avatar.append(image);
         }
-        tile.append(input, avatar, node("span", "project-browser-name", project.name));
+        ProjectCard.mount(tile, input, project, [avatar, ProjectCard.createTitle(doc, project, "project-browser-name")]);
         grid.append(tile);
       });
       content.append(grid);
     }
+    const timelineRenderer = options.timelineRenderer;
+    const timelineHost = projects.length && typeof timelineRenderer?.renderTimeline === "function"
+      ? node("div", "project-browser-calendar") : null;
+    if (timelineHost) { timelineHost.setAttribute("data-project-timeline", ""); content.append(timelineHost); }
     container.replaceChildren(content);
+    if (timelineHost) {
+      timelineLifecycles.set(container, { renderer: timelineRenderer, host: timelineHost });
+      timelineRenderer.renderTimeline(timelineHost, projects, {
+        heading: "Projets · 02 / Calendrier des projets", now: options.now, onSelect: options.onSelect,
+        focusProjectId: options.focusProjectId == null ? focusedTimelineId : null, focusKind: focusedTimelineKind
+      });
+    }
     if (options.focusProjectId != null) {
       Array.from(content.querySelectorAll("[data-project-choice]"))
         .find(input => input.getAttribute("data-project-choice") === String(options.focusProjectId))?.focus();
@@ -900,5 +1193,15 @@
     return content;
   }
 
-  return { render, barGeometry, monthlyGeometry };
+  function cleanup(container) {
+    const timeline = timelineLifecycles.get(container);
+    timeline?.renderer.cleanup?.(timeline.host);
+    timelineLifecycles.delete(container);
+    monthlyLifecycles.get(container)?.(); monthlyLifecycles.delete(container);
+    const budget = budgetLifecycles.get(container);
+    budget?.renderer?.cleanup?.(budget.host, false);
+    budgetLifecycles.delete(container);
+  }
+
+  return { render, cleanup, barGeometry, monthlyGeometry, periodTitle };
 });

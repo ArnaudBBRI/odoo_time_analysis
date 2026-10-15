@@ -3,7 +3,8 @@ const test = require("node:test");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
-const { summarize } = require("../project-monthly");
+const { summarize, summarizePlanning } = require("../project-monthly");
+const { summarizeProjects } = require("../personal-time");
 
 const now = new Date("2026-03-10T12:00:00Z");
 const rawBudget = 3890.3967484570226;
@@ -180,7 +181,7 @@ test("malformed scoped dates/hours are ignored with bounded warnings and never r
   const rows = Array.from({ length: 100 }, () => line(1, "2026-02-30", 1));
   rows.push(line(1, "2026-02-01", "secret bad hours"), line(1, "2026-02-01", Infinity),
     line(1, "2026-02-01", false), line(1, "2026-02-01", ""), line(1, "2026-02-01", 2));
-  const result = summarize(source(rows), { now });
+  const result = summarize(source(rows, { planning: { ok: true, slots: [] } }), { now });
   assert.equal(result.status, "available");
   assert.deepEqual(result.total, [0, 2, 0]);
   assert.equal(result.warnings.length, 2);
@@ -287,6 +288,43 @@ test("employee planning reference respects leap days, partial months, inclusive 
   const cumulative = summarize(input, { now: new Date("2024-04-01T12:00:00Z"), mode: "cumulative" }).employees[0];
   assert.deepEqual(cumulative.plannedReference, [150, 170, 170]);
   assert.deepEqual(cumulative.values, [3, 3, 7], "actual hours may continue after the reference plateaus");
+});
+
+test("scoped own-hour totals and lifetime employee references reconcile without sharing their periods", () => {
+  // Fictional identities/intervals reproduce the reported year-versus-lifetime
+  // totals. The lifetime reference includes planning beyond the selected year.
+  const current = new Date("2026-09-30T12:00:00Z");
+  const input = source([line(1, "2025-12-10", 5), line(1, "2026-08-10", 739)], {
+    projects: [{ id: 101, name: "Project" }],
+    lifetime: { startDate: "2025-12-01", endDate: "2028-05-31", conventionHours: 3000 },
+    planning: { ok: true, slots: [slot(1, "2026-01-01", "2027-01-01", 664.6),
+      slot(1, "2027-01-01", "2028-01-01", 1556.21),
+      slot(1, "2028-01-01", "2028-06-01", 340.26)] }
+  });
+  const before = structuredClone(input);
+  const scoped = summarizeProjects(input, [2026], current)[0];
+  assert.equal(scoped.planned, 664.6);
+  assert.equal(scoped.actual, 739);
+  const precedingYear = summarizeProjects(input, [2025, 2026], current)[0];
+  assert.equal(precedingYear.planned, scoped.planned, "the previous year contains no planning");
+  assert.equal(precedingYear.actual, 744, "previous-year actuals enter only the expanded period");
+
+  const history = summarize(input, { now: current, mode: "cumulative" });
+  const employee = history.employees[0];
+  close(employee.plannedHours, 2561.07);
+  assert.equal(employee.values.at(-1), 744);
+  close(employee.plannedReference.at(-1), 2561.07 * 304 / 913);
+  close(employee.plannedReference.at(-1), 852.7549616648411);
+  assert.ok(employee.plannedReference.at(-1) > scoped.planned,
+    "a full-life linear reference can exceed the selected year's full plan");
+  assert.deepEqual(summarize(input, { now: current, mode: "cumulative", years: [2026] }), history,
+    "year controls do not truncate the lifetime history");
+
+  const completed = summarize(input, { now: new Date("2028-08-01T12:00:00Z"), mode: "cumulative" }).employees[0];
+  close(completed.plannedReference.at(-3), 2561.07);
+  close(completed.plannedReference.at(-2), 2561.07);
+  close(completed.plannedReference.at(-1), 2561.07);
+  assert.deepEqual(input, before);
 });
 
 test("planning prefers explicit employee IDs over coincident resources and never matches contributor names", () => {
@@ -425,6 +463,231 @@ test("the same dependency-free API is exposed as a browser UMD global", () => {
   const context = vm.createContext({ Intl, Date });
   vm.runInContext(fs.readFileSync(path.join(__dirname, "../project-monthly.js"), "utf8"), context);
   assert.equal(typeof context.ProjectMonthly.summarize, "function");
+  assert.equal(typeof context.ProjectMonthly.summarizePlanning, "function");
   const actual = context.ProjectMonthly.summarize(source([line(1, "2026-02-01", 3)]), { now });
   assert.deepEqual(JSON.parse(JSON.stringify(actual)), summarize(source([line(1, "2026-02-01", 3)]), { now }));
+});
+
+test("dated planning uses slot-month overlap while the dotted individual reference remains linear", () => {
+  const input = source([line(1, "2026-02-01", 3)], {
+    planning: { ok: true, slots: [slot(1, "2026-02-01", "2026-03-01", 56),
+      slot(2, "2026-03-30", "2026-04-02", 30)] }
+  });
+  const before = structuredClone(input), full = summarizePlanning(input, { now });
+  assert.equal(full.status, "available");
+  assert.equal(full.kind, "planned");
+  assert.equal(full.throughDate, "2026-03-31");
+  assert.deepEqual(full.months.map(month => month.key), ["2026-01", "2026-02", "2026-03"]);
+  assert.deepEqual(full.total, [0, 56, 20]);
+  assert.deepEqual(full.employees.find(person => person.id === "employee:2").values, [0, 0, 20], "planning-only employees retain their future allocation");
+  assert.equal(full.convention, null);
+  const history = summarize(input, { now });
+  assert.equal(history.planningStatus, "available");
+  assert.deepEqual(history.planning, [0, 56, 0]);
+  assert.deepEqual(history.employees[0].scheduledPlanning, [0, 56, 0]);
+  assert.equal(history.employees[0].scheduledPlanningStatus, "available");
+  assert.equal(history.employees[0].plannedHours, 56);
+  close(history.employees[0].plannedReference[0], 56 * 17 / 76);
+  assert.notDeepEqual(history.employees[0].scheduledPlanning, history.employees[0].plannedReference);
+  assert.deepEqual(summarizePlanning(input, { now, years: [2025], selectedYears: [2024] }), full);
+  assert.deepEqual(input, before);
+});
+
+test("the full planning chart covers future projects and does not require actual timesheets", () => {
+  const input = source([], { timesheets: null,
+    lifetime: { startDate: "2027-02-15", endDate: "2027-03-02", conventionHours: 90 },
+    planning: { slots: [slot(9, "2027-02-01", "2027-03-03", 300)] }
+  });
+  const full = summarizePlanning(input, { now });
+  assert.equal(full.status, "available");
+  assert.deepEqual(full.months.map(month => month.key), ["2027-02", "2027-03"]);
+  assert.deepEqual(full.total, [140, 20]);
+  assert.equal(full.employees[0].id, "employee:9");
+  assert.equal(summarize(input, { now }).status, "not-started");
+});
+
+test("monthly and cumulative scheduled planning reconcile signed employee corrections without rounding", () => {
+  const input = source([line(1, "2026-02-01", 7)], { planning: { slots: [
+    slot(1, "2026-01-15", "2026-01-16", 1.125), slot(1, "2026-02-01", "2026-02-02", -3.25),
+    slot(1, "2026-03-01", "2026-03-02", 2.125), slot(2, "2026-02-01", "2026-02-02", 4)
+  ] } });
+  const monthly = summarizePlanning(input), cumulative = summarizePlanning(input, { mode: "cumulative" });
+  assert.deepEqual(monthly.employees.find(person => person.employeeId === 1).values, [1.125, -3.25, 2.125]);
+  assert.deepEqual(cumulative.employees.find(person => person.employeeId === 1).values, [1.125, -2.125, 0]);
+  assert.deepEqual(monthly.total, [1.125, 0.75, 2.125]);
+  assert.deepEqual(cumulative.total, [1.125, 1.875, 4]);
+  cumulative.total.forEach((value, index) => close(value, cumulative.employees.reduce((sum, person) => sum + person.values[index], 0)));
+  const history = summarize(input, { now, mode: "cumulative" });
+  assert.deepEqual(history.planning, cumulative.total);
+  assert.deepEqual(history.employees[0].scheduledPlanning, [1.125, -2.125, 0]);
+  const afterEnd = summarize(input, { now: new Date("2026-04-02T12:00:00Z"), mode: "cumulative" });
+  assert.deepEqual(afterEnd.planning, [1.125, 1.875, 4, 4], "dated cumulative planning plateaus after the project end");
+  assert.deepEqual(afterEnd.employees[0].scheduledPlanning, [1.125, -2.125, 0, 0]);
+});
+
+test("authoritative planning identities keep TH, unlinked and unknown resources separate from enriched employee IDs", () => {
+  const input = source([line(1, "2026-02-01", 7, { resourceId: 111 })], {
+    contributors: [{ employeeId: 1, resourceIds: [111], name: "Confirmed person", photoDataUrl: png }],
+    planning: { resources: [{ id: 400, name: "TH_DiCo", employeeId: 1, linkStatus: "linked", isToHire: true },
+      { id: 500, name: "Unknown resource", employeeId: 1, linkStatus: "unknown", isToHire: null },
+      { id: 600, name: "Equipment resource", employeeId: null, linkStatus: "unlinked", isToHire: false }],
+    slots: [slot(99, "2026-02-01", "2026-02-02", 10, { resourceId: 111, planningIdentity: { status: "person", employeeId: 1 } }),
+      slot(1, "2026-02-01", "2026-02-02", 20, { resourceId: 400, planningIdentity: { status: "to-hire", employeeId: null } }),
+      slot(1, "2026-02-01", "2026-02-02", 30, { resourceId: 500, planningIdentity: { status: "unknown", employeeId: null } }),
+      slot(1, "2026-02-01", "2026-02-02", 40, { resourceId: 600, planningIdentity: { status: "unlinked", employeeId: null } }),
+      slot(1, "2026-02-01", "2026-02-02", 50, { planningIdentity: { status: "unknown", employeeId: null } })] }
+  });
+  const full = summarizePlanning(input), people = new Map(full.employees.map(person => [person.id, person]));
+  assert.deepEqual(full.total, [0, 150, 0]);
+  assert.equal(people.size, 5);
+  assert.equal(people.get("employee:1").name, "Confirmed person");
+  assert.equal(people.get("employee:1").photoDataUrl, png);
+  assert.deepEqual(people.get("employee:1").values, [0, 10, 0]);
+  assert.equal(people.get("resource:400").name, "TH_DiCo");
+  assert.equal(people.get("resource:400").isToHire, true);
+  assert.equal(people.get("resource:400").employeeId, null);
+  assert.equal(people.get("resource:500").planningIdentity, "unknown");
+  assert.equal(people.get("resource:600").planningIdentity, "unlinked");
+  assert.equal(people.get("unassigned").employeeId, null);
+  assert.ok(full.warnings.some(warning => /TH/.test(warning)));
+  const actual = summarize(input, { now });
+  assert.deepEqual(actual.planning, [0, 150, 0]);
+  assert.equal(actual.employees[0].scheduledPlanningStatus, "unavailable", "unassigned allocation cannot prove an individual zero");
+  assert.equal(actual.employees[0].scheduledPlanning, null);
+});
+
+test("scheduled employee matching uses exact resource ownership and never borrows ambiguous or coincident resources", () => {
+  const input = source([line(1, "2026-02-01", 1, { resourceId: 111 }), line(null, "2026-02-01", 2, { resourceId: 222 }),
+    line(null, "2026-02-01", 3, { resourceId: 333 })], {
+    contributors: [{ employeeId: 1, resourceIds: [111], name: "Same name" }, { employeeId: 99, resourceIds: [111], name: "Same name" },
+      { employeeId: 2, resourceIds: [222], name: "Same name" }],
+    planning: { slots: [slot(null, "2026-02-01", "2026-02-02", 10, { resourceId: 111 }),
+      slot(null, "2026-02-01", "2026-02-02", 20, { resourceId: 222 }),
+      slot(3, "2026-02-01", "2026-02-02", 30, { resourceId: 333 })] }
+  });
+  const full = summarizePlanning(input), actual = summarize(input, { now });
+  assert.equal(full.employees.find(person => person.id === "resource:111").employeeId, null);
+  assert.deepEqual(full.employees.find(person => person.id === "employee:2").values, [0, 20, 0]);
+  const people = new Map(actual.employees.map(person => [person.id, person]));
+  assert.equal(people.get("employee:1").scheduledPlanningStatus, "unavailable");
+  assert.deepEqual(people.get("resource:222").scheduledPlanning, [0, 20, 0]);
+  assert.equal(people.get("resource:333").scheduledPlanningStatus, "unavailable", "unresolved resource actuals cannot borrow an explicit planned employee");
+  assert.deepEqual(actual.planning, [0, 60, 0]);
+});
+
+test("unknown resource plans do not imply an individual zero when resource ownership is incomplete", () => {
+  const input = source([line(1, "2026-02-01", 1), line(2, "2026-02-01", 2, { resourceId: 222 })], {
+    contributors: [{ employeeId: 1, resourceIds: [] }, { employeeId: 2, resourceIds: [222] }],
+    planning: { slots: [slot(null, "2026-02-01", "2026-02-02", 10, { resourceId: 999 })] }
+  });
+  const people = new Map(summarize(input, { now }).employees.map(person => [person.id, person]));
+  assert.equal(people.get("employee:1").scheduledPlanningStatus, "unavailable");
+  assert.deepEqual(people.get("employee:2").scheduledPlanning, [0, 0, 0]);
+  const full = summarizePlanning(input);
+  assert.equal(full.status, "available");
+  assert.deepEqual(full.total, [0, 10, 0]);
+  assert.equal(full.employees[0].id, "resource:999");
+  input.planning.slots[0].hours = 0;
+  assert.deepEqual(summarize(input, { now }).employees[0].scheduledPlanning, [0, 0, 0], "zero unknown allocations cannot add uncertain individual hours");
+});
+
+test("planning source failures preserve actuals and distinguish unavailable from a genuine empty schedule", () => {
+  for (const extra of [{ planning: null }, { planning: { ok: false, slots: [] } }, { planning: { slots: null } },
+    { planning: { ok: true, slots: [] }, planningError: "private upstream failure" }]) {
+    const input = source([line(1, "2026-02-01", 3)], extra), actual = summarize(input, { now }), full = summarizePlanning(input);
+    assert.equal(actual.status, "available");
+    assert.deepEqual(actual.total, [0, 3, 0]);
+    assert.equal(actual.planningStatus, "unavailable");
+    assert.equal(actual.planning, null);
+    assert.equal(actual.employees[0].scheduledPlanning, null);
+    assert.equal(actual.employees[0].plannedReference, null);
+    assert.equal(full.status, "unavailable");
+    assert.deepEqual(full.months, []);
+    assert.deepEqual(full.total, []);
+    assert.doesNotMatch(JSON.stringify([actual.warnings, full.warnings]), /private/);
+  }
+  const empty = source([line(1, "2026-02-01", 3)], { planning: { ok: true, slots: [] } });
+  assert.deepEqual(summarizePlanning(empty).total, [0, 0, 0]);
+  assert.equal(summarizePlanning(empty).status, "available");
+  const actual = summarize(empty, { now });
+  assert.deepEqual(actual.planning, [0, 0, 0]);
+  assert.deepEqual(actual.employees[0].scheduledPlanning, [0, 0, 0]);
+});
+
+test("malformed relevant planning never produces a partial total or leaks source values", () => {
+  const invalid = [slot(1, "2026-02-30", "2026-03-01", 5), slot(1, "2026-02-01", "2026-02-01", 5),
+    slot(1, "2026-02-02", "2026-02-01", 5), ...[false, "", Infinity, "private bad hours"].map(value => slot(1, "2026-02-01", "2026-02-02", value))];
+  for (const bad of invalid) {
+    const input = source([line(1, "2026-02-01", 2)], { planning: { slots: [slot(1, "2026-02-01", "2026-02-02", 10), bad] } });
+    const full = summarizePlanning(input), actual = summarize(input, { now });
+    assert.equal(full.status, "unavailable");
+    assert.deepEqual(full.employees, []);
+    assert.equal(actual.planning, null);
+    assert.deepEqual(actual.total, [0, 2, 0]);
+    assert.doesNotMatch(JSON.stringify([full.warnings, actual.planningWarning]), /private/);
+  }
+  const outOfScope = source([], { planning: { slots: [slot(1, "bad", "bad", "private", { projectId: 999 }),
+    slot(1, "2025-01-01", "2025-02-01", "private"), slot(1, "2026-02-01", "2026-02-02", 10)] } });
+  assert.deepEqual(summarizePlanning(outOfScope).total, [0, 10, 0]);
+});
+
+test("scheduled planning retains UTC month boundaries and the inclusive Brussels current calendar day", () => {
+  const input = source([line(1, "2026-03-01", 1)], { planning: { slots: [
+    slot(1, "2026-02-28 23:00:00", "2026-03-01 01:00:00", 2),
+    slot(1, "2026-03-01 23:00:00", "2026-03-02 01:00:00", 2)
+  ] } });
+  const current = new Date("2026-02-28T23:30:00Z"), actual = summarize(input, { now: current });
+  assert.equal(actual.throughDate, "2026-03-01");
+  assert.deepEqual(actual.planning, [0, 1, 2]);
+  assert.deepEqual(summarizePlanning(input).total, [0, 1, 3]);
+  assert.deepEqual(summarize(input, { now: current, mode: "cumulative" }).planning, [0, 1, 3]);
+});
+
+test("record-level Ormitter exclusion applies to full and dated plans without changing the convention", () => {
+  const input = source([line(1, "2026-02-01", 3), line(2, "2026-02-01", 4, { isSubcontractor: true })], {
+    contributors: [{ employeeId: 1, name: "Person", isSubcontractor: true }],
+    planning: { slots: [slot(1, "2026-02-01", "2026-02-02", 20),
+      slot(1, "2026-02-01", "2026-02-02", 10, { isSubcontractor: true }),
+      slot(2, "2026-03-20", "2026-03-21", 200, { isSubcontractor: true }),
+      slot(3, "2026-02-01", "2026-02-02", 5, { subcontractorClassification: "unknown" })] }
+  });
+  const excluded = summarizePlanning(input), included = summarizePlanning(input, { includeOrmitters: true });
+  assert.deepEqual(excluded.total, [0, 25, 0]);
+  assert.deepEqual(included.total, [0, 35, 200]);
+  assert.equal(excluded.employees.find(person => person.employeeId === 1).isSubcontractor, false);
+  assert.equal(included.employees.find(person => person.employeeId === 2).isSubcontractor, true);
+  assert.ok(excluded.warnings.some(warning => /fonctions planifiées sont inconnues/.test(warning)));
+  const actualExcluded = summarize(input, { now }), actualIncluded = summarize(input, { now, includeOrmitters: true });
+  assert.deepEqual(actualExcluded.planning, [0, 25, 0]);
+  assert.deepEqual(actualIncluded.planning, [0, 35, 0]);
+  assert.deepEqual(actualIncluded.convention, actualExcluded.convention);
+});
+
+test("full planning dates and range guards never fabricate a project lifetime or allocate enormous timelines", () => {
+  for (const lifetime of [{ startDate: null, endDate: "2026-03-31" }, { startDate: "2026-01-15", endDate: null },
+    { startDate: "2026-01-15", endDate: "2026-02-30" }, { startDate: "2026-03-31", endDate: "2026-01-01" },
+    { startDate: "1800-01-01", endDate: "2026-03-31" }]) {
+    const full = summarizePlanning(source([], { lifetime, planning: { slots: [] } }));
+    assert.equal(full.status, "unavailable");
+    assert.deepEqual(full.months, []);
+    assert.deepEqual(full.employees, []);
+  }
+  const leap = summarizePlanning(source([], { lifetime: { startDate: "2024-02-15", endDate: "2024-03-02" },
+    planning: { slots: [slot(1, "2024-02-01", "2024-03-01", 290), slot(1, "2024-03-01", "2024-03-03", 20)] } }));
+  assert.deepEqual(leap.total, [150, 20]);
+});
+
+test("large finite slot amounts avoid multiplication overflow and true aggregate overflow is unavailable", () => {
+  const input = source([line(1, "2026-02-01", 1)], { planning: { slots: [slot(1, "2026-01-01", "2027-01-01", Number.MAX_VALUE)] } });
+  const full = summarizePlanning(input);
+  assert.equal(full.status, "available");
+  assert.ok(full.total.every(Number.isFinite));
+  close(full.total.reduce((sum, value) => sum + value, 0), Number.MAX_VALUE * (76 / 365));
+  const overflow = source([line(1, "2026-02-01", 1)], { planning: { slots: [
+    slot(1, "2026-02-01", "2026-02-02", Number.MAX_VALUE), slot(2, "2026-02-01", "2026-02-02", Number.MAX_VALUE)] } });
+  assert.equal(summarizePlanning(overflow).status, "unavailable");
+  const actual = summarize(overflow, { now });
+  assert.equal(actual.status, "available");
+  assert.equal(actual.planning, null);
+  assert.deepEqual(actual.total, [0, 1, 0]);
 });
