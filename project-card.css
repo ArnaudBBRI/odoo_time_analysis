@@ -1,0 +1,49 @@
+/* Visual inspiration: https://uiverse.io/ElSombrero2/tricky-robin-67 */
+.project-card { perspective: 1000px; height: var(--project-card-height, 190px); color: #000; }
+.project-card-inner { display: grid; grid-template-rows: minmax(0, 1fr); min-width: 0; min-height: 0; width: 100%; height: 100%; border-radius: inherit; transform-style: preserve-3d; transition: transform 550ms cubic-bezier(.2,.65,.3,1); }
+.project-card-front, .project-card-back { position: relative; grid-area: 1 / 1; min-width: 0; min-height: 0; height: 100%; overflow: hidden; padding: 16px; border: 1px solid #e1ecee; border-radius: inherit; box-sizing: border-box; background: #fff; color: #000; backface-visibility: hidden; -webkit-backface-visibility: hidden; pointer-events: none; }
+.project-card-front { transform: rotateY(0deg); }
+.project-card-front::before { content: ""; position: absolute; inset: -100%; background: conic-gradient(transparent 0deg 75deg, #00bfb6 110deg 165deg, transparent 200deg 360deg); animation: project-card-border-turn 5s linear infinite; }
+.project-card-front::after { content: ""; position: absolute; inset: 2px; border-radius: inherit; background: #fff; }
+.project-card-front > * { position: relative; z-index: 1; }
+.project-card-back { display: flex; align-items: center; transform: rotateY(180deg); box-shadow: 0 6px 20px rgb(24 51 62 / 8%); }
+.project-card-name { display: block; min-width: 0; width: 100%; max-width: 100%; overflow: hidden; color: #000; }
+.project-card-title, .project-card-short-name { display: block; min-width: 0; height: 1.4em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--project-card-title-size, 14px); font-weight: 700; line-height: 1.4; }
+.project-card-ambient { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; pointer-events: none; }
+.project-card-orb { position: absolute; width: 70%; aspect-ratio: 1; border-radius: 50%; filter: blur(14px); opacity: .36; animation: project-card-color-float 4.8s ease-in-out infinite alternate; animation-play-state: paused; }
+.project-card-orb-teal { left: -16%; top: -20%; background: #00bfb6; }
+.project-card-orb-blue { right: -15%; bottom: -20%; width: 85%; background: #0087b7; animation-delay: -1.6s; animation-direction: alternate-reverse; }
+.project-card-orb-yellow { left: 21%; bottom: -28%; width: 64%; background: #ffce00; animation-delay: -3.2s; }
+.project-card-back-content { position: relative; z-index: 1; display: flex; flex-direction: column; justify-content: center; gap: 4px; width: 100%; min-width: 0; box-sizing: border-box; padding: 8px; border: 1px solid rgb(255 255 255 / 85%); border-radius: 9px; background: rgb(255 255 255 / 78%); text-align: left; }
+.project-card-identity { display: flex; flex: 0 0 auto; align-items: center; gap: 7px; min-width: 0; padding-right: 22px; margin-bottom: 2px; }
+.project-card-back-number { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 6px; border: 1px solid rgb(0 0 0 / 8%); border-radius: 6px; background: rgb(255 255 255 / 90%); font-size: var(--project-card-number-size, 11px); line-height: 1.3; font-variant-numeric: tabular-nums; }
+.project-card-back-number:empty { padding: 0; border: 0; }
+.project-card-mini-avatar { position: relative; display: grid; place-items: center; flex: 0 0 24px; width: 24px; height: 24px; border: 1px solid rgb(0 191 182 / 35%); border-radius: 50%; box-sizing: border-box; overflow: hidden; color: #000; background: #fff; }
+.project-card-mini-initials { font-size: 8px; font-weight: 650; }
+.project-card-mini-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.project-card-mini-photo[hidden] { display: none; }
+.project-card-manager-name { display: block; min-width: 0; height: 1.4em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--project-card-manager-size, 11px); line-height: 1.4; }
+.project-card-back-full-name { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; min-width: 0; height: 2.8em; overflow: hidden; text-overflow: ellipsis; overflow-wrap: anywhere; font-size: var(--project-card-full-size, 12px); font-weight: 400; font-style: italic; line-height: 1.4; }
+.project-card:focus-within .project-card-inner { transform: rotateY(180deg); }
+.project-card:focus-within .project-card-orb { animation-play-state: running; }
+.project-card:focus-within .project-card-front::before { animation-play-state: paused; }
+.project-card-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+@keyframes project-card-border-turn { to { transform: rotate(360deg); } }
+@keyframes project-card-color-float { from { transform: translate(-4%, -4%) scale(.96); } to { transform: translate(7%, 10%) scale(1.08); } }
+@media (hover: hover) and (pointer: fine) {
+  .project-card:hover .project-card-inner { transform: rotateY(180deg); }
+  .project-card:hover .project-card-orb { animation-play-state: running; }
+  .project-card:hover .project-card-front::before { animation-play-state: paused; }
+}
+@media (hover: none), (pointer: coarse) {
+  .project-card { height: calc(var(--project-card-height, 190px) * 2); }
+  .project-card-inner { grid-template-columns: minmax(0,1fr); grid-template-rows: repeat(2, minmax(0, 1fr)); transform: none !important; }
+  .project-card-front, .project-card-back { grid-area: auto; min-height: 0; transform: none; }
+  .project-card-front { border-bottom: 0; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+  .project-card-back { border-top-left-radius: 0; border-top-right-radius: 0; }
+  .project-card-orb { animation-play-state: running; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .project-card-inner { transition: none; }
+  .project-card-front::before, .project-card-orb { animation: none; }
+}
