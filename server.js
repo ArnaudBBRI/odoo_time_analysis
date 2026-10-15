@@ -117,7 +117,7 @@ const server = http.createServer((request, response) => {
         await handleSteering(request, response, url.pathname);
         return;
       }
-      if (["/steering.js", "/steering-client.js", "/steering-client.css", "/personal-time.js", "/personal-time.css", "/project-monthly.js", "/project-browser.js", "/project-browser.css", "/project-budget.js", "/project-budget.css", "/project-card.js", "/project-card.css", "/unit-dico.js", "/unit-dico.css"].includes(url.pathname)) {
+      if (["/steering.js", "/steering-client.js", "/steering-client.css", "/personal-time.js", "/personal-time.css", "/project-monthly.js", "/project-browser.js", "/project-browser.css", "/project-budget.js", "/project-budget.css", "/project-card.js", "/project-card.css", "/unit-dico.js", "/unit-dico.css", "/programme-browser.js", "/programme-browser.css"].includes(url.pathname)) {
         await serveStaticFile(url.pathname, response);
         return;
       }
