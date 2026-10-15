@@ -1,0 +1,51 @@
+.personal-capacity {
+  min-width: 0;
+  margin: 18px 0 22px;
+  padding: 18px 20px 14px;
+  border: 1px solid #dce8ec;
+  border-radius: 16px;
+  background: #f9fcfd;
+  color: #18333e;
+}
+.personal-capacity-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px 20px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.personal-capacity-heading { margin: 0; font-size: 16px; line-height: 1.35; font-weight: 650; }
+.personal-capacity-period { margin: 0; color: #60757d; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.personal-capacity-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.personal-capacity-metric { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 14px 16px; border: 1px solid #dce8ec; border-radius: 12px; background: #fff; }
+.personal-capacity-metric-label { margin: 0; color: #47616c; font-size: 12px; line-height: 1.4; font-weight: 600; }
+.personal-capacity-metric-value { display: block; font-size: clamp(23px, 2.6vw, 31px); line-height: 1.25; font-weight: 650; font-variant-numeric: tabular-nums; letter-spacing: -.02em; overflow-wrap: anywhere; }
+.personal-capacity-metric-note { margin: 0; color: #60757d; font-size: 11px; line-height: 1.45; overflow-wrap: anywhere; }
+.personal-capacity-coverage.is-low .personal-capacity-metric-value,
+.personal-capacity-coverage.is-low .personal-capacity-metric-note,
+.personal-capacity-coverage.is-high .personal-capacity-metric-value,
+.personal-capacity-coverage.is-high .personal-capacity-metric-note { color: #a34f00; }
+.personal-capacity-status { margin: 10px 0 0; color: #546b74; font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
+.personal-capacity-warnings { margin: 8px 0 0; padding-left: 18px; color: #785319; font-size: 11px; line-height: 1.5; }
+.personal-capacity-warnings li { overflow-wrap: anywhere; }
+.personal-capacity-details { margin-top: 10px; }
+.personal-capacity-summary { width: fit-content; max-width: 100%; padding: 4px 0; color: #386479; cursor: pointer; font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
+.personal-capacity-summary:focus-visible { outline: 2px solid #007fae; outline-offset: 4px; border-radius: 3px; }
+.personal-capacity-years { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 14px; padding-top: 8px; }
+.personal-capacity-year { min-width: 0; padding: 12px; border: 1px solid #dce8ec; border-radius: 10px; background: #fff; }
+.personal-capacity-year-heading { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 8px; font-size: 13px; font-weight: 650; }
+.personal-capacity-estimate-badge { padding: 2px 6px; border-radius: 5px; background: #fff4d9; color: #785319; font-size: 10px; font-weight: 600; }
+.personal-capacity-year-values { display: grid; grid-template-columns: minmax(0, 1fr) minmax(65px, auto); gap: 5px 12px; margin: 0; font-size: 11px; line-height: 1.45; }
+.personal-capacity-year-values dt { min-width: 0; color: #60757d; overflow-wrap: anywhere; }
+.personal-capacity-year-values dd { min-width: 0; margin: 0; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.personal-capacity-year-note { margin: 9px 0 0; color: #60757d; font-size: 10px; line-height: 1.5; overflow-wrap: anywhere; }
+.personal-capacity-year-note.is-estimated { color: #785319; }
+.personal-capacity-policy { margin: 10px 0 0; color: #687e87; font-size: 10px; line-height: 1.45; overflow-wrap: anywhere; }
+.personal-capacity [hidden] { display: none; }
+@media (max-width: 600px) {
+  .personal-capacity { padding: 14px; }
+  .personal-capacity-cards { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .personal-capacity-metric { padding: 12px 14px; }
+  .personal-capacity-metric-value { font-size: 26px; }
+}
