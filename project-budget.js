@@ -87,18 +87,67 @@
   const annualMeasures = ["budgeted", "consumed", "committed", "pending", "balance"];
   const isExpenseLine = line => line?.isExpense === true || /^6/.test(String(line?.accountCode || ""));
 
+  function isBwPersonnelCategory(value) {
+    if (typeof value !== "string" || !value.trim()) return null;
+    const name = value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim()
+      .replace(/^\d{4,6}\s*(?:[-:·]\s*)?/, "").replace(/\s+/g, " ").trim();
+    return ["frais de personnel", "personnel", "frais de personnel bw", "personnel bw", "bw personnel", "bw frais de personnel"].includes(name);
+  }
+
+  function isBwPersonnelLine(line) {
+    return typeof line?.isBwPersonnel === "boolean" ? line.isBwPersonnel : isBwPersonnelCategory(line?.category) === true;
+  }
+
+  function effectiveLifetime(lifetime, showBwPersonnelCosts = false) {
+    if (showBwPersonnelCosts) return lifetime || {};
+    if (lifetime?.expensesOnly && typeof lifetime.expensesOnly === "object") return lifetime.expensesOnly;
+    return { status: "unavailable", currencyId: null, currency: null, consumed: null, expenseCost: null, personnelCost: null,
+      byRubric: [], unmapped: [], outOfPeriod: {}, warnings: ["La consommation hors personnel BW est indisponible dans cette lecture. Actualisez les données ou activez Afficher les coûts de personnel BW pour afficher la source complète."] };
+  }
+
+  function effectiveConventionBudget(benchmark, showBwPersonnelCosts = false, fromMacro = false) {
+    const source = numeric(benchmark?.budgetedTotal);
+    if (showBwPersonnelCosts || !benchmark) return { budgetedTotal: source, warnings: [] };
+    const unavailable = { budgetedTotal: null, warnings: ["Budget conventionnel hors personnel BW indisponible : les allocations, rubriques ou devises de personnel ne sont pas toutes vérifiables."] };
+    if (source === null || currencyKey(benchmark, "benchmark").startsWith("unknown:")) return unavailable;
+    if (fromMacro) {
+      const personnel = numeric(benchmark.personnelEuros);
+      return personnel === null ? unavailable : { budgetedTotal: Math.round((source - personnel + Number.EPSILON) * 100) / 100, warnings: [] };
+    }
+    if (!Array.isArray(benchmark.lines)) return unavailable;
+    const seen = new Set(); let retainedTotal = 0, detailTotal = 0;
+    for (const line of benchmark.lines) {
+      const id = numeric(line?.id), value = numeric(line?.budgeted);
+      const classification = typeof line?.isBwPersonnel === "boolean" ? line.isBwPersonnel
+        : line?.isBwPersonnel === null ? null : isBwPersonnelCategory(line?.category);
+      if (!Number.isSafeInteger(id) || id <= 0 || seen.has(id) || classification === null || value === null ||
+        currencyKey(line, line?.id) !== currencyKey(benchmark, "benchmark")) return unavailable;
+      seen.add(id);
+      detailTotal += value;
+      if (!classification) retainedTotal += value;
+    }
+    if (Math.round((detailTotal + Number.EPSILON) * 100) !== Math.round((source + Number.EPSILON) * 100)) return unavailable;
+    return { budgetedTotal: Math.round((retainedTotal + Number.EPSILON) * 100) / 100, warnings: [] };
+  }
+
   function retainAnnualLine(line) {
     return !annualMeasures.every(field => numeric(line?.[field]) === 0);
   }
 
   function effectiveAnnual(budget, excludeOrmitterCosts = false) {
-    if (!excludeOrmitterCosts) return budget;
     const exclusion = budget?.ormitterExclusion;
     const replacements = new Map((Array.isArray(exclusion?.lines) ? exclusion.lines : []).map(line => [String(line.id), line]));
-    return { ...budget, totals: { ...budget.totals, consumed: numeric(exclusion?.consumed), committed: numeric(exclusion?.committed) },
-      lines: (Array.isArray(budget.lines) ? budget.lines : []).map(line => isExpenseLine(line) ? {
+    const lines = (Array.isArray(budget?.lines) ? budget.lines : []).filter(line => !isBwPersonnelLine(line))
+      .map(line => excludeOrmitterCosts && isExpenseLine(line) ? {
         ...line, consumed: numeric(replacements.get(String(line.id))?.consumed), committed: numeric(replacements.get(String(line.id))?.committed)
-      } : line) };
+      } : line);
+    const expenses = lines.filter(isExpenseLine);
+    const compatible = Array.isArray(budget?.lines) && !currencyKey(budget, budget?.id).startsWith("unknown:") &&
+      expenses.every(line => currencyKey(line, line.id) === currencyKey(budget, budget?.id));
+    const totals = Object.fromEntries(annualMeasures.map(field => [field,
+      compatible && numeric(budget?.totals?.[field]) !== null && expenses.every(line => numeric(line[field]) !== null)
+        ? Math.round((expenses.reduce((sum, line) => sum + numeric(line[field]), 0) + Number.EPSILON) * 100) / 100 : null]));
+    return { ...budget, totals, lines };
   }
 
   function codeColor(code) {
@@ -109,7 +158,7 @@
 
   function annualCodes(budget) {
     const groups = new Map();
-    for (const line of (Array.isArray(budget?.lines) ? budget.lines : []).filter(isExpenseLine)) {
+    for (const line of (Array.isArray(budget?.lines) ? budget.lines : []).filter(line => isExpenseLine(line) && !isBwPersonnelLine(line))) {
       const key = `${line.categoryId == null ? `line:${line.id}` : `category:${line.categoryId}`}:${currencyKey(line, line.id)}`;
       if (!groups.has(key)) groups.set(key, { key, code: String(line.accountCode || "?"), name: String(line.category || "Catégorie non renseignée"),
         categoryId: line.categoryId, currencyId: line.currencyId, currency: line.currency, lines: [] });
@@ -180,6 +229,7 @@
     const oldDetails = container.contains(focused) ? focused?.getAttribute?.("data-budget-details") : null;
     const oldRetry = container.contains(focused) && focused?.getAttribute?.("data-budget-retry") !== null;
     const oldExclusion = container.contains(focused) && focused?.getAttribute?.("data-budget-exclude-ormitter-costs") !== null;
+    const oldPersonnelChoice = container.contains(focused) && focused?.getAttribute?.("data-budget-show-bw-personnel-costs") !== null;
     const oldCodeDetail = modalTrigger || (container.contains(focused) ? focused?.getAttribute?.("data-budget-code-detail") : null);
     const expanded = new Set(Array.from(container.querySelectorAll("[data-budget-details-panel]"))
       .filter(element => element.open).map(element => element.getAttribute("data-budget-details-panel")));
@@ -193,7 +243,7 @@
     panel.setAttribute("data-project-budget", String(data?.project?.id || ""));
     panel.setAttribute("aria-busy", String(options.loading === true));
     const unique = `project-budget-${++renderId}`;
-    let retry = null, exclusionInput = null;
+    let retry = null, exclusionInput = null, personnelInput = null;
     function status(text, kind = "status") {
       const message = node("p", `project-budget-status${kind === "alert" ? " is-error" : ""}`, text);
       message.setAttribute("role", kind); return message;
@@ -376,11 +426,17 @@
       return panel;
     }
 
-    const macro = data.macro || {}, lifetime = data.lifetime || {};
+    const showBwPersonnelCosts = options.showBwPersonnelCosts === true;
+    const macro = data.macro || {}, lifetime = effectiveLifetime(data.lifetime, showBwPersonnelCosts);
     const conventions = Array.isArray(data.conventions) ? data.conventions : [];
     const requested = options.selectedConventionId == null ? null : conventions.find(budget => String(budget.id) === String(options.selectedConventionId));
     const selected = requested || (conventions.length === 1 ? conventions[0] : null);
     const convention = section("Budget · 01 / Convention", "Budget conventionnel et coûts enregistrés sur toute la durée du projet · hors filtre d’années.", "convention");
+    const personnelToggle = node("label", "project-budget-exclusion-toggle project-budget-personnel-toggle"); personnelInput = node("input", "");
+    personnelInput.type = "checkbox"; personnelInput.checked = showBwPersonnelCosts;
+    personnelInput.setAttribute("data-budget-show-bw-personnel-costs", "");
+    personnelInput.addEventListener("change", () => options.onShowBwPersonnelCostsChange?.(personnelInput.checked));
+    personnelToggle.append(personnelInput, node("span", "", "Afficher les coûts de personnel BW")); convention.append(personnelToggle);
     const macroGrid = node("div", "project-budget-macro-grid");
     const macroCurrency = currencyLabel(macro);
     macroGrid.append(metric("Budget total · fiche projet", amount(macro.conventionTotal, macroCurrency), "Montant conventionnel renseigné dans Odoo"),
@@ -411,13 +467,14 @@
         "Contrôle de la convention incomplet ou non réconcilié · les montants affichés ne constituent pas un budget contrôlé."));
     } else if (conventions.length > 1) convention.append(status("Choisissez une convention pour comparer son budget aux coûts du projet. Les différentes versions ne sont pas additionnées."));
     const benchmark = selected || (!conventions.length ? { ...macro, budgetedTotal: macro.conventionTotal } : null);
+    const budgetBasis = effectiveConventionBudget(benchmark, showBwPersonnelCosts, !selected);
     const sameCurrency = benchmark && currencyKey(benchmark, "benchmark") === currencyKey(lifetime, "lifetime");
-    const cost = numeric(lifetime.consumed), budgeted = numeric(benchmark?.budgetedTotal);
+    const cost = numeric(lifetime.consumed), budgeted = budgetBasis.budgetedTotal;
     const validCost = lifetime.status === "available" || lifetime.status === "partial";
     const comparable = Boolean(sameCurrency && validCost && cost !== null && budgeted !== null);
     const totals = node("div", "project-budget-total-grid");
-    totals.append(metric("Budget conventionnel", amount(budgeted, benchmark?.currency), selected ? "Convention sélectionnée" : "Fiche projet", "budgeted"),
-      metric(lifetime.status === "partial" ? "Consommation connue · partielle" : "Consommation enregistrée", amount(validCost ? cost : null, lifetime.currency), "Dépenses + coût monétaire des heures", "consumed"),
+    totals.append(metric("Budget conventionnel", amount(budgeted, benchmark?.currency), `${selected ? "Convention sélectionnée" : "Fiche projet"}${showBwPersonnelCosts ? "" : " · hors personnel BW"}`, "budgeted"),
+      metric(lifetime.status === "partial" ? "Consommation connue · partielle" : "Consommation enregistrée", amount(validCost ? cost : null, lifetime.currency), showBwPersonnelCosts ? "Dépenses + coût monétaire des heures BW" : "Dépenses hors coût monétaire des heures BW", "consumed"),
       metric("Solde calculé", amount(comparable ? budgeted - cost : null, benchmark?.currency), "Budget − consommation", "balance"));
     convention.append(totals);
     if (comparable) {
@@ -427,7 +484,7 @@
       horizontal([budgeted, cost], ["Budget conventionnel", "Consommation enregistrée"], benchmark.currency, convention, "total");
     } else if (benchmark && validCost && cost !== null && budgeted !== null) convention.append(status("Comparaison indisponible : les devises des coûts et du budget ne sont pas confirmées identiques."));
     if (lifetime.status === "partial") convention.append(status("Consommation partielle : seuls les coûts accessibles et identifiables sont inclus. Le solde ne constitue pas une disponibilité financière confirmée."));
-    const sourceCost = node("p", "project-budget-cost-basis", `Coûts de dépenses : ${amount(lifetime.expenseCost, lifetime.currency)} · Coût enregistré des heures : ${amount(lifetime.personnelCost, lifetime.currency)}.`);
+    const sourceCost = node("p", "project-budget-cost-basis", `Coûts de dépenses : ${amount(lifetime.expenseCost, lifetime.currency)}${showBwPersonnelCosts ? ` · Coût enregistré des heures BW : ${amount(lifetime.personnelCost, lifetime.currency)}` : " · Coût enregistré des heures BW masqué"}. ${showBwPersonnelCosts ? "Budget conventionnel complet, personnel BW inclus." : "Budget conventionnel comparé hors allocation de personnel BW."}`);
     convention.append(sourceCost);
     const outOfPeriod = lifetime.outOfPeriod || {};
     const beforeCount = numeric(outOfPeriod.beforeStart?.count), afterCount = numeric(outOfPeriod.afterEnd?.count);
@@ -436,7 +493,9 @@
     if (numeric(lifetime.zeroValuedHoursCount) > 0) convention.append(node("p", "project-budget-small-note",
       `${numbers.format(numeric(lifetime.zeroValuedHoursCount))} écriture(s) d’heures sans coût monétaire enregistré · aucun coût n’est estimé à partir des heures.`));
     const rubricCosts = Array.isArray(lifetime.byRubric) ? lifetime.byRubric : [];
-    const lines = Array.isArray(selected?.lines) ? selected.lines : [];
+    const sourceConventionLines = Array.isArray(selected?.lines) ? selected.lines : [];
+    const hiddenPersonnelRubrics = new Set(sourceConventionLines.filter(isBwPersonnelLine).map(line => String(line.categoryId)));
+    const lines = showBwPersonnelCosts ? sourceConventionLines : sourceConventionLines.filter(line => !isBwPersonnelLine(line));
     const costs = new Map();
     rubricCosts.forEach(row => {
       if (row.categoryId != null) {
@@ -467,7 +526,12 @@
         rubricRows.push([line.category || "Rubrique non renseignée", amount(line.budgeted, currencyLabel(line)), amount(consumed, lifetime.currency),
           amount(consumed !== null && numeric(line.budgeted) !== null ? line.budgeted - consumed : null, currencyLabel(line))]);
       });
-      costs.forEach((row, key) => { if (!seen.has(key)) rubricRows.push([`${row.category || "Rubrique non renseignée"} · hors lignes de la convention sélectionnée`, "Indisponible", amount(row.consumed, lifetime.currency), "Indisponible"]); });
+      costs.forEach((row, key) => {
+        if (!seen.has(key)) rubricRows.push([!showBwPersonnelCosts && hiddenPersonnelRubrics.has(key)
+          ? `Dépenses · ${row.category || "Rubrique non renseignée"} · rubrique personnel masquée`
+          : `${row.category || "Rubrique non renseignée"} · hors lignes de la convention sélectionnée`,
+        "Indisponible", amount(row.consumed, lifetime.currency), "Indisponible"]);
+      });
     }
     const unmapped = Array.isArray(lifetime.unmapped) ? lifetime.unmapped : [];
     if (unmapped.length) {
@@ -481,14 +545,14 @@
     }
     if (rubricRows.length) details(`convention:${selected?.id || "none"}`, "Détail des rubriques conventionnelles", ["Rubrique", "Budgeté", "Consommé", "Solde calculé"], rubricRows, convention);
     if (!conventions.length) convention.append(status("Aucune ligne de convention disponible dans cette lecture. Le budget de la fiche projet reste affiché lorsqu’il est renseigné ; consultez les informations de source en cas de lecture incomplète."));
-    warningList(warningsOf([selected?.warnings, lifetime.warnings]), convention);
+    warningList(warningsOf([selected?.warnings, lifetime.warnings, budgetBasis.warnings]), convention);
 
     const annualSection = section("Budget · 02 / Budgets annuels", "Tous les budgets annuels accessibles, y compris les années futures · catégories annuelles distinctes de la convention.", "annual");
     const legend = node("ul", "project-budget-legend");
     [["budgeted", "Budgeté"], ["consumed", "Consommé · facturé"], ["committed", "Engagé"]].forEach(([kind, label]) => {
       const item = node("li", ""); item.append(node("span", `project-budget-legend-dot is-${kind}`), node("span", "", label)); legend.append(item);
     });
-    annualSection.append(legend, node("p", "project-budget-section-note", "Engagé comprend le facturé et les commandes confirmées selon Odoo. Consommé et engagé se chevauchent : ils ne s’additionnent pas. La consommation annuelle ci-dessous est facturée ; le total de durée du projet inclut aussi le coût enregistré des heures."));
+    annualSection.append(legend, node("p", "project-budget-section-note", "Engagé comprend le facturé et les commandes confirmées selon Odoo. Consommé et engagé se chevauchent : ils ne s’additionnent pas. La consommation annuelle ci-dessous est facturée. Les coûts BW de personnel ne sont jamais inclus dans les budgets annuels affichés, indépendamment de la case ci-dessus."));
     const exclusionToggle = node("label", "project-budget-exclusion-toggle"); exclusionInput = node("input", "");
     exclusionInput.type = "checkbox"; exclusionInput.checked = options.excludeOrmitterCosts === true;
     exclusionInput.setAttribute("data-budget-exclude-ormitter-costs", "");
@@ -627,6 +691,7 @@
     if (data.asOf) panel.append(node("p", "project-budget-asof", `Lecture Odoo : ${String(data.asOf)} · données accessibles avec vos droits Odoo · lecture seule.`));
     container.replaceChildren(panel);
     if (oldChoice !== null) Array.from(panel.querySelectorAll("[data-budget-convention-choice]")).find(input => input.value === oldChoice)?.focus();
+    else if (oldPersonnelChoice && personnelInput) personnelInput.focus();
     else if (oldExclusion && exclusionInput) exclusionInput.focus();
     else if (oldCodeDetail !== null) {
       const target = Array.from(panel.querySelectorAll("[data-budget-code-detail]")).find(button => button.getAttribute("data-budget-code-detail") === oldCodeDetail);
@@ -641,5 +706,5 @@
     return panel;
   }
 
-  return { render, cleanup, numeric, chartGeometry, axisLabels, currencyKey, effectiveAnnual, annualCodes, retainAnnualLine, codeColor, billDetailsForCode };
+  return { render, cleanup, numeric, chartGeometry, axisLabels, currencyKey, effectiveLifetime, effectiveConventionBudget, isBwPersonnelCategory, isBwPersonnelLine, effectiveAnnual, annualCodes, retainAnnualLine, codeColor, billDetailsForCode };
 });

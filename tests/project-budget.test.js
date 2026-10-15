@@ -1,6 +1,6 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { render, cleanup, numeric, chartGeometry, axisLabels, currencyKey, effectiveAnnual, annualCodes, retainAnnualLine, codeColor, billDetailsForCode } = require("../project-budget");
+const { render, cleanup, numeric, chartGeometry, axisLabels, currencyKey, effectiveLifetime, effectiveConventionBudget, isBwPersonnelCategory, isBwPersonnelLine, effectiveAnnual, annualCodes, retainAnnualLine, codeColor, billDetailsForCode } = require("../project-budget");
 const { domFixture } = require("./dom-fixture");
 
 function line(id, categoryId, category, budgeted, consumed, accountCode = null) {
@@ -11,10 +11,10 @@ function annual(id, year, budgeted = 1000, consumed = 250, committed = 400) {
   return { id, name: `Budget ${year}`, startDate: `${year}-01-01`, endDate: `${year}-12-31`,
     status: { code: "confirmed", label: "Ouvert" }, currencyId: 1, currency: "EUR", quality: "reconciled",
     totals: { budgeted, consumed, committed, pending: 0, balance: budgeted - consumed }, income: { budgeted: 800, consumed: 50 },
-    parentTotal: -200, lines: [line(1, 4, "6200 Personnel", budgeted, consumed, "6200"), line(2, 5, "7000 Recettes", 800, 50, "7000")] };
+    parentTotal: -200, lines: [{ ...line(1, 4, "6124 Services", budgeted, consumed, "6124"), committed }, line(2, 5, "7000 Recettes", 800, 50, "7000")] };
 }
 function fixture() {
-  return { ok: true, project: { id: 101, name: "Example", startDate: "2025-12-01", endDate: "2028-05-31" },
+  const result = { ok: true, project: { id: 101, name: "Example", startDate: "2025-12-01", endDate: "2028-05-31" },
     asOf: "2026-10-09", macro: { conventionTotal: 12000, personnelEuros: 5000, personnelHours: 200,
       maxFunding: 10000, fundingType: "Example funding", fundingOrganism: "Example body", externalReference: "ABC",
       currencyId: 1, currency: "EUR" },
@@ -25,6 +25,8 @@ function fixture() {
       consumed: 2000, expenseCost: 900, personnelCost: 1100, byRubric: [{ categoryId: 22, category: "Équipement", consumed: 900 }],
       unmapped: [{ label: "Coût des heures · rubrique non renseignée", consumed: 1100 }], zeroValuedHoursCount: 0,
       outOfPeriod: { beforeStart: { count: 0, consumed: 0 }, afterEnd: { count: 0, consumed: 0 } } } };
+  result.lifetime.expensesOnly = { ...structuredClone(result.lifetime), consumed: 900, expenseCost: 900, personnelCost: 0, unmapped: [] };
+  return result;
 }
 function get(container, selector) { return container.querySelectorAll(selector)[0]; }
 
@@ -54,8 +56,253 @@ test("shared domains give comparable heights without converting or mixing unknow
   assert.notEqual(currencyKey({ currencyId: 1 }), currencyKey({ currencyId: 2 }));
 });
 
+test("BW personnel category classification matches exact source labels and authoritative Boolean markers", () => {
+  for (const name of ["Personnel", " Frais  de personnel ", "6200 - Frais de personnel BW", "617000: BW personnel", "PERSONNEL BW", "6200·BW frais de personnel"]) {
+    assert.equal(isBwPersonnelCategory(name), true, name);
+    assert.equal(isBwPersonnelLine({ category: name }), true);
+  }
+  for (const name of ["6200 Equipment", "Personnel externe", "613990 Ormit Talent", "617000 Ormit", "Frais de personnel sous-traité", "BW personnel services"]) {
+    assert.equal(isBwPersonnelCategory(name), false, name);
+    assert.equal(isBwPersonnelLine({ category: name }), false);
+  }
+  for (const value of [null, undefined, false, " ", 6200]) assert.equal(isBwPersonnelCategory(value), null);
+  assert.equal(isBwPersonnelLine({ category: "Personnel", isBwPersonnel: false }), false, "Source false wins over optional legacy-label interpretation");
+  assert.equal(isBwPersonnelLine({ category: "Services", isBwPersonnel: true }), true);
+  assert.equal(isBwPersonnelLine({ category: "Personnel", isBwPersonnel: null }), true);
+});
+
+test("French BW personnel checkbox defaults off and restores full convention budget and costs while retaining focus", () => {
+  const container = domFixture(), data = fixture(), original = structuredClone(data);
+  data.annual[0].lines.push({ ...line(99, 99, "6200 Personnel", 500, 200, "6200"), isBwPersonnel: true });
+  const options = { onShowBwPersonnelCostsChange(checked) { options.showBwPersonnelCosts = checked; render(container, data, options); } };
+  render(container, data, options);
+  const checkbox = get(container, "[data-budget-show-bw-personnel-costs]");
+  assert.equal(checkbox.checked, false); assert.equal(checkbox.parentElement.textContent, "Afficher les coûts de personnel BW");
+  assert.equal(get(container, '[data-budget-horizontal="total:budgeted"]').getAttribute("data-budget-value"), "2000");
+  assert.equal(get(container, '[data-budget-horizontal="total:consumed"]').getAttribute("data-budget-value"), "900");
+  assert.match(get(container, "[data-budget-ratio]").textContent, /45/);
+  assert.match(get(container, ".project-budget-total-grid").textContent, /Solde calculé1[\s\u202f]?100 EUR/);
+  assert.match(get(container, ".project-budget-macro-grid").textContent, /12[\s\u202f]?000 EUR.*5[\s\u202f]?000 EUR/);
+  assert.equal(container.querySelectorAll('[data-budget-rubric="21"]').length, 0);
+  assert.doesNotMatch(container.textContent, /Coût des heures · rubrique non renseignée/);
+  const annualBefore = container.querySelectorAll("[data-budget-annual]").map(card => card.querySelectorAll("[data-budget-bar]").map(bar => bar.getAttribute("data-budget-value")));
+  checkbox.focus(); checkbox.checked = true; checkbox.dispatch("change");
+  assert.equal(options.showBwPersonnelCosts, true);
+  assert.equal(container.ownerDocument.activeElement, get(container, "[data-budget-show-bw-personnel-costs]"));
+  assert.equal(get(container, '[data-budget-horizontal="total:budgeted"]').getAttribute("data-budget-value"), "10000");
+  assert.equal(get(container, '[data-budget-horizontal="total:consumed"]').getAttribute("data-budget-value"), "2000");
+  assert.match(get(container, "[data-budget-ratio]").textContent, /20/);
+  assert.ok(get(container, '[data-budget-rubric="21"]'));
+  assert.match(container.textContent, /Coût des heures · rubrique non renseignée/);
+  assert.deepEqual(container.querySelectorAll("[data-budget-annual]").map(card => card.querySelectorAll("[data-budget-bar]").map(bar => bar.getAttribute("data-budget-value"))), annualBefore);
+  assert.equal(container.querySelectorAll('[data-budget-code="6200"]').length, 0);
+  assert.match(container.textContent, /coûts BW de personnel ne sont jamais inclus/i);
+  const checked = get(container, "[data-budget-show-bw-personnel-costs]"); checked.checked = false; checked.dispatch("change");
+  assert.equal(get(container, '[data-budget-horizontal="total:budgeted"]').getAttribute("data-budget-value"), "2000");
+  assert.equal(get(container, '[data-budget-horizontal="total:consumed"]').getAttribute("data-budget-value"), "900");
+  assert.match(get(container, "[data-budget-ratio]").textContent, /45/);
+  assert.deepEqual(data.lifetime, original.lifetime); assert.deepEqual(data.conventions, original.conventions);
+});
+
+test("filtered convention reference uses selected line allocations and canonical categories, preserving supplier budgets", () => {
+  const budget = fixture().conventions[0];
+  budget.lines[0].isBwPersonnel = true;
+  budget.lines.push({ ...line(13, 23, "613990 Ormit Talent", 350, 0), isBwPersonnel: false },
+    { ...line(14, 24, "Frais de personnel sous-traité", 650, 0), isBwPersonnel: false });
+  budget.budgetedTotal = 11000; budget.quality = "not-reconciled"; budget.parentTotal = 12000;
+  const before = structuredClone(budget);
+  assert.equal(effectiveConventionBudget(budget).budgetedTotal, 3000);
+  assert.equal(effectiveConventionBudget(budget, true).budgetedTotal, 11000);
+  budget.lines[0].isBwPersonnel = false;
+  assert.equal(effectiveConventionBudget(budget).budgetedTotal, 11000, "The source Boolean wins over a display label");
+  budget.lines[0].isBwPersonnel = true;
+  assert.deepEqual(budget, before, "Filtering does not alter source lines or parent reconciliation");
+});
+
+test("filtered convention reference fails closed for incomplete identity, allocations, classifications and currencies", () => {
+  const invalid = [
+    budget => { budget.budgetedTotal = null; },
+    budget => { delete budget.lines; },
+    budget => { budget.lines = []; },
+    budget => { budget.lines[0].id = null; },
+    budget => { budget.lines.push({ ...budget.lines[0] }); },
+    budget => { budget.lines[0].isBwPersonnel = null; },
+    budget => { budget.lines[0].category = null; },
+    budget => { budget.lines[0].budgeted = null; },
+    budget => { budget.lines[1].budgeted = Infinity; },
+    budget => { budget.lines[0].currencyId = null; },
+    budget => { budget.lines[0].currencyId = 2; },
+    budget => { budget.currencyId = null; },
+    budget => { budget.budgetedTotal += 100; }
+  ];
+  for (const invalidate of invalid) {
+    const budget = fixture().conventions[0]; invalidate(budget);
+    const result = effectiveConventionBudget(budget);
+    assert.equal(result.budgetedTotal, null, invalidate.toString());
+    assert.match(result.warnings.join(" "), /hors personnel BW indisponible/);
+  }
+  assert.deepEqual(effectiveConventionBudget(null), { budgetedTotal: null, warnings: [] });
+});
+
+test("filtered convention reference preserves signed allocations, zero and rounded source sums", () => {
+  const budget = fixture().conventions[0];
+  budget.lines = [line(1, 21, "Frais de personnel", 100, 0), line(2, 22, "Services", -20, 0)];
+  budget.budgetedTotal = 80;
+  assert.equal(effectiveConventionBudget(budget).budgetedTotal, -20);
+  budget.lines = [line(1, 21, "Frais de personnel", 100, 0)]; budget.budgetedTotal = 100;
+  assert.equal(effectiveConventionBudget(budget).budgetedTotal, 0);
+  budget.lines = []; budget.budgetedTotal = 0;
+  assert.equal(effectiveConventionBudget(budget).budgetedTotal, 0);
+  budget.lines = [line(1, 21, "Personnel", 0.1, 0), line(2, 22, "Services", 0.2, 0)]; budget.budgetedTotal = 0.3;
+  assert.equal(effectiveConventionBudget(budget).budgetedTotal, 0.2);
+  budget.lines[0].budgeted = -0.1; budget.budgetedTotal = 0.1;
+  assert.equal(effectiveConventionBudget(budget).budgetedTotal, 0.2);
+  budget.lines = [line(1, 21, "Personnel", 0.008, 0), line(2, 22, "Services", 0.006, 0)]; budget.budgetedTotal = 0.01;
+  const before = structuredClone(budget);
+  assert.equal(effectiveConventionBudget(budget).budgetedTotal, 0.01, "Round the retained source allocations once, not the already-rounded total minus personnel");
+  assert.equal(effectiveConventionBudget(budget, true).budgetedTotal, 0.01);
+  assert.deepEqual(budget, before);
+});
+
+test("unverified personnel allocation never displays a full-budget comparison as a filtered reference", () => {
+  const container = domFixture(), data = fixture(); data.conventions[0].lines[0].isBwPersonnel = null;
+  render(container, data);
+  assert.equal(container.querySelectorAll('[data-budget-horizontal="total:budgeted"]').length, 0);
+  assert.equal(container.querySelectorAll("[data-budget-ratio]").length, 0);
+  assert.match(container.textContent, /Budget conventionnel hors personnel BW indisponible/);
+  assert.match(get(container, ".project-budget-total-grid").textContent, /Budget conventionnelIndisponible/);
+  render(container, data, { showBwPersonnelCosts: true });
+  assert.equal(get(container, '[data-budget-horizontal="total:budgeted"]').getAttribute("data-budget-value"), "10000");
+  assert.equal(get(container, '[data-budget-horizontal="total:consumed"]').getAttribute("data-budget-value"), "2000");
+});
+
+test("macro fallback excludes its own known personnel amount and otherwise stays unavailable", () => {
+  const macro = fixture().macro, benchmark = { ...macro, budgetedTotal: macro.conventionTotal };
+  assert.equal(effectiveConventionBudget(benchmark, false, true).budgetedTotal, 7000);
+  assert.equal(effectiveConventionBudget(benchmark, true, true).budgetedTotal, 12000);
+  for (const values of [{ personnelEuros: null }, { personnelEuros: Infinity }, { budgetedTotal: null }, { currencyId: null }]) {
+    assert.equal(effectiveConventionBudget({ ...benchmark, ...values }, false, true).budgetedTotal, null);
+  }
+  assert.equal(effectiveConventionBudget({ ...benchmark, personnelEuros: 0 }, false, true).budgetedTotal, 12000);
+  assert.equal(effectiveConventionBudget({ ...benchmark, personnelEuros: -100 }, false, true).budgetedTotal, 12100);
+});
+
+test("expense-only source preserves actual supplier expenses sharing a hidden Personnel rubric ID", () => {
+  const container = domFixture(), data = fixture();
+  Object.assign(data.lifetime, { consumed: 550, expenseCost: 250, personnelCost: 300,
+    byRubric: [{ categoryId: 21, category: "Personnel", consumed: 500 }, { categoryId: 22, category: "Équipement", consumed: 50 }], unmapped: [] });
+  Object.assign(data.lifetime.expensesOnly, { consumed: 250, expenseCost: 250, personnelCost: 0,
+    byRubric: [{ categoryId: 21, category: "Personnel", consumed: 200 }, { categoryId: 22, category: "Équipement", consumed: 50 }], unmapped: [] });
+  render(container, data);
+  assert.equal(get(container, '[data-budget-horizontal="total:consumed"]').getAttribute("data-budget-value"), "250");
+  assert.equal(container.querySelectorAll('[data-budget-rubric="21"]').length, 0);
+  assert.equal(get(container, '[data-budget-horizontal="rubric:22:consumed"]').getAttribute("data-budget-value"), "50");
+  const details = get(container, '[data-budget-details-panel="convention:10"]');
+  assert.match(details.textContent, /Dépenses · Personnel · rubrique personnel masquée.*200 EUR/);
+  assert.doesNotMatch(details.textContent, /8[\s\u00a0\u202f]?000 EUR/);
+  render(container, data, { showBwPersonnelCosts: true });
+  assert.equal(get(container, '[data-budget-horizontal="rubric:21:consumed"]').getAttribute("data-budget-value"), "500");
+  assert.equal(get(container, '[data-budget-horizontal="total:consumed"]').getAttribute("data-budget-value"), "550");
+});
+
+test("unmapped supplier and out-of-period expense amounts come from the selected projection", () => {
+  const container = domFixture(), data = fixture();
+  data.lifetime.unmapped = [{ label: "Coût des heures · rubrique non renseignée", consumed: 1100 }, { label: "Dépenses Ormit Talent", consumed: 100 }];
+  data.lifetime.outOfPeriod.beforeStart = { count: 3, consumed: 800 };
+  data.lifetime.expensesOnly.unmapped = [{ label: "Dépenses Ormit Talent", consumed: 100 }];
+  data.lifetime.expensesOnly.outOfPeriod.beforeStart = { count: 1, consumed: 100 };
+  render(container, data, { excludeOrmitterCosts: true });
+  assert.match(get(container, ".project-budget-unmapped").textContent, /Dépenses Ormit Talent.*100 EUR/);
+  assert.doesNotMatch(get(container, ".project-budget-unmapped").textContent, /Coût des heures/);
+  assert.match(container.textContent, /1 avant le début.*100 EUR/);
+  render(container, data, { showBwPersonnelCosts: true, excludeOrmitterCosts: true });
+  assert.match(container.textContent, /3 avant le début.*800 EUR/);
+  assert.match(get(container, ".project-budget-unmapped").textContent, /Coût des heures.*1[\s\u00a0\u202f]?100 EUR/);
+});
+
+test("missing expense projection fails closed instead of subtracting full lifetime personnel or inventing zero", () => {
+  const container = domFixture(), data = fixture(); delete data.lifetime.expensesOnly;
+  assert.equal(effectiveLifetime(data.lifetime).status, "unavailable");
+  assert.equal(effectiveLifetime(data.lifetime).consumed, null);
+  assert.equal(effectiveLifetime(data.lifetime, true), data.lifetime);
+  render(container, data);
+  assert.equal(container.querySelectorAll('[data-budget-horizontal="total:consumed"]').length, 0);
+  assert.equal(container.querySelectorAll("[data-budget-ratio]").length, 0);
+  assert.equal(container.querySelectorAll('[data-budget-horizontal="rubric:22:consumed"]').length, 0);
+  assert.match(container.textContent, /consommation hors personnel BW est indisponible/i);
+  render(container, data, { showBwPersonnelCosts: true });
+  assert.equal(get(container, '[data-budget-horizontal="total:consumed"]').getAttribute("data-budget-value"), "2000");
+});
+
+test("independent expense currency and partiality govern their own ratio without inheriting full-source uncertainty", () => {
+  const container = domFixture(), data = fixture();
+  Object.assign(data.lifetime, { currencyId: null, currency: null, consumed: null, status: "partial" });
+  render(container, data);
+  assert.equal(get(container, '[data-budget-horizontal="total:consumed"]').getAttribute("data-budget-value"), "900");
+  assert.ok(get(container, "[data-budget-ratio]"));
+  render(container, data, { showBwPersonnelCosts: true });
+  assert.equal(container.querySelectorAll("[data-budget-ratio]").length, 0);
+  Object.assign(data.lifetime.expensesOnly, { currencyId: 2, currency: "USD" }); render(container, data);
+  assert.equal(container.querySelectorAll("[data-budget-ratio]").length, 0);
+  assert.match(container.textContent, /devises.*ne sont pas confirmées identiques/);
+  Object.assign(data.lifetime.expensesOnly, { currencyId: 1, currency: "EUR", status: "partial", consumed: 50 }); render(container, data);
+  assert.match(container.textContent, /Consommation connue · partielle/);
+  assert.equal(get(container, '[data-budget-horizontal="total:consumed"]').getAttribute("data-budget-value"), "50");
+  assert.equal(container.querySelectorAll('[data-budget-horizontal="rubric:21:consumed"]').length, 0);
+});
+
+test("annual totals and code companions sum retained expenses after Ormit replacements in every checkbox combination", () => {
+  const container = domFixture(), data = fixture(), budget = annual(26, 2026, 1300, 330, 480);
+  budget.lines = [{ ...line(1, 41, "6200 Personnel BW", 1000, 250, "6200"), committed: 400, isBwPersonnel: true },
+    { ...line(2, 42, "6139 Ormit Talent", 200, 60, "6139"), committed: 60, isBwPersonnel: false },
+    { ...line(3, 43, "6124 Services", 100, 20, "6124"), committed: 20, isBwPersonnel: false }];
+  budget.ormitterExclusion = { consumed: null, committed: null,
+    lines: [{ id: 1, consumed: null, committed: null }, { id: 2, consumed: 0, committed: 0 }, { id: 3, consumed: 20, committed: 20 }] };
+  data.annual = [budget]; const original = structuredClone(data);
+  for (const showBwPersonnelCosts of [false, true]) for (const excludeOrmitterCosts of [false, true]) {
+    render(container, data, { showBwPersonnelCosts, excludeOrmitterCosts });
+    const card = get(container, "[data-budget-annual]");
+    assert.deepEqual(card.querySelectorAll("[data-budget-bar]").map(bar => bar.getAttribute("data-budget-value")), excludeOrmitterCosts ? ["300", "20", "20"] : ["300", "80", "80"]);
+    assert.equal(card.querySelectorAll('[data-budget-code="6200"]').length, 0);
+    assert.doesNotMatch(get(card, '[data-budget-details-panel="annual:26"]').textContent, /Personnel BW/);
+    for (const kind of ["budgeted", "consumed", "committed"]) {
+      const companions = card.querySelectorAll("[data-budget-code-measure]").filter(bar => bar.getAttribute("data-budget-code-measure") === kind);
+      assert.equal(companions.reduce((sum, bar) => sum + Number(bar.getAttribute("data-budget-value")), 0),
+        Number(card.querySelectorAll("[data-budget-bar]").find(bar => bar.getAttribute("data-budget-bar") === kind).getAttribute("data-budget-value")));
+    }
+  }
+  assert.deepEqual(data, original);
+});
+
+test("annual personnel-only known sources become known zero while unknown currency, source totals and retained values stay unavailable", () => {
+  const budget = annual(26, 2026, 100, 25, 25);
+  budget.lines = [{ ...line(1, 4, "6200 Personnel", 100, 25, "6200"), isBwPersonnel: true }];
+  assert.deepEqual(effectiveAnnual(budget).totals, { budgeted: 0, consumed: 0, committed: 0, pending: 0, balance: 0 });
+  assert.deepEqual(annualCodes(budget), []);
+  budget.lines.push(line(2, 5, "6124 Services", 50, 10, "6124"));
+  assert.equal(effectiveAnnual(budget).totals.consumed, 10);
+  budget.lines[1].currencyId = null; assert.equal(effectiveAnnual(budget).totals.consumed, null);
+  budget.lines[1].currencyId = 2; assert.equal(effectiveAnnual(budget).totals.budgeted, null);
+  budget.lines[1].currencyId = 1; budget.totals.consumed = null;
+  assert.equal(effectiveAnnual(budget).totals.consumed, null, "Unavailable source totals cannot become verified filtered totals");
+  budget.totals.consumed = 35; budget.lines[1].committed = null;
+  assert.equal(effectiveAnnual(budget).totals.committed, null);
+  assert.equal(effectiveAnnual(budget).totals.consumed, 10);
+  budget.currencyId = null; assert.equal(effectiveAnnual(budget).totals.consumed, null);
+});
+
+test("annual label fallback retains external personnel, Ormit and unknown categories without classifying numeric codes alone", () => {
+  const budget = annual(26, 2026, 400, 40, 40);
+  budget.lines = [line(1, 1, "6200 Personnel externe", 100, 10, "6200"),
+    line(2, 2, "617000 Ormit Talent", 100, 10, "6170"), line(3, 3, "Rubrique non renseignée", 100, 10, "6200"),
+    { ...line(4, 4, "6200 Personnel", 100, 10, "6200"), isBwPersonnel: false }];
+  assert.equal(effectiveAnnual(budget).lines.length, 4);
+  assert.equal(effectiveAnnual(budget).totals.consumed, 40);
+  assert.equal(annualCodes(budget).length, 4);
+});
+
 test("convention compares recorded lifetime cost to the selected source without double counting billed totals", () => {
-  const container = domFixture(), data = fixture(); render(container, data);
+  const container = domFixture(), data = fixture(); render(container, data, { showBwPersonnelCosts: true });
   assert.equal(get(container, "[data-project-budget]").getAttribute("data-project-budget"), "101");
   assert.equal(get(container, '[data-budget-horizontal="total:budgeted"]').getAttribute("data-budget-value"), "10000");
   assert.equal(get(container, '[data-budget-horizontal="total:consumed"]').getAttribute("data-budget-value"), "2000");
@@ -64,16 +311,16 @@ test("convention compares recorded lifetime cost to the selected source without 
   assert.match(container.textContent, /1[\s\u00a0\u202f]?100 EUR/);
   assert.match(container.textContent, /Coût des heures · rubrique non renseignée/);
   render(container, data, { selectedConventionId: 999 });
-  assert.equal(get(container, '[data-budget-horizontal="total:budgeted"]').getAttribute("data-budget-value"), "10000",
+  assert.equal(get(container, '[data-budget-horizontal="total:budgeted"]').getAttribute("data-budget-value"), "2000",
     "A removed convention preference must not prevent selecting the sole current source");
 });
 
 test("convention rubric consumption matches exact IDs, keeps unassigned time separate and known zeros", () => {
-  const container = domFixture(), data = fixture(); render(container, data);
+  const container = domFixture(), data = fixture(); render(container, data, { showBwPersonnelCosts: true });
   assert.equal(get(container, '[data-budget-horizontal="rubric:21:consumed"]').getAttribute("data-budget-value"), "0");
   assert.equal(get(container, '[data-budget-horizontal="rubric:22:consumed"]').getAttribute("data-budget-value"), "900");
   data.lifetime.byRubric[0].categoryId = 99; data.lifetime.byRubric[0].category = "Personnel";
-  render(container, data);
+  render(container, data, { showBwPersonnelCosts: true });
   assert.equal(get(container, '[data-budget-horizontal="rubric:21:consumed"]').getAttribute("data-budget-value"), "0");
   assert.match(container.textContent, /Personnel · hors lignes de la convention sélectionnée/);
 });
@@ -90,7 +337,8 @@ test("same-category convention lines sum only matching exact currencies", () => 
 });
 
 test("multiple conventions require an explicit selection and preserve native-radio focus", () => {
-  const container = domFixture(), data = fixture(); data.conventions.push({ ...data.conventions[0], id: 20, name: "Revision", budgetedTotal: 99999 });
+  const container = domFixture(), data = fixture(); data.conventions.push({ ...data.conventions[0], id: 20, name: "Revision", budgetedTotal: 99999,
+    lines: [line(31, 21, "Personnel", 8000, 0), line(32, 22, "Équipement", 91999, 900)] });
   const options = { onConventionChange(id) { options.selectedConventionId = id; render(container, data, options); } };
   render(container, data, options);
   assert.equal(container.querySelectorAll('[data-budget-horizontal="total:budgeted"]').length, 0);
@@ -99,7 +347,7 @@ test("multiple conventions require an explicit selection and preserve native-rad
   choices[1].focus(); choices[1].checked = true; choices[1].dispatch("change");
   assert.equal(options.selectedConventionId, 20);
   assert.equal(container.ownerDocument.activeElement.getAttribute("data-budget-convention-choice"), "20");
-  assert.equal(get(container, '[data-budget-horizontal="total:budgeted"]').getAttribute("data-budget-value"), "99999");
+  assert.equal(get(container, '[data-budget-horizontal="total:budgeted"]').getAttribute("data-budget-value"), "91999");
 });
 
 test("annual budgets retain future years and distinct repeated-year versions, sorted chronologically", () => {
@@ -120,7 +368,7 @@ test("annual three adjacent bars preserve overlaps and exact amounts rather than
   assert.match(container.textContent, /se chevauchent.*ne s’additionnent pas/);
   assert.match(container.textContent, /la consommation annuelle ci-dessous est facturée/i);
   const table = get(container, '[data-budget-details-panel="annual:26"]').querySelectorAll("table")[0];
-  assert.match(table.textContent, /6200 Personnel/); assert.doesNotMatch(table.textContent, /7000 Recettes/);
+  assert.match(table.textContent, /6124 Services/); assert.doesNotMatch(table.textContent, /7000 Recettes/);
   assert.match(get(container, "[data-budget-annual]").textContent, /Recettes séparées.*800 EUR/);
   assert.match(get(container, "[data-budget-annual]").textContent, /Total net Odoo.*[-−]200 EUR/);
 });
@@ -149,26 +397,26 @@ test("annual signed corrections, accessible zero and missing values have distinc
 
 test("partial or unavailable lifetime sources avoid fake known zero and label the subtotal", () => {
   const container = domFixture(), data = fixture(); data.lifetime.status = "partial"; data.lifetime.warnings = ["Source incomplète"];
-  render(container, data);
+  render(container, data, { showBwPersonnelCosts: true });
   assert.equal(container.querySelectorAll('[data-budget-horizontal="rubric:21:consumed"]').length, 0);
   assert.match(container.textContent, /Consommation connue · partielle/);
   assert.match(container.textContent, /Source incomplète/);
-  data.lifetime.status = "unavailable"; data.lifetime.consumed = null; render(container, data);
+  data.lifetime.status = "unavailable"; data.lifetime.consumed = null; render(container, data, { showBwPersonnelCosts: true });
   assert.equal(container.querySelectorAll('[data-budget-horizontal="total:consumed"]').length, 0);
   assert.equal(container.querySelectorAll("[data-budget-ratio]").length, 0);
 });
 
 test("different or unknown convention currency cannot imply a ratio or calculated balance", () => {
   const container = domFixture(), data = fixture(); data.lifetime.currencyId = 2; data.lifetime.currency = "USD";
-  render(container, data); assert.equal(container.querySelectorAll("[data-budget-ratio]").length, 0);
+  render(container, data, { showBwPersonnelCosts: true }); assert.equal(container.querySelectorAll("[data-budget-ratio]").length, 0);
   assert.match(container.textContent, /devises.*ne sont pas confirmées identiques/);
-  data.lifetime.currencyId = null; data.conventions[0].currencyId = null; render(container, data);
+  data.lifetime.currencyId = null; data.conventions[0].currencyId = null; render(container, data, { showBwPersonnelCosts: true });
   assert.equal(container.querySelectorAll("[data-budget-ratio]").length, 0);
 });
 
 test("macro-only fallback is explicit and never invents a budget when missing", () => {
   const container = domFixture(), data = fixture(); data.conventions = []; render(container, data);
-  assert.equal(get(container, '[data-budget-horizontal="total:budgeted"]').getAttribute("data-budget-value"), "12000");
+  assert.equal(get(container, '[data-budget-horizontal="total:budgeted"]').getAttribute("data-budget-value"), "7000");
   assert.match(container.textContent, /Aucune ligne de convention disponible dans cette lecture/);
   data.macro.conventionTotal = null; render(container, data);
   assert.equal(container.querySelectorAll("[data-budget-ratio]").length, 0);
@@ -176,7 +424,7 @@ test("macro-only fallback is explicit and never invents a budget when missing", 
 
 test("out-of-period and unvalued hours disclose source limits without adding estimated costs", () => {
   const container = domFixture(), data = fixture(); data.lifetime.zeroValuedHoursCount = 9;
-  data.lifetime.outOfPeriod.beforeStart = { count: 2, consumed: 300 }; render(container, data);
+  data.lifetime.outOfPeriod.beforeStart = { count: 2, consumed: 300 }; render(container, data, { showBwPersonnelCosts: true });
   assert.match(container.textContent, /2 avant le début.*300 EUR/);
   assert.match(container.textContent, /hors dates du projet, incluses dans le total/);
   assert.match(container.textContent, /9 écriture\(s\) d’heures sans coût monétaire enregistré/);
@@ -342,7 +590,7 @@ test("missing filtered measures, line IDs or entire exclusion DTO stay unavailab
   data.annual[0].ormitterExclusion = { status: "partial", consumed: 150, committed: null, lines: [], warnings: ["Engagement non vérifiable"] };
   render(container, data, { excludeOrmitterCosts: true });
   const card = get(container, "[data-budget-annual]");
-  assert.deepEqual(card.querySelectorAll("[data-budget-bar]").map(column => column.getAttribute("data-budget-value")), ["1000", "150", "unavailable"]);
+  assert.deepEqual(card.querySelectorAll("[data-budget-bar]").map(column => column.getAttribute("data-budget-value")), ["1000", "unavailable", "unavailable"]);
   assert.equal(effectiveAnnual(data.annual[0], true).lines[0].consumed, null);
   assert.match(card.textContent, /Engagement non vérifiable/);
   delete data.annual[0].ormitterExclusion; render(container, data, { excludeOrmitterCosts: true });
@@ -362,10 +610,10 @@ test("axis labels retain zero and avoid collisions for small credits without alt
 test("a convention line with unknown or different currency cannot acquire known-zero consumption", () => {
   const container = domFixture(), data = fixture();
   data.conventions[0].lines[0].currencyId = null; data.conventions[0].lines[0].currency = null;
-  render(container, data);
+  render(container, data, { showBwPersonnelCosts: true });
   assert.equal(container.querySelectorAll('[data-budget-horizontal="rubric:21:consumed"]').length, 0);
   assert.match(get(container, '[data-budget-details-panel="convention:10"]').textContent, /8[\s\u202f]?000 Devise inconnue/);
-  data.conventions[0].lines[0].currencyId = 2; data.conventions[0].lines[0].currency = "USD"; render(container, data);
+  data.conventions[0].lines[0].currencyId = 2; data.conventions[0].lines[0].currency = "USD"; render(container, data, { showBwPersonnelCosts: true });
   assert.equal(container.querySelectorAll('[data-budget-horizontal="rubric:21:consumed"]').length, 0);
 });
 

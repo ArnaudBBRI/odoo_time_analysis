@@ -121,6 +121,7 @@
 .project-budget-exclusion-toggle { display: inline-flex; align-items: center; gap: 8px; margin: 3px 0 8px; color: #4d7487; font-size: 11px; line-height: 1.6; cursor: pointer; }
 .project-budget-exclusion-toggle input { width: 15px; height: 15px; margin: 0; accent-color: #168eab; }
 .project-budget-exclusion-toggle input:focus-visible { outline: 2px solid #249cb2; outline-offset: 3px; }
+.project-budget-personnel-toggle { margin: 0 0 12px; }
 .project-budget-annual-fill { position: absolute; left: 0; right: 0; min-height: 0; border-radius: 5px 5px 0 0; transform-origin: center bottom; animation: project-budget-rise-in 1s cubic-bezier(0.22, 1, 0.36, 1) both; }
 .project-budget-annual-fill.is-budgeted { background: linear-gradient(0deg, #6da9c1, #c9e6ee); }
 .project-budget-annual-fill.is-consumed { background: linear-gradient(0deg, #05889c, #87d7d0); }

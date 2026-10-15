@@ -45,6 +45,160 @@ test("lifetime combines posted expenses and recorded Hours money once; credits, 
   assert.deepEqual(read.domain, [["account_id", "=", 110]]);
 });
 
+test("expense-only lifetime removes Hours costs from mixed exact rubrics without changing the full source", async () => {
+  const rpc = fixtureRpc();
+  rpc.source["account.analytic.line"][1].x_plan7_id = [901, "Services"];
+  const lifetime = (await load(rpc)).lifetime, expenses = lifetime.expensesOnly;
+  assert.equal(lifetime.consumed, 530); assert.equal(lifetime.personnelCost, 340);
+  assert.deepEqual(lifetime.byRubric, [{ categoryId: 901, category: "Services", consumed: 480 }]);
+  assert.equal(expenses.status, "available"); assert.equal(expenses.currencyId, 1); assert.equal(expenses.currency, "EUR");
+  assert.equal(expenses.consumed, 190); assert.equal(expenses.expenseCost, 190); assert.equal(expenses.personnelCost, 0);
+  assert.deepEqual(expenses.byRubric, [{ categoryId: 901, category: "Services", consumed: 180 }]);
+  assert.deepEqual(expenses.unmapped, [{ label: "Dépenses · rubrique non renseignée", consumed: 10 }]);
+  assert.equal(expenses.qualifyingRecordCount, 3); assert.equal(expenses.zeroValuedHoursCount, 0);
+  assert.deepEqual(expenses.outOfPeriod, { beforeStart: { count: 1, consumed: 10 }, afterEnd: { count: 0, consumed: 0 } });
+  assert.ok(!expenses.warnings.some(text => /coût enregistré nul/.test(text)));
+});
+
+test("expense-only lifetime retains Ormit and subcontracting invoices even with employee and Hours dimensions", async () => {
+  const rpc = supplierRpc();
+  rpc.source["account.analytic.line"][0].employee_id = [20, "Private person"];
+  rpc.source["account.analytic.line"][0].product_uom_id = [7, "Hours"];
+  const result = await load(rpc), lifetime = result.lifetime, expenses = lifetime.expensesOnly;
+  assert.equal(lifetime.consumed, 705); assert.equal(lifetime.personnelCost, 80);
+  assert.equal(expenses.status, "available"); assert.equal(expenses.consumed, 625);
+  assert.equal(expenses.expenseCost, 625); assert.equal(expenses.personnelCost, 0);
+  assert.equal(expenses.qualifyingRecordCount, 5);
+  assert.equal(annual(result).totals.consumed, 625); assert.equal(annual(result).ormitterExclusion.consumed, 150);
+  assert.doesNotMatch(JSON.stringify(expenses), /Private person|employee_id|Ormit|secret timesheet/);
+});
+
+test("excluded personnel currency and missing monetary costs cannot invalidate a verified expense basis", async () => {
+  for (const change of [row => { row.currency_id = [2, "USD"]; }, row => { row.currency_id = false; }, row => { row.amount = false; }]) {
+    const rpc = fixtureRpc(); change(rpc.source["account.analytic.line"][1]);
+    const lifetime = (await load(rpc)).lifetime, expenses = lifetime.expensesOnly;
+    assert.equal(lifetime.status, "partial"); assert.equal(expenses.status, "available");
+    assert.equal(expenses.currencyId, 1); assert.equal(expenses.consumed, 190);
+    assert.deepEqual(expenses.byRubric, [{ categoryId: 901, category: "Services", consumed: 180 }]);
+    assert.ok(!expenses.warnings.some(text => /devise|monétaire\(s\).*absents/.test(text)));
+  }
+});
+
+test("expense-only empty sources require verified monetary binding and preserve project currency", async () => {
+  for (const rows of [[], [analytic(2, { employee_id: [20, "Person"], product_uom_id: [7, "Hours"], amount: false, currency_id: false })]]) {
+    const rpc = fixtureRpc(); rpc.source["account.analytic.line"] = rows;
+    const expenses = (await load(rpc)).lifetime.expensesOnly;
+    assert.equal(expenses.status, "available"); assert.equal(expenses.currencyId, 1); assert.equal(expenses.consumed, 0);
+    assert.equal(expenses.expenseCost, 0); assert.equal(expenses.personnelCost, 0);
+    assert.deepEqual(expenses.byRubric, []); assert.deepEqual(expenses.unmapped, []);
+    delete rpc.definitions["account.analytic.line"].amount.currency_field;
+    const unknown = (await load(rpc)).lifetime.expensesOnly;
+    assert.equal(unknown.status, "partial"); assert.equal(unknown.consumed, null); assert.equal(unknown.currencyId, null);
+    assert.ok(unknown.warnings.some(text => /champ monétaire/.test(text)));
+  }
+});
+
+test("expense basis preserves genuine unknown classification, missing expense money and invalid source dates", async () => {
+  for (const row of [analytic(20, { account_type: "new_unknown_type", amount: -500 }),
+    analytic(21, { account_type: "expense", parent_state: "posted", amount: false }),
+    analytic(22, { employee_id: [20, "Person"], product_uom_id: [7, "Hours"], date: "2026-02-30", amount: -100 })]) {
+    const rpc = fixtureRpc(); rpc.source["account.analytic.line"].push(row);
+    const expenses = (await load(rpc)).lifetime.expensesOnly;
+    assert.equal(expenses.status, "partial"); assert.equal(expenses.consumed, 190); assert.ok(expenses.warnings.length);
+  }
+  const denied = fixtureRpc({ denied: "uom.uom" }), unknownHours = (await load(denied)).lifetime.expensesOnly;
+  assert.equal(unknownHours.status, "partial"); assert.equal(unknownHours.consumed, 190);
+  assert.ok(unknownHours.warnings.some(text => /classification/.test(text)));
+});
+
+test("expense basis never combines its own unknown currencies or invents entirely missing expense amounts", async () => {
+  for (const currency of [false, [2, "USD"]]) {
+    const rpc = fixtureRpc(); rpc.source["account.analytic.line"][0].currency_id = currency;
+    const expenses = (await load(rpc)).lifetime.expensesOnly;
+    assert.equal(expenses.status, "partial"); assert.equal(expenses.consumed, null); assert.equal(expenses.currencyId, null);
+    assert.deepEqual(expenses.byRubric, []);
+  }
+  const rpc = fixtureRpc(); rpc.source["account.analytic.line"] = [analytic(1, { amount: false, account_type: "expense", parent_state: "posted", x_plan7_id: [901, "Services"] })];
+  const expenses = (await load(rpc)).lifetime.expensesOnly;
+  assert.equal(expenses.status, "partial"); assert.equal(expenses.consumed, null); assert.equal(expenses.expenseCost, null);
+  assert.equal(expenses.byRubric[0].consumed, null);
+});
+
+test("inaccessible or shared lifetime sources also expose an unavailable expense-only projection", async () => {
+  for (const scenario of ["missing", "shared", "denied"]) {
+    const rpc = fixtureRpc(scenario === "denied" ? { failRead: "account.analytic.line" } : {});
+    if (scenario === "missing") rpc.source["project.project"][0].account_id = false;
+    if (scenario === "shared") rpc.source["project.project"][1].account_id = [110, "Shared"];
+    const expenses = (await load(rpc)).lifetime.expensesOnly;
+    assert.equal(expenses.status, "unavailable"); assert.equal(expenses.consumed, null); assert.equal(expenses.expenseCost, null);
+    assert.deepEqual(expenses.byRubric, []); assert.ok(expenses.warnings.length);
+    assert.doesNotMatch(JSON.stringify(expenses), /private-source-secret/);
+  }
+});
+
+test("personnel category markers use exact source labels rather than account-code assumptions", async () => {
+  for (const value of ["Frais de personnel", "  FRAIS  DE  PERSONNEL  BW ", "Personnel", "6200 · Personnel BW", "6000: Personnel", "BW personnel"])
+    assert.equal(service.isBwPersonnelCategory(value), true, value);
+  for (const value of ["6000 Equipment", "6200 Consultancy", "6139 External services", "6170 External staff", "Frais de personnel externes", "Ormit Talent"])
+    assert.equal(service.isBwPersonnelCategory(value), false, value);
+  for (const value of [null, undefined, false, "", "   "])
+    assert.equal(service.isBwPersonnelCategory(value), null);
+  const rpc = fixtureRpc(), result = await load(rpc);
+  assert.equal(result.conventions[0].lines.find(line => line.id === 52).isBwPersonnel, true);
+  assert.equal(result.conventions[0].lines.find(line => line.id === 51).isBwPersonnel, false);
+  assert.equal(result.annual[0].lines.find(line => line.id === 61).isBwPersonnel, true);
+  assert.equal(result.annual[1].lines.find(line => line.id === 71).isBwPersonnel, false);
+  rpc.source["budget.line"][0].x_plan7_id = false;
+  assert.equal((await load(rpc)).conventions[0].lines.find(line => line.id === 51).isBwPersonnel, null);
+  assert.ok(rpc.calls.every(call => ["fields_get", "search_read"].includes(call.method)));
+});
+
+test("contradictory expense identities keep both lifetime projections partial", async () => {
+  for (const change of [row => { row.amount = -999; }, row => { row.x_plan7_id = [999, "Other rubric"]; },
+    row => { row.account_type = "income"; }]) {
+    const rpc = fixtureRpc(), duplicate = { ...rpc.source["account.analytic.line"][0] };
+    change(duplicate); rpc.source["account.analytic.line"].push(duplicate);
+    const lifetime = (await load(rpc)).lifetime;
+    for (const projection of [lifetime, lifetime.expensesOnly]) {
+      assert.equal(projection.status, "partial");
+      assert.ok(projection.warnings.some(text => /valeurs contradictoires/.test(text)));
+    }
+  }
+});
+
+test("unverifiable current expense identities cannot establish a complete expense subtotal", async () => {
+  for (const entry of [analytic(null, { account_type: "expense", parent_state: "posted", amount: -700 }),
+    analytic(false, { account_type: "new_unknown_type", amount: -700 })]) {
+    const rpc = fixtureRpc(); rpc.source["account.analytic.line"].push(entry);
+    const lifetime = (await load(rpc)).lifetime;
+    assert.equal(lifetime.status, "partial"); assert.equal(lifetime.expensesOnly.status, "partial");
+    assert.equal(lifetime.expensesOnly.consumed, 190);
+    assert.ok(lifetime.expensesOnly.warnings.some(text => /identifiant vérifiable/.test(text)));
+  }
+});
+
+test("verified personnel-only identity gaps do not taint expense completeness", async () => {
+  for (const entry of [analytic(null, { employee_id: [20, "Person"], product_uom_id: [7, "Hours"], amount: -100 }),
+    { ...records["account.analytic.line"][1], amount: -900 }]) {
+    const rpc = fixtureRpc(); rpc.source["account.analytic.line"].push(entry);
+    const lifetime = (await load(rpc)).lifetime;
+    assert.equal(lifetime.status, "partial"); assert.equal(lifetime.expensesOnly.status, "available");
+    assert.equal(lifetime.expensesOnly.consumed, 190);
+    assert.ok(!lifetime.expensesOnly.warnings.some(text => /identifiant vérifiable|valeurs contradictoires/.test(text)));
+  }
+});
+
+test("irrelevant future and non-expense identity gaps do not taint current lifetime costs", async () => {
+  const rpc = fixtureRpc();
+  rpc.source["account.analytic.line"].push(analytic(null, { account_type: "expense", parent_state: "posted", date: "2026-12-01", amount: -700 }),
+    analytic(null, { account_type: "expense", parent_state: "draft", amount: -700 }),
+    analytic(null, { account_type: "income", parent_state: "posted", amount: -700 }),
+    { ...records["account.analytic.line"][4], amount: -999 });
+  const lifetime = (await load(rpc)).lifetime;
+  assert.equal(lifetime.status, "available"); assert.equal(lifetime.expensesOnly.status, "available");
+  assert.equal(lifetime.consumed, 530); assert.equal(lifetime.expensesOnly.consumed, 190);
+});
+
 test("unrelated malicious rows never alter parent, line, analytic or UOM scope", async () => {
   const rpc = fixtureRpc({ unscoped: {
     "project.project": [{ id: 99, name: "Foreign", account_id: [990, "Foreign"] }],

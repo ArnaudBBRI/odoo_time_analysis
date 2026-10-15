@@ -38,6 +38,12 @@ function totals(lines) {
   return Object.fromEntries(["budgeted", "consumed", "committed", "pending", "balance"].map(field => [field, sum(lines, field)]));
 }
 function unavailableTotals() { return Object.fromEntries(["budgeted", "consumed", "committed", "pending", "balance"].map(field => [field, null])); }
+function isBwPersonnelCategory(value) {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const name = value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim()
+    .replace(/^\d{4,6}\s*(?:[-:·]\s*)?/, "").replace(/\s+/g, " ").trim();
+  return new Set(["frais de personnel", "personnel", "frais de personnel bw", "personnel bw", "bw personnel", "bw frais de personnel"]).has(name);
+}
 
 function normalizeBudget(parent, parentDefs, rows, lineDefs, sourceAvailable) {
   const warnings = [], annual = parent.budget_template === "annual";
@@ -46,6 +52,7 @@ function normalizeBudget(parent, parentDefs, rows, lineDefs, sourceAvailable) {
   const categoryField = annual ? "x_plan8_id" : "x_plan7_id";
   const parentCurrency = currency(parent);
   const lines = owned.map(row => ({ id: row.id, categoryId: id(row[categoryField]), category: label(row[categoryField]) || "Rubrique non renseignée",
+    isBwPersonnel: isBwPersonnelCategory(label(row[categoryField])),
     startDate: ["date", "datetime"].includes(lineDefs.date_from?.type) ? date(row.date_from) : null,
     endDate: ["date", "datetime"].includes(lineDefs.date_to?.type) ? date(row.date_to) : null,
     accountCode: annual ? (label(row[categoryField]) || "").match(/^\s*(\d{4})\b/)?.[1] || null : null,
@@ -80,8 +87,9 @@ function normalizeBudget(parent, parentDefs, rows, lineDefs, sourceAvailable) {
 }
 
 function unavailableLifetime(reason) {
-  return { status: "unavailable", currencyId: null, currency: null, consumed: null, expenseCost: null, personnelCost: null, byRubric: [], unmapped: [],
-    qualifyingRecordCount: 0, zeroValuedHoursCount: 0, outOfPeriod: { beforeStart: { count: 0, consumed: null }, afterEnd: { count: 0, consumed: null } }, warnings: [reason] };
+  const projection = () => ({ status: "unavailable", currencyId: null, currency: null, consumed: null, expenseCost: null, personnelCost: null, byRubric: [], unmapped: [],
+    qualifyingRecordCount: 0, zeroValuedHoursCount: 0, outOfPeriod: { beforeStart: { count: 0, consumed: null }, afterEnd: { count: 0, consumed: null } }, warnings: [reason] });
+  return { ...projection(), expensesOnly: projection() };
 }
 
 function supplierNameMatches(value) {
@@ -291,9 +299,9 @@ function annualBillDetails(budget, line, rows, supplierNames, amountCurrencyFiel
   return { status: evidence.usable && gap !== null && Math.abs(gap) <= 0.05 ? "reconciled" : "partial", sourceConsumed, visibleConsumed, gap, items, warnings: [...new Set(warnings)] };
 }
 
-function aggregateLifetime(rows, project, today, hourUnitIds, sourceWarnings = [], amountCurrencyField = null) {
-  const warnings = [...sourceWarnings], qualifying = [], seen = new Set();
-  let unknownCount = 0, missingAmountCount = 0, invalidDateCount = 0, zeroValuedHoursCount = 0;
+function aggregateLifetime(rows, project, today, hourUnitIds, sourceWarnings = [], amountCurrencyField = null, expenseSourceWarnings = sourceWarnings) {
+  const qualifying = [], seen = new Set();
+  let unknownCount = 0, invalidDateCount = 0;
   for (const row of rows) {
     if (seen.has(row.id)) continue; seen.add(row.id);
     const recordDate = date(row.date);
@@ -312,38 +320,41 @@ function aggregateLifetime(rows, project, today, hourUnitIds, sourceWarnings = [
     // Monetary amount's own metadata identifies its currency. Move/invoice currency
     // fields must not replace that relation, even when they are populated.
     const amount = numeric(row.amount), rowCurrency = currency({ currency_id: amountCurrencyField ? row[amountCurrencyField] : null });
-    if (amount === null) missingAmountCount++;
-    if (kind === "personnel" && amount === 0) zeroValuedHoursCount++;
     qualifying.push({ kind, date: recordDate, cost: amount === null ? null : -amount, categoryId: id(row.x_plan7_id), category: label(row.x_plan7_id), ...rowCurrency });
   }
-  if (unknownCount) warnings.push(`${unknownCount} écriture(s) de classification ou statut inconnu sont exclues du sous-total connu.`);
-  if (missingAmountCount) warnings.push(`${missingAmountCount} coût(s) monétaire(s) sont absents ; le sous-total connu est partiel.`);
-  if (invalidDateCount) warnings.push(`${invalidDateCount} écriture(s) sans date exploitable sont exclues du sous-total connu.`);
-  if (zeroValuedHoursCount) warnings.push(`${zeroValuedHoursCount} écriture(s) d’heures ont un coût enregistré nul ; aucune estimation de taux n’est appliquée.`);
-  const knownCurrencies = [...new Set(qualifying.map(row => row.currencyId).filter(value => value !== null))];
-  const compatible = amountCurrencyField !== null && qualifying.every(row => row.currencyId !== null) && knownCurrencies.length <= 1;
-  if (!compatible) warnings.push("Les coûts qualifiés ont des devises absentes ou différentes ; aucun total combiné n’est calculé.");
-  const fallback = { currencyId: project.currencyId || null, currency: project.currency || null };
-  const moneyCurrency = knownCurrencies.length === 1 ? qualifying.find(row => row.currencyId === knownCurrencies[0]) : fallback;
-  const cost = list => !compatible || list.length > 0 && !list.some(row => row.cost !== null) ? null : money(list.filter(row => row.cost !== null).reduce((total, row) => total + row.cost, 0));
-  const buckets = new Map();
-  for (const row of qualifying) {
-    const mapped = row.categoryId !== null;
-    const key = mapped ? `rubric:${row.categoryId}` : row.kind;
-    if (!buckets.has(key)) buckets.set(key, { categoryId: mapped ? row.categoryId : null, category: mapped ? row.category || `Rubrique ${row.categoryId}` : null,
-      label: row.kind === "personnel" ? "Coût des heures · rubrique non renseignée" : "Dépenses · rubrique non renseignée", rows: [] });
-    buckets.get(key).rows.push(row);
-  }
   const start = date(project.startDate), end = date(project.endDate);
-  const before = start ? qualifying.filter(row => row.date < start) : [], after = end ? qualifying.filter(row => row.date > end) : [];
-  if (!start || !end || start > end) warnings.push("Les dates du projet ne permettent pas de contrôler les écritures hors période ; les coûts à ce jour restent inclus.");
-  if (before.length || after.length) warnings.push("Les coûts enregistrés avant le début ou après la fin du projet restent inclus et sont signalés séparément.");
-  return { status: !compatible || unknownCount || missingAmountCount || invalidDateCount || sourceWarnings.length ? "partial" : "available",
-    currencyId: compatible ? moneyCurrency.currencyId : null, currency: compatible ? moneyCurrency.currency : null,
-    consumed: cost(qualifying), expenseCost: cost(qualifying.filter(row => row.kind === "expense")), personnelCost: cost(qualifying.filter(row => row.kind === "personnel")),
-    byRubric: compatible ? [...buckets.values()].filter(bucket => bucket.categoryId !== null).map(bucket => ({ categoryId: bucket.categoryId, category: bucket.category, consumed: cost(bucket.rows) })) : [],
-    unmapped: compatible ? [...buckets.values()].filter(bucket => bucket.categoryId === null).map(bucket => ({ label: bucket.label, consumed: cost(bucket.rows) })) : [],
-    qualifyingRecordCount: qualifying.length, zeroValuedHoursCount, outOfPeriod: { beforeStart: { count: before.length, consumed: start ? cost(before) : null }, afterEnd: { count: after.length, consumed: end ? cost(after) : null } }, warnings };
+  function projection(selectedRows, selectedWarnings) {
+    const warnings = [...selectedWarnings], missingAmountCount = selectedRows.filter(row => row.cost === null).length;
+    const zeroValuedHoursCount = selectedRows.filter(row => row.kind === "personnel" && row.cost === 0).length;
+    if (unknownCount) warnings.push(`${unknownCount} écriture(s) de classification ou statut inconnu sont exclues du sous-total connu.`);
+    if (missingAmountCount) warnings.push(`${missingAmountCount} coût(s) monétaire(s) sont absents ; le sous-total connu est partiel.`);
+    if (invalidDateCount) warnings.push(`${invalidDateCount} écriture(s) sans date exploitable sont exclues du sous-total connu.`);
+    if (zeroValuedHoursCount) warnings.push(`${zeroValuedHoursCount} écriture(s) d’heures ont un coût enregistré nul ; aucune estimation de taux n’est appliquée.`);
+    const knownCurrencies = [...new Set(selectedRows.map(row => row.currencyId).filter(value => value !== null))];
+    const compatible = amountCurrencyField !== null && selectedRows.every(row => row.currencyId !== null) && knownCurrencies.length <= 1;
+    if (!compatible) warnings.push("Les coûts qualifiés ont des devises absentes ou différentes ; aucun total combiné n’est calculé.");
+    const fallback = { currencyId: project.currencyId || null, currency: project.currency || null };
+    const moneyCurrency = knownCurrencies.length === 1 ? selectedRows.find(row => row.currencyId === knownCurrencies[0]) : fallback;
+    const cost = list => !compatible || list.length > 0 && !list.some(row => row.cost !== null) ? null : money(list.filter(row => row.cost !== null).reduce((total, row) => total + row.cost, 0));
+    const buckets = new Map();
+    for (const row of selectedRows) {
+      const mapped = row.categoryId !== null;
+      const key = mapped ? `rubric:${row.categoryId}` : row.kind;
+      if (!buckets.has(key)) buckets.set(key, { categoryId: mapped ? row.categoryId : null, category: mapped ? row.category || `Rubrique ${row.categoryId}` : null,
+        label: row.kind === "personnel" ? "Coût des heures · rubrique non renseignée" : "Dépenses · rubrique non renseignée", rows: [] });
+      buckets.get(key).rows.push(row);
+    }
+    const before = start ? selectedRows.filter(row => row.date < start) : [], after = end ? selectedRows.filter(row => row.date > end) : [];
+    if (!start || !end || start > end) warnings.push("Les dates du projet ne permettent pas de contrôler les écritures hors période ; les coûts à ce jour restent inclus.");
+    if (before.length || after.length) warnings.push("Les coûts enregistrés avant le début ou après la fin du projet restent inclus et sont signalés séparément.");
+    return { status: !compatible || unknownCount || missingAmountCount || invalidDateCount || selectedWarnings.length ? "partial" : "available",
+      currencyId: compatible ? moneyCurrency.currencyId : null, currency: compatible ? moneyCurrency.currency : null,
+      consumed: cost(selectedRows), expenseCost: cost(selectedRows.filter(row => row.kind === "expense")), personnelCost: cost(selectedRows.filter(row => row.kind === "personnel")),
+      byRubric: compatible ? [...buckets.values()].filter(bucket => bucket.categoryId !== null).map(bucket => ({ categoryId: bucket.categoryId, category: bucket.category, consumed: cost(bucket.rows) })) : [],
+      unmapped: compatible ? [...buckets.values()].filter(bucket => bucket.categoryId === null).map(bucket => ({ label: bucket.label, consumed: cost(bucket.rows) })) : [],
+      qualifyingRecordCount: selectedRows.length, zeroValuedHoursCount, outOfPeriod: { beforeStart: { count: before.length, consumed: start ? cost(before) : null }, afterEnd: { count: after.length, consumed: end ? cost(after) : null } }, warnings };
+  }
+  return { ...projection(qualifying, sourceWarnings), expensesOnly: projection(qualifying.filter(row => row.kind === "expense"), expenseSourceWarnings) };
 }
 
 async function load(projectId, rpc, now = new Date()) {
@@ -438,19 +449,31 @@ async function load(projectId, rpc, now = new Date()) {
       const sourceIssues = [], billSourceIssues = [];
       if (!relation(defs.x_plan8_id, "account.analytic.account") || !relation(defs.partner_id, "res.partner")) sourceIssues.push("Les catégories annuelles ou fournisseurs des écritures ne sont pas vérifiables.");
       if (!relation(defs.x_plan8_id, "account.analytic.account")) billSourceIssues.push("Les catégories annuelles des écritures ne sont pas vérifiables.");
-      const signatures = new Map();
+      const signatures = new Map(), lifetimeSignatures = new Map(), lifetimeIdentityProblems = [];
       for (const row of raw.filter(row => id(row.account_id) === accountId && (!id(row.project_id) || id(row.project_id) === projectId))) {
-        if (!id(row.id)) { const warning = "Une écriture annuelle n’a pas d’identifiant vérifiable ; sa liste et son exclusion restent indisponibles."; sourceIssues.push(warning); billSourceIssues.push(warning); }
+        if (!id(row.id)) {
+          const warning = "Une écriture annuelle n’a pas d’identifiant vérifiable ; sa liste et son exclusion restent indisponibles.";
+          sourceIssues.push(warning); billSourceIssues.push(warning);
+          lifetimeIdentityProblems.push({ rows: [row], warning: "Une écriture de coût n’a pas d’identifiant vérifiable ; le sous-total connu est partiel." });
+        }
         const signature = JSON.stringify([row.date, row.amount, row.account_type, row.parent_state, id(row.x_plan8_id), id(row.partner_id), id(row.employee_id), id(row.product_uom_id), id(row.move_id), id(row.move_line_id), amountCurrencyField ? id(row[amountCurrencyField]) : null]);
         if (signatures.has(row.id) && signatures.get(row.id) !== signature) { const warning = "Une écriture annuelle a des valeurs contradictoires ; sa liste et son exclusion restent indisponibles."; sourceIssues.push(warning); billSourceIssues.push(warning); }
         signatures.set(row.id, signature);
+        const lifetimeSignature = JSON.stringify([row.date, row.amount, row.account_type, row.parent_state, id(row.x_plan7_id), id(row.employee_id), id(row.product_uom_id), id(row.move_id), id(row.move_line_id), amountCurrencyField ? id(row[amountCurrencyField]) : null]);
+        const previous = lifetimeSignatures.get(row.id);
+        if (previous && previous.signature !== lifetimeSignature) lifetimeIdentityProblems.push({ rows: [previous.row, row],
+          warning: "Une écriture de coût a des valeurs contradictoires ; le sous-total connu est partiel." });
+        lifetimeSignatures.set(row.id, { signature: lifetimeSignature, row });
       }
       const supplierNames = await suppliers(rows.filter(row => EXPENSE_TYPES.has(row.account_type) && row.parent_state === "posted").map(row => id(row.partner_id)), rpc, fields);
       const categories = new Set(annual.flatMap(budget => budget.lines.filter(line => /^6/.test(line.accountCode || "")).map(line => line.categoryId).filter(value => value !== null)));
       const evidence = annual.length ? await purchaseEvidence(accountId, categories, rpc, fields) : { available: false, blockAll: false, blockedCategories: new Set(), warnings: [] };
       const units = [...new Set(rows.filter(row => date(row.date) && date(row.date) <= today && id(row.employee_id) !== null && !row.account_type && !id(row.move_id) && !id(row.move_line_id)).map(row => id(row.product_uom_id)).filter(value => value !== null))];
-      const hourUnitIds = new Set(), lifetimeWarnings = [];
-      if (!amountCurrencyField) lifetimeWarnings.push("La devise liée au champ monétaire amount n’est pas vérifiable ; aucun total combiné n’est calculé.");
+      const hourUnitIds = new Set(), lifetimeWarnings = [], expenseWarnings = [];
+      if (!amountCurrencyField) {
+        const warning = "La devise liée au champ monétaire amount n’est pas vérifiable ; aucun total combiné n’est calculé.";
+        lifetimeWarnings.push(warning); expenseWarnings.push(warning);
+      }
       const movementDimensions = relation(defs.move_id, "account.move") && relation(defs.move_line_id, "account.move.line");
       if (!movementDimensions) lifetimeWarnings.push("Les liens comptables ne sont pas vérifiables ; les heures ne sont pas assimilées à des coûts de personnel.");
       if (units.length && movementDimensions) {
@@ -468,15 +491,28 @@ async function load(projectId, rpc, now = new Date()) {
         } catch (_) { lifetimeWarnings.push("Les unités d’heures ne sont pas vérifiables ; les coûts de personnel restent partiels."); }
       }
       if (!relation(defs.employee_id, "hr.employee") || !relation(defs.product_uom_id, "uom.uom")) lifetimeWarnings.push("Les dimensions personnel/unité sont indisponibles ; la couverture des coûts de personnel est inconnue.");
+      for (const problem of lifetimeIdentityProblems) {
+        const relevant = problem.rows.filter(row => {
+          const recordDate = date(row.date);
+          if (recordDate && recordDate > today || NON_EXPENSE_TYPES.has(row.account_type)) return false;
+          if (EXPENSE_TYPES.has(row.account_type) && ["draft", "cancel", "removed"].includes(row.parent_state)) return false;
+          return EXPENSE_TYPES.has(row.account_type) || numeric(row.amount) !== 0;
+        });
+        if (!relevant.length) continue;
+        lifetimeWarnings.push(problem.warning);
+        const personnelOnly = movementDimensions && relevant.every(row => !row.account_type && !id(row.move_id) && !id(row.move_line_id)
+          && id(row.employee_id) !== null && hourUnitIds.has(id(row.product_uom_id)));
+        if (!personnelOnly) expenseWarnings.push(problem.warning);
+      }
       const descriptions = amountCurrencyField && !billSourceIssues.length ? await billDescriptions(annual, rows, accountId, projectId, defs, rpc, amountCurrencyField) : { values: new Map(), warnings: [] };
       for (const budget of annual) {
         budget.ormitterExclusion = annualExclusion(budget, rows, supplierNames, amountCurrencyField, evidence, sourceIssues, hourUnitIds);
         for (const line of budget.lines.filter(item => /^6/.test(item.accountCode || ""))) line.billDetails = annualBillDetails(budget, line, rows, supplierNames, amountCurrencyField, descriptions, billSourceIssues, hourUnitIds);
       }
-      lifetime = aggregateLifetime(rows, { ...project, ...projectCurrency }, today, hourUnitIds, lifetimeWarnings, amountCurrencyField);
+      lifetime = aggregateLifetime(rows, { ...project, ...projectCurrency }, today, hourUnitIds, lifetimeWarnings, amountCurrencyField, expenseWarnings);
     } catch (_) { lifetime = unavailableLifetime("Les coûts analytiques sont indisponibles ou le compte est partagé entre plusieurs projets ; aucun total non filtré n’est utilisé."); }
   }
   return { ok: true, project, asOf: now.toISOString(), macro, conventions, annual, lifetime, warnings };
 }
 
-module.exports = { load, normalizeBudget, aggregateLifetime, brusselsDate, annualExclusion };
+module.exports = { load, normalizeBudget, aggregateLifetime, brusselsDate, annualExclusion, isBwPersonnelCategory };
