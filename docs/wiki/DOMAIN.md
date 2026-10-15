@@ -15,11 +15,25 @@
 
 `personal-time.js` aggregates by stable project ID, retaining signed actual
 credits. Only projects with nonzero planned hours or nonzero actual hours
-through today in selected years appear in the macro and its legend. Zero-hour
+through today in the selected scope appear in the macro and its legend. Zero-hour
 records, future-only actuals and totals cancelling to zero do not establish
 activity; duplicate names gain an ID suffix. Planning is prorated by slot
 duration over each selected UTC calendar year, including disjoint years without
-filling their gaps. Available year enumeration is capped at 150.
+filling their gaps. A custom scope instead uses inclusive Brussels start/end
+dates: actuals follow those calendar dates through Brussels today, and planning
+uses exact elapsed-time overlap between Brussels midnights, including the full
+end date. A DST day contributes 23 or 25 elapsed hours to a continuous slot's
+overlap fraction.
+Available year enumeration is capped at 150. `PersonalTime.normalizeScope`
+accepts iterable years or `{startDate, endDate}` and rejects incomplete,
+invalid or reversed custom ranges.
+
+The sticky scope bar places **Période personnalisée** at the far right. Its two
+native calendar fields apply automatically when both dates are valid; an
+incomplete/invalid edit leaves the previous valid scope active with a short
+message. Year chips are unpressed while a custom range is active. Clicking a
+year selects that year and restores year mode; **Revenir aux années** restores
+the remembered year selection. The scope is kept only in browser memory.
 
 Positive planned hours determine sector angles. Every sector has the same outer
 radius, starts at the center, and has no donut hole. Colored area equals the
@@ -27,7 +41,7 @@ clamped actual/planned ratio; its radius is the square root of that ratio.
 Overruns/negative actuals retain signed numeric evidence while geometry remains
 within the planned disk. Unknown/zero plans remain in the legend without a
 sector when actual hours are nonzero. Project colors remain unique and stable across local hide/show and year
-changes; hiding projects recalculates the visible planned shares.
+or date-range changes; hiding projects recalculates the visible planned shares.
 
 The legend shows positive planned totals first, then separate unknown-planning
 and planning-correction groups, with **Hors planning** last below a horizontal
@@ -35,17 +49,186 @@ divider. This final group contains known nonpositive plans with nonzero signed
 actual hours. Its subtotal includes only shown projects, consistently with the
 top metrics; unknown plans are never classified as unplanned. French name/ID
 ordering applies within each group, independently of visibility.
+The **Mes projets** legend mirrors overrun labels with a neutral
+**Plus que x h prévues disponibles d’ici au [date]** badge when both values are
+known and actual hours are below a positive full-period plan. Its deadline is
+the selected period's inclusive end, independently of project-date clipping.
+Hidden entries retain this detail; signed credits retain their separate
+correction notice. The badge does not compare actuals with the calendar ring's
+elapsed expectation.
 The calendar reference ring uses Brussels today as a date-only ordinal. Its
 fraction is selected days before today divided by total selected days minus
-one, clamped to [0, 1]; this anchors the first 1 January at the center and the
-last 31 December at the rim. Leap days count and unselected gaps do not advance
+one, clamped to [0, 1]; this anchors the first selected date at the center and the
+last selected date at the rim. A one-day range is complete on that day.
+Leap days count and unselected gaps do not advance
 the reference. Ring radius is the square root of that fraction times the pie
 radius. It is a uniform calendar reference, independent of planning-slot dates
 and hidden projects, drawn outside hover transforms with no pointer capture.
 
+## Personal work capacity and total planning
+
+Between recommendations and the pie, **Capacité de travail et planning** shows
+three scoped metric cards: **Heures de travail disponibles**, **Heures totales
+planifiées** and **Pourcentage des heures planifiées**, in that order. Total
+planning uses all successfully loaded own scoped slots
+over the complete selected years or custom date range, including future
+allocations and hidden pie projects. It is not cut off at today's date.
+Failed/unknown planning remains unknown.
+Year mode preserves the existing UTC slot allocation; custom dates preserve
+the existing inclusive Brussels overlap calculation.
+
+The third card shows **100 × planned / available** for that same scope, using
+the same large value typography as the other cards. Below 85%, the value and
+note are orange; the note explains that full planning is not required but the
+low ratio should be checked with the Unit Manager. From 85% through 100%, the
+note explains that normal headroom includes illness absences. Above 100%, the
+value and note are orange with **Vous êtes planifié au-delà de 100%. A clarifier
+avec votre Unit Manager**. The notes use the user's supplied French wording.
+Only machine-roundoff tolerance applies at either boundary. If decimal
+formatting would hide a real threshold crossing, the rate reads **< 85 %**
+or **> 100 %**. Signed corrections and rates above 100% are preserved.
+Unavailable/loading/failed data or a nonpositive denominator shows
+**Indisponible**, with a neutral explanation rather than either advice note
+or a false low-coverage warning. Estimated
+capacity retains its existing estimate disclosure and can supply the rate.
+
+Available work is the attendance calendar's scheduled hours minus intersecting
+global holidays/collective closures and the new year's approved paid leave
+entitlements. Work intervals and closure intervals are unioned, so overlaps and
+holidays on nonworking days are not double-counted. Calendar timezone, dated
+attendance and Odoo's Gregorian ordinal alternating-week parity are respected.
+Employee-linked calendar absences and `hr.leave` requests are excluded; the
+measure does not change with submitted/taken leave. It excludes unpaid grants,
+prior-year carryover and unconfirmed/nonannual categories. The current source
+policy recognizes annual, personal compensatory and seniority categories
+(confirmed types 1/3/17); the category names are read in their canonical locale.
+Paid accrual allocations and incomplete source evidence cannot fabricate zero
+entitlement or a complete capacity.
+
+This entitlement-based measure is distinct from scheduling availability after
+registered personal calendar absences. The production source excludes those
+resource-linked closure rows; adding them while also subtracting annual rights
+would double-count absence and change the capacity definition.
+
+Part-time is already represented by the employee's attendance hours; the
+work-time percentage is descriptive and is never multiplied a second time.
+The currently readable calendar is the schedule basis. Using it for another
+year is marked estimated; employment dates or historical contract changes are
+not inferred from that current calendar.
+
+A successful empty future collective-calendar read uses the current year's
+net available day/hour count, explicitly estimated, without recomputing that
+future year's weekday count. With a published future calendar but missing new
+annual rights, current-year rights are reused with an estimate note. Denied or
+invalid evidence never triggers these missing-data fallbacks. Partial custom
+ranges allocate annual rights by their fraction of gross scheduled working
+hours, explicitly estimated; noncontiguous years are summed separately. If any
+selected year's capacity is unknown, the combined capacity stays unknown.
+
+A native **Voir le calcul par année** disclosure exposes scoped scheduled,
+closure, entitlement and available hours, with full-year reference notes and
+estimate reasons. Its open/focus state survives rendering. The cards remain
+compact, use three equal columns on desktop and become one column on phones.
+
+## Personal pace recommendations
+
+**Recommandations pour respecter le planning 2026 (interpolation linéaire)** appears
+above the Mon temps pie with four ordered columns: **Arrêter (ou clarifier)** in red,
+**Ralentir** in orange, **Augmenter** in green and **Continuer** in black. It uses every scoped personal
+project, independently of pie-legend hiding. A native 0–100% tolerance slider
+defaults to 15% and updates only the recommendation view in page memory.
+The heading names the selected years in ascending order, or the French start/end
+dates of a custom range. It updates in place while retaining the slider and focus.
+
+Scoped planning is allocated separately to each calendar-year portion using
+the same slot-duration contract as the macro: UTC boundaries for year mode,
+Brussels midnight boundaries for a custom range. Each amount is then spread
+linearly over that portion's intersection with the project's inclusive dates.
+Expected hours are the sum of these allocation-weighted fractions through
+inclusive Brussels today. This avoids weighting unplanned prior-year days as
+equivalent to a funded year. The macro ring retains its separate first/last-day
+visual anchors; it is not this allocation-weighted pace measure.
+
+Actuals retain the original scoped through-today totals, including corrections
+outside project dates. Variance is actual minus expected; its percentage is
+defined only when expected is positive. Variance above the positive tolerance
+band yields Ralentir, below the negative band Augmenter, and the inclusive band
+Continuer. Orange/green entries show the signed hour gap and a maximum/target
+weekly average, ending at the last selected date within the project. Weekly
+hours equal `max(scoped planned - actual, 0) * 7 / remaining selected days`.
+Those days are strictly after today, clipped to project dates and exclude
+unselected-year gaps. This is a calendar average, not working-day capacity.
+Continuer normally shows project names only. Arrêter takes exclusive priority
+over all three tolerance categories whenever any confirmed condition applies:
+
+- The project's valid end date is on or before Brussels today. An absent start
+  date does not invalidate known expiry; known reversed dates do.
+- Complete readable personal planning contains no positive allocation from
+  Brussels midnight today through the inclusive project end. This inspects all
+  cached accessible personal slots, including unselected years, independently
+  of interpolation. A current-day or tiny positive allocation prevents this
+  reason. Missing, failed, partial or uncertain future planning cannot establish
+  absence; this check applies only from project start through its final day.
+- Known project-wide employee hours since project start through today meet or
+  exceed a known positive **Budget personnel BW** convention-hour allowance.
+  This is a lifetime, all-employees comparison excluding confirmed Ormitters,
+  independent of the user's scoped personal planning and monetary budgets.
+
+Stop rows show only the short project name and applicable short labels:
+**Projet terminé**, **Non planifié** and **Budget BW consommé**, joined inline
+when several apply. Dates, the signed pace gap or its unavailable explanation,
+and lifetime convention/consumption details remain in the native tooltip and
+accessibility description. There is no weekly target or conflicting increase
+advice. A known stop reason survives unavailable personal interpolation without
+fabricated zero. Only personally active projects in the selected
+scope enter the view; these checks do not add out-of-scope or zero-activity
+projects. Stop conditions are independent of the tolerance slider.
+Arrêter, Ralentir and Augmenter order entries by descending absolute known
+hour variance, then French short-title/ID ties; unavailable Arrêter gaps follow
+known ones. Continuer retains the normal title ordering.
+Category headings are 15px, weight 800, with a two-pixel underline in each
+category's color. The macro card uses its available content width, with natural
+wrapping and the existing stacked phone layout.
+
+Unknown/negative planning, negative net actuals, invalid dates, unverified
+annual allocation or nonzero planning with no project-date overlap have no
+quantified pace advice; native expandable reasons identify affected projects
+without an independently known stop condition.
+Future/inactive periods are disclosed, while ended periods and already-booked
+pre-start work have no future weekly target. Known zero planning with positive
+actuals is explicit **Hors planning** with a finite signed gap, undefined
+percentage and zero remaining-hour allowance when active. Source values stay
+unchanged. The range input retains focus across updates, has a label/value and
+percentage accessibility text, and announces category counts politely. The
+four columns become two from 761px through 1050px and one at 760px or below.
+
+Optional personnel-budget evidence uses the exact numeric
+`project.project.budget_staffing_convention_hours` field. The backend reads
+employee-linked `account.analytic.line.unit_amount` only for involved exact
+project IDs with positive readable budgets and valid starts, including archived
+records. Returned lines are checked against each project's start and inclusive
+Brussels today; post-end charges remain included. Nonemployee analytic costs
+are outside this hours cohort. Strict typed private/public HR function evidence
+excludes AI Consultant/AI Consultant Ormit; unknown or malformed classification,
+duplicate source IDs, denied reads or malformed relevant amounts/dates leave
+the affected aggregate unavailable. Signed corrections and compensated sums
+retain source precision for exhaustion comparison. Only scalar totals/statuses
+reach the personal catalogue; colleague rows and identities stay server-side.
+This comparison covers accessible records, not proof that permission-hidden
+records do not exist. Missing/empty/nonpositive convention hours cannot establish
+budget exhaustion, and optional failure preserves personal timesheets/planning.
+
 ## Personal project browser
 
-**Projets** uses the same personal summary and selected years as the macro,
+The personal horizontal comparison and pie-legend below-plan badges explicitly show
+`scoped planned - scoped actual` as available planned hours through the end
+of the selected period. Its deadline is the inclusive custom-range end or
+December 31 of the latest selected year, even when project dates clip the
+graph's calendar reference. An invalid scope retains an explicit unavailable
+date. This balance differs from the recommendations' expected-to-date gap;
+project-wide and lifetime convention badges preserve their own references.
+
+**Projets** uses the same personal summary and normalized scope as the macro,
 independently of its hidden legend IDs. Only positive Odoo project IDs with
 nonzero scoped planning or actuals enter the alphabetical native radio grid.
 Manager metadata comes from the involved project's `user_id` relation to
@@ -70,30 +253,52 @@ local per project and does not alter personal or legacy inclusion controls.
 Unavailable assignment/function metadata produces a project
 warning; unconfirmed presence does not enable inclusion.
 
-In the first two pairs, plans cover full selected UTC calendar years; actuals
-retain signed credits through inclusive Brussels today. `barGeometry` maps positive planned totals
+In the first two pairs, plans cover the selected years or inclusive custom
+period, using the same slot overlap calculation as the macro; actuals
+retain signed credits through inclusive Brussels today. Their headings name
+the period directly, for example **Mes heures en 2026** or **Mes heures du
+1er août 2026 au 31 décembre 2026**, rather than relying on a small subtitle.
+The own-hour pair is hidden only when both scoped planned and actual hours are
+confirmed numeric zero. Missing/unknown values, signed corrections and any
+nonzero value retain it; project/lifetime comparisons and history remain visible.
+`barGeometry` maps positive planned totals
 to 75% width, actuals to `clamp(75 * actual / planned, 0, 100)` percent, and the
 date tick to `75 * calendarFraction` percent. The fraction counts only selected
 calendar days within the inclusive project start/end dates, excluding unselected
 years and pre-start/post-end days. A December 2025 start adds only December to
 the reference when 2025 is selected. Effective dates are shown; invalid/missing
 project dates or an empty intersection omit the tick with an unavailable notice.
-Recorded scoped hours retain their original selected-year totals. The tick is linear rather than
+Custom scopes use the same project-date intersection for their reference.
+Recorded scoped hours retain their original selected-period totals. The tick is linear rather than
 the macro ring's square-root radius. Actuals beyond four-thirds of plan keep
-their numeric total with a capped-bar badge. Zero planning with positive
+their numeric total with a capped-bar badge. A smaller known actual total in
+the personal pair shows **Plus que x h prévues disponibles d’ici au [date]**;
+the all-employees pair retains **−x h en-dessous du prévu**. Both compare with
+the full displayed planned total, not the linear expectation at the date tick.
+Equal, zero or unavailable plans do not create a shortfall badge. The lifetime pair uses **en-dessous de la
+convention** against its own positive reference. Zero planning with positive
 actuals uses a full **Hors planning** bar and no date tick. Unknown planning or
 negative plans have no positive comparison scale; negative actuals draw no
 positive fill while retaining their signed number. **Mon temps · 02 / Suivi
 par projet** remains hidden in the personal view.
+
+Only the personal actual bar colors its interval beyond the today reference
+orange and its interval beyond the full scoped planned total red. Earlier
+actual hours keep the normal gradient. All segments retain gradients and the
+shared fill reveal, with a **Surpointage** callout above a nonempty warning
+range. A missing today reference cannot create an orange threshold; a known
+full-plan overrun can still be red. Positive actuals with known zero planning
+remain **Hors planning**, drawn red. Project-wide and lifetime contributor bars
+retain their existing colors and gradients.
 
 The third pair uses the exact project's numeric
 `project.project.budget_staffing_convention_hours` field as **Budget personnel BW**
 convention hours. Its decimal-hour scalar retains source precision; translated
 or English labels do not select the field, and displayed hour/minute strings are
 not parsed. Monetary/other fields and staffing/planning totals are not substitutes. Its caption shows
-the project's full start/end dates and **hors filtre d’années**. Actuals retain
+the project's full start/end dates and **hors période sélectionnée**. Actuals retain
 only dates inclusively within that interval and through Brussels today,
-independently of selected years. Missing, invalid or reversed dates make these
+independently of selected years or a custom range. Missing, invalid or reversed dates make these
 actuals unavailable; there is no full-history fallback. A positive convention
 uses the same 75% baseline/capped actual geometry, with a separate linear
 `75 * calendarFraction` tick across the project interval.
@@ -107,14 +312,121 @@ explicitly labelled **Répartition du réalisé · sans échelle conventionnelle
 There is no convention scale or date tick in this case. Signed values and
 unavailable actuals remain explicit.
 
+**Convention et planning** above the bars has four large cards, independent of
+year/custom-date scope and the graphs' Ormitter checkbox. All four exclude known
+Ormitter records; unknown functions remain with an exclusion-coverage notice.
+The cards show:
+
+- Positive **Budget personnel BW** convention hours. A readable nonpositive
+  value is **Non renseigné**, while unavailable data stays unavailable.
+- Recorded signed actual hours from project start through inclusive Brussels
+  today. This **depuis le début du projet** measure includes post-end charges;
+  the existing lifetime bar retains its separate project-end cutoff. Known
+  actuals survive unavailable planning or project-end metadata.
+- Remaining planned hours, including collective TH hours, from tomorrow's
+  Brussels midnight through the inclusive project-end calendar date. The TH
+  portion is emphasized separately in orange/bold, with partial/unavailable
+  attribution disclosed rather than invented zero hours and an italic
+  **À partir du…** start-date note.
+- Signed projected excess/shortfall against the convention:
+  `recorded actual + remaining planned (TH included) - convention`. Positive
+  values say **planifiées en trop par rapport à la convention**, negative
+  **en moins par rapport à la convention**; unavailable inputs cannot
+  produce a projection. Differences within 0.005h display as balanced zero,
+  without changing calculation precision.
+
+The circled **i** beside the heading exposes the projection formula, future
+coverage warnings, TH/resource disclosures and other source notes in a popup.
+It supports hover, keyboard focus, click/touch and Escape while retaining
+interactive native details and their open/focus state. The project period and
+captions inside the cards remain visible.
+
+Below the cards, two signed pointage comparisons use actuals through inclusive
+Brussels today: versus planning due through today, prorated directly from dated
+slots within project dates, and versus convention hours interpolated by elapsed
+inclusive project days. TH stays in the planning reference and known Ormitters
+stay excluded, independently of graph filters. These comparisons are distinct
+from projected end-of-project excess; each reference has an independent
+availability status. Actual corrections and post-end actuals retain their
+existing signed behavior; unknown planning or convention cannot produce a
+fabricated shortfall.
+
+Future allocation uses exact elapsed-time overlap between Brussels midnights,
+with the original UTC source-slot duration as denominator. Its lower bound is
+the later of tomorrow and project start; its upper bound is midnight after
+project end. DST changes retain their 23/25-hour durations, and no final-day
+UTC tail creates future hours after the last project calendar date. A known
+closed project has zero future hours even when historical planning is denied.
+Signed allocations are retained; unknown/invalid applicable data is not clamped
+into a reassuring amount. Projection assumes the remaining plan is consumed,
+including positions still to fill; it is not an extrapolation of historical pace.
+The grid has four columns, then two up to 1000px and one up to 520px, with large
+values, rounded pale cards and orange excess styling. Card minimum heights are
+182.4px on desktop, 160px at the two-column breakpoint and 148px on phones,
+20% below their previous sizes. Reduced spacing preserves the existing font
+sizes; long captions can expand naturally without clipping.
+
+**TH** means a collective source resource with a readable, unique exact-ID name
+beginning `TH_` (case-insensitive, with a nonempty suffix). Its technical HR link
+may be empty or point to an employee; that link does not establish a real person.
+The marker takes precedence over a positive original slot employee ID and
+produces a `to-hire` snapshot. Missing/denied/duplicate resource names leave TH
+and person attribution unknown for resource-linked slots rather than proving
+zero TH hours. A literal label supplied by the browser is never source evidence.
+
+Technical `linkStatus`/`employeeId` remain separate from `isToHire`. The service
+accepts only approved employee relations and exact involved resource/employee
+IDs. On the inspected schema, `resource.resource.employee_id` is one-to-many to
+`hr.employee`: an empty typed list proves no technical link, one unique ID can
+prove a link, and multiple/malformed/contradictory IDs leave that link unknown.
+Readable non-TH names and valid exact ownership can establish person snapshots;
+an empty employee search alone cannot establish an unlinked resource. Immutable
+snapshots precede legacy employee/function enrichment. The earlier requirement
+that TH have an empty HR relation was superseded by linked collective source
+evidence.
+This identity rule affects the planning-information block; raw allocations,
+actuals and the existing hour-chart calculations are preserved.
+
+The future planning/projection cards keep TH hours included; the emphasized TH
+share identifies **postes à pourvoir**, rather than subtracting them from the
+projection. Native disclosures still identify the source TH resources/hours and
+confirmed unlinked non-TH resources separately; **Ressources TH · durée totale
+du projet** explicitly names that disclosure's full-life scope. The older full-life total and
+confirmed-only minus-TH helper fields retain their existing source calculation;
+they are no longer the macro cards' main metrics.
+
+Future coverage asks whether at least one confirmed person has positive planned
+hours touching each Brussels calendar day from today (or a later project start)
+through project end. It merges day intervals, so separate shifts do not invent
+overnight gaps; weekends and holidays are not excluded. TH and confirmed
+unlinked non-TH resources do not cover a person-day. Unknown identities prevent
+definite claims
+where they could fill a gap. Relevant negative/null person or unknown allocations
+make coverage indeterminate even when positive allocations otherwise cover all
+days, because corrections may cancel that evidence. Dates/amounts are never
+repaired into complete coverage. Ended projects have no future period to cover.
+Only continuous gaps lasting at least one calendar month become alerts. The
+threshold is the gap-start date advanced one month with its day clamped to that
+month's length, compared with the gap's exclusive end; it is not a fixed 30 days.
+Short gaps remain distinct from complete coverage and produce no alert, so a
+single final day such as eXtRAI's May 31 does not raise a month-long warning.
+Confirmed substantial gaps expose inclusive dates/calendar-day counts directly
+and in native details. Open state and keyboard focus survive redraws.
+
 **Projets · 02 — Évolution mensuelle** stacks actual employee hours in colored
 areas with a thicker signed net-total line. Positive and negative contributions
 stack separately above and below zero, preserving signed corrections. The
 timeline starts at the project start and ends at Brussels today, without
-selected-year filtering. Actuals after the project end remain included.
+selected-year or custom-date filtering. Actuals after the project end remain included.
 Employee identity/color is shared with the bars; known Ormitters use the same
 default-off inclusion choice. Zero months remain visible, and the current month
 is partial.
+
+A solid red **Planning daté** line overlays the actual chart, using the same
+employee cohort or selected employee, actual chart month bins and current-day
+cutoff. Allocations follow their source slot dates and UTC duration/month
+overlap; this is distinct from either existing dotted linear reference.
+Unavailable planning leaves actual history readable and does not draw zero.
 
 The adjacent **Par mois / Cumulé** control defaults to monthly values and retains
 each project's choice for the session. Cumulative mode takes prefix sums of the
@@ -137,8 +449,23 @@ dates or identity. Month details/table follow the selected employee; clicking
 the name again or **Tous les employés** restores all contributors. Per-project
 selection is cleared when its contributor becomes unavailable or is excluded.
 
+**Projets · 03 / Planning mensuel · durée du projet** stacks scheduled hours by
+employee/resource over the full inclusive project dates, including future
+months and planning-only people. It shares the monthly/cumulative and Ormitter
+preferences with actual history, but keeps its own employee/resource selection.
+Colors use the same exact identity keys as the bars. Confirmed TH, unlinked and
+unknown resources retain distinct, explicitly labelled buckets; source identity
+ambiguity cannot borrow another employee's hours. Positive/negative allocations
+stack separately, zero months remain, and cumulative totals reconcile with
+monthly sums. Valid empty planning is zero; failed/malformed sources are
+unavailable. Dates are bounded before constructing the series.
+
+Both monthly charts have separate SVG/radio/tooltip IDs, open-table/focus state
+and reveal/lifecycle keys, so rendering or leaving the view cleans each chart's
+observers and document handlers independently.
+
 All areas and lines share a one-second reveal on first display and each mode,
-employee selection or Ormitter inclusion switch. Year changes, resizing and
+employee selection or Ormitter inclusion switch. Scope changes, resizing and
 unchanged rerenders do not replay it; reduced-motion preference displays the final chart immediately.
 
 Project actuals are grouped by exact employee ID, otherwise resource ID, with an
@@ -158,16 +485,214 @@ Visible bar fills animate together from the left over one second on render,
 without changing their final hour-based widths or the date tick. A reduced-motion
 preference displays the final bars immediately.
 
+## Project budget cost bases
+
+The finance response preserves a full lifetime consumption basis and a separate
+`lifetime.expensesOnly` basis. Both use signed recorded costs through Brussels
+today, exact project/analytic-account identity and the monetary amount's verified
+currency relation. The expense-only basis includes posted expense entries and
+excludes only verified employee Hours costs classified as personnel. An invoice
+does not become personnel cost because it also carries an employee or hour unit;
+Ormit and other subcontractor invoices remain expenses. This monetary choice
+does not change the project's employee-hour graphs or estimate monetary rates.
+
+Each budget line's `isBwPersonnel` marker uses its normalized source category
+label, including an optional display code. Exact recognized personnel labels
+produce true, readable other labels false, and missing labels null. Account
+codes, employee names and broad occurrences of the word personnel do not prove
+BW personnel identity; external-staff categories are not inferred to be BW costs.
+
+**Afficher les coûts de personnel BW** starts unchecked in **Budget · 01 /
+Convention**. The default consumption total and horizontal actual bars use the
+expense-only basis. The compared **Budget conventionnel** also excludes signed
+confirmed personnel allocations from the selected convention; the ratio and
+calculated balance use this matching reference. Exact unique line identities,
+known classifications and amounts, and compatible confirmed currency are
+required, and the summed line allocations must match the selected budget total.
+When no convention is available, the macro-only reference deducts its
+known monetary personnel budget from its known convention total. Unverifiable
+filtered budgets remain unavailable rather than implying zero personnel.
+Confirmed personnel rubric comparisons are hidden; surviving posted expenses
+with the same rubric ID remain separate expense detail, without restoring that
+personnel budget comparison. Checking the control restores the full budget,
+cost basis and personnel rubrics. Original source values and macro cards retain
+both the convention and personnel budgets in both states. Missing expense-only
+data is unavailable rather than silently displaying full costs.
+
+**Budget · 02 / Budgets annuels** always excludes confirmed BW personnel
+categories from compared budgeted, billed and committed totals, thin code bars
+and expense details, independently of the checkbox. The annual scope note states
+this explicitly. Readable other categories and unknown labels remain; source
+parent net/reconciliation evidence stays separate. The existing unchecked Ormit
+supplier-cost exclusion still applies independently to all annual periods.
+Both choices are remembered per project, leave hours/year/date controls
+independent and recalculate from cached data without another request.
+
+## Unité DiCo catalogue and calendar
+
+The **Unité DiCo** tab uses the project's responsible department, exactly
+`hr.department` ID `206`, **RESEARCH & DEVELOPMENT / DIGITAL CONSTRUCTION UNIT**.
+The fixed technical relation is `project.project.lead_unit_id`, validated as
+many-to-one `hr.department`; labels and alternative unit fields do not select
+the source.
+It includes accessible archived and zero-hour projects independently of the
+connected person's employee hours or planning. Normalized exact **Interne** and
+**Overhead** names, including a displayed numeric project-code prefix, are
+excluded; unrelated names containing those words remain projects.
+
+`UnitDico.normalizeProjects` validates positive exact project IDs, deduplicates
+them and sorts the compact manager-radio grid by French project name. Photos
+remain optional validated raster data URLs with initials fallbacks. Project-ID
+colors stay stable across ordering and selection and identify Unit avatar
+borders and duration bars.
+
+Both grids use flip cards in place of sibling blur. Fronts have the project
+manager portrait and a bold short project title on white with black type and a
+moving `#00bfb6` border. The short title is the first nonnumeric bracketed acronym
+from `project.name`, without its brackets. A source numeric project code of at
+least five digits comes from a bracketed or leading token. The white back shows
+the number without brackets beside a mini portrait, then the short title, manager
+name and smaller italic full title with a two-line ellipsis. Its subtly floating
+turquoise `#00bfb6`, blue `#0087b7` and yellow `#ffce00` colors sit behind a
+translucent white content panel. No additional decorative icon is rendered.
+
+Without an acronym, the remaining text becomes the bold title and its duplicate
+italic row is empty. A missing code stays empty; the Odoo record ID is never
+substituted. Original source case and the complete name remain available in
+tooltips and the native radio label. Both portraits reuse existing bounded
+raster-photo metadata and broken-image initials, without another read. Missing
+manager data displays **Responsable indisponible**.
+
+Source start/end dates and the complete convention macro budget
+(`total_budget_convention`), including personnel, remain in the outer native
+tooltip and accessible description rather than visible back rows. Scoped years
+and the budget-panel personnel choice do not alter this scalar. Unknown
+dates/amounts remain **Indisponible**, while known amounts with unknown currency
+disclose it. Hover or keyboard focus reveals the back and starts its background
+motion. Touch/no-hover devices show both faces at twice the card height; reduced
+motion removes all card animation and the rotation transition. Unit cards have
+a fixed 112px height; personal cards have a fixed 190px height, or 180px at phone
+width. Bounded faces and ellipsis prevent long names from changing sibling sizes.
+Both faces stay decorative; the native radio retains its full project name,
+selection and single accessible metadata description.
+
+`UnitDico.buildTimeline` uses date-only `startDate` / `endDate` endpoints and
+inclusive calendar-day geometry. A valid end date in year 2999 excludes that
+project from calendar rows and both axis bounds, but preserves its radio choice.
+An entirely excluded catalogue displays an explicit empty-calendar message.
+Its axis runs from the earliest readable start
+to the latest readable end across projects with non-reversed dates, including
+individually readable endpoints of incomplete periods. A fully dated project
+gets one colored bar; same-day projects occupy one day. Missing, invalid or
+reversed periods remain in the selector and calendar list with an explicit
+notice and no invented duration. If the endpoints cannot define a coherent
+axis, the scale stays unavailable. Ongoing/unknown-end rows precede completed
+rows; within each group, start date sorts first with unknown starts last, then
+French name and exact ID. Compact 25px rows show one-line names; full names and dates
+remain in button tooltips and accessible labels.
+
+The current Europe/Brussels calendar day determines completion and the dotted
+black today reference. A valid, non-reversed end strictly before today greys
+the bar and row dot; a project ending today retains its stable project color.
+Completion does not recolor the selector cards. The today position uses the same
+inclusive day denominator as bar starts and is omitted outside the original
+axis bounds, with an explicit caption instead of extending the project scale.
+Each untransformed duration button is observed independently; its decorative
+inner fill animates from left to right for 0.5 seconds on first intersection
+within that render. Reduced motion or unavailable observers show full bars.
+Each fill uses a pronounced left-to-right linear gradient: a 50% white overlay
+at its start, the source color at the midpoint and a 30% black overlay at its end.
+This shared style also applies to completed bars over their grey base.
+
+Unit and selected-programme overviews add **Projets simultanés** below the
+calendar. `UnitDico.buildConcurrency` measures the **maximum actually simultaneous
+projects within each calendar month**, rather than counting every project that
+touches that month. Start dates add one and the day after an inclusive end removes
+one; grouped same-day changes prevent artificial intermediate peaks. Only complete,
+valid project intervals contribute, using the calendar's existing catalogue,
+Interne/Overhead and year-2999 exclusions, bounds, ticks and today reference.
+Missing/reversed periods disclose partial coverage. Individually readable endpoints
+can still extend the shared scale, but never create a counted project interval.
+Zero-gap months remain present; future months and whole project lives are retained
+independently of personal scope. With no complete interval or coherent scale, the
+count remains unavailable instead of becoming an all-zero series. More than 2,400
+calendar months is explicitly unavailable, without substituting a coarser grain.
+
+The monthly step area and line use a zero baseline and integer count ticks,
+exposing exact values through hover/focus/tap month controls and an expandable
+table. Left/right arrows and
+Home/End move through months; Escape dismisses the tooltip. Matching gutters and
+linked horizontal scrolling keep the area chart aligned with the lifetime calendar.
+
+The personal **Projets** overview reuses this calendar below its radio grid.
+Its membership follows the same nonzero planned/actual year/custom-date scope
+as those choices; the displayed durations and axis retain full project dates.
+Optional exact-ID catalogue metadata supplies those endpoints. Missing dates
+preserve the project and hours, with the same explicit no-duration notice.
+Name/bar selection enters the existing Hours/Budget view, and leaving the
+overview releases its observer. Unit DiCo membership remains scope-independent.
+
+The overview covers whole project lives independently of year chips or the
+custom personal date range. The time axis adapts its month/year tick interval
+to the span, and dense/mobile timelines scroll inside their container with
+sticky names. Radio tiles, row names and duration bars open the existing
+project detail; project selection is separate from personal grid membership.
+
+## Programme selector
+
+The separate **Programmes** dashboard tab has three fixed identities, independent
+of accessible projects, personal year/custom-date scope and legacy steering
+configuration:
+
+| Programme | Subtitle | Canonical / French catchphrase | Responsible person |
+| --- | --- | --- | --- |
+| DC1 | Backbone | To Structure / Structurer | Pauline Dewez |
+| DC2 | Insight | To Act / Agir | Timothée Lonfils |
+| DC3 | Manufacturing | To Make / Fabriquer | François Denis |
+
+Its larger radio cards reuse the white animated project-card faces. French
+catchphrases appear in the badge, tooltip and accessible description while
+canonical definitions, names and DC identities stay intact. Fronts show
+only the responsible portrait/initials and DC code; backs show the catchphrase
+badge beside a mini portrait, then code, responsible name and italic one-line
+subtitle. They contain no invented project dates or budget metadata. Cards have
+a fixed 230px height in three columns, or 210px in one column up to 700px wide,
+with the shared touch/no-hover and reduced-motion rules.
+
+Fixed names/text stay available while optional portraits load or fail.
+User-record visibility, missing metadata and ambiguous exact-name matches can
+leave initials; the programme itself remains selectable. Selection remembers
+the canonical DC identity in page memory and loads its separate project
+catalogue. The three programme cards remain visible above either the selected
+programme's compact project choices/calendar/concurrency or its Hours/Budget
+project detail. Back restores the programme overview below those same cards.
+
+Programme membership is the dashboard's fixed user-supplied business-code list
+in [programme-service.js](../../programme-service.js): 10 DC1, 8 DC2 and 5 DC3
+references. It is independent of department 206, employee involvement, dates
+and inferred Odoo programme fields. Exact accessible source matches determine
+displayed projects; absent or ambiguous references are disclosed without
+invented rows. The count badge compares displayed matches with the expected
+reference count. The confirmed **in-beTwin** business code is `56261849`.
+Programme project lives use the same compact cards, complete-date scale,
+completed-last grey gradients, today marker, half-second reveals and monthly
+maximum overlap as Unit DiCo. Interne/Overhead and chart-only year-2999
+exclusions remain shared. Programme changes replace every lower section and
+clear the programme project selection; cached data may be reused. A project
+choice/name/bar opens the shared Hours/Budget detail; Back restores the
+programme project radio. These choices and catalogues remain separate from
+personal/Unit selections and the older configured steering portfolio.
+
 ## DiCo steering
 
-The DiCo steering views introduce cumulative project-authoritative actuals, convention envelopes, programme assignments and reconciled financial/people/WP diagnostics. The main Projets tab uses the personal browser without requiring DiCo configuration; programme/unit and leader/contributor shortcuts retain the separate internal steering portfolio. See [steering measures](PILOTAGE.md#measures-and-controls).
+The DiCo steering views introduce cumulative project-authoritative actuals, convention envelopes, programme assignments and reconciled financial/people/WP diagnostics. Projets, Unité DiCo and the fixed Programmes selector are available without steering configuration. The older portfolio retains its unit and leader/contributor views and programme-assignment calculations. See [steering measures](PILOTAGE.md#measures-and-controls).
 
 ## Refresh
 
-- Last refreshed: 2026-10-09
-- Source basis: personal-time.js, project-monthly.js, project-browser.js, index.html personal/lifetime scope/rendering and chart controls, steering-client.js navigation and server.js identity/contributor/assignment/convention/date metadata/month allocation.
+- Last refreshed: 2026-10-15
+- Source basis: personal-time.js, personal-time.css, tests/personal-recommendations.test.js, tests/personal-personnel-budget.test.js, project-planning-service.js, project-planning.js, tests/project-planning.test.js, project-card.js/css, programme-browser.js/css, programme-service.js, unit-dico-service.js, unit-dico.js/css, project-monthly.js, project-browser.js/css, project-budget.js, project-finance-service.js, index.html personal/lifetime/planning/programme scope/rendering and chart controls, steering-client.js navigation and server.js identity/contributor/assignment/convention/date/programme metadata/month allocation.
 - Limitations: business meanings and completeness of supplied exports were not validated.
 
 ## Hours and project detail behavior retained from main
 
-Date-level actual/foreseen comparisons use selected years and the Brussels day boundary; planning allocation uses Odoo UTC month boundaries. Signed actual credits are retained. The primary Mon temps view includes the signed-in person's hours regardless of employee function and hides the scope/inclusion switches. Legacy imports and unit loaders retain consultant classification and their Me/Whole Project controls; a connected-unit portfolio uses Whole Project scope, with Me disabled to avoid treating every contributor as the signed-in person. Project budget, task/WP and milestone evidence is shared project data.
+Date-level actual/foreseen comparisons use selected years and the Brussels day boundary; planning allocation uses Odoo UTC month boundaries. Signed actual credits are retained. The primary Mon temps view includes the signed-in person's hours regardless of employee function and hides the Me/Whole Project and legacy Ormitter switches. Legacy imports and unit loaders retain consultant classification and their Me/Whole Project controls; a connected-unit portfolio uses Whole Project scope, with Me disabled to avoid treating every contributor as the signed-in person. Project budget, task/WP and milestone evidence is shared project data.

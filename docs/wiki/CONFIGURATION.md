@@ -8,8 +8,9 @@ Copy [config.example.json](../../config.example.json) to private config.local.js
 - database: Odoo database, default buildwiseprd.
 
 Manual login accepts email/password; the client cannot select another instance.
-The optional **Use config file** action reads `username` and `apiKey` (alias
-`api_key`) from this private file and signs in as that configured account.
+The optional **Utiliser le fichier de configuration** action reads `username`
+and `apiKey` (alias `api_key`) from this private file and signs in as that
+configured account.
 Both fields are required for this action; empty example values keep it
 unconfigured. The token is retained exactly, including surrounding whitespace.
 The session stores the chosen URL/database and authenticated credentials.
@@ -57,7 +58,7 @@ Only login.html, index.html and assets/buildwise-logo.svg are served by the appl
 
 ## Refresh
 
-- Last refreshed: 2026-10-08
+- Last refreshed: 2026-10-11
 - Source basis: server.js, login.html, config.example.json, Docker/config files and tests/auth.test.js.
 - Limitations: real Buildwise credentials, proxy/TLS deployment and Docker runtime were not verified.
 

@@ -38,11 +38,13 @@ The server resolves exact `user_id` relations on accessible private/public
 employee records and their resources, including archived links; an exact
 `resource.resource.user_id` relation is a fallback. It reads only those own
 timesheets/planning records across accessible projects, including all personal
-roles. No Lead Unit resolution is required; project membership is derived from
+roles. Optional personnel-budget enrichment separately reads project-wide
+employee time for the same involved project IDs and returns aggregate evidence
+only. No Lead Unit resolution is required; project membership is derived from
 these own records rather than a broad catalogue query.
 
 The successful response contains `ok`, `uid`, `employee: {ids, resourceIds,
-name}`, `projects: [{id, name, manager}]`, `timesheets`, `planning` and `planningError`.
+name}`, `projects: [{id, name, manager, startDate, endDate, totalBudget, personnelBudget}]`, `timesheets`, `planning` and `planningError`.
 Timesheets include raw `lines` (`projectId`, `project`, `date`, `hours`), monthly
 summaries, counts and totals. Planning includes raw `slots` (`projectId`,
 `project`, UTC `start`/`end`, `hours`) and corresponding summaries. Direct
@@ -50,6 +52,46 @@ project relations and `task.project_id` are supported. Duplicate project names
 gain an ID suffix consistently in the catalogue and records.
 
 Each project's optional `manager` is `null` or `{id, name, photoDataUrl}`.
+Optional `startDate` / `endDate` are strict ISO dates or `null`, sourced only
+from metadata-confirmed `project.project.date_start` / `date`. A batched read
+uses exact involved IDs with archived projects enabled. Denied combined date
+reads retry each confirmed field independently; only requested successful
+columns and exact returned IDs are projected. Missing metadata or dates cannot
+remove projects or fail their hours/planning response.
+
+The optional personal catalogue `personnelBudget` object contains:
+
+- `status`: `available`, `empty` or `unavailable` for the convention hours.
+- `conventionHours`: positive finite source-precision hours or `null`, from
+  metadata-confirmed numeric `budget_staffing_convention_hours` only.
+- `actualHours`: finite signed project-wide employee hours from project start
+  through inclusive Brussels today, excluding known Ormitters, or `null`.
+- `actualStatus`: `available` or `unavailable`; unknown is never encoded as zero.
+
+Only involved exact positive project IDs with known positive allowances and
+valid starts enter the batched paginated analytic-line read. The domain and
+postfilters require employee links, per-project starts and today's upper bound;
+post-end charges remain included. Known future starts prove zero consumption.
+Strict typed HR job title/job relation reads use exact employee IDs, with private
+then public fallback. Unknown classification, duplicate/malformed relevant
+records or unavailable source/HR reads keep affected actuals unavailable.
+Nonemployee analytic expenses are outside this hours comparison. The backend
+retains signed corrections and precision; no colleague rows, names or employee
+IDs are added to the response. Missing/nonpositive budgets are empty or unknown
+and do not authorize an exhaustion conclusion. This optional evidence is bound
+to the existing session account's readable records; failures preserve own
+hours, planning and existing catalogue metadata.
+
+Both personal and Unit DiCo catalogue projects also expose optional
+`totalBudget: {amount, currencyId, currency}`. Its finite numeric amount comes
+only from metadata-confirmed `total_budget_convention` (float/integer/monetary),
+including personnel. Currency uses only confirmed `currency_id` related to
+`res.currency`; a conflicting monetary `currency_field` leaves currency unknown.
+Zeros/signed values retain source precision; missing/invalid/unreadable fields
+remain null. Batched reads and independent amount/currency recovery project only
+exact catalogue IDs and successful requested columns; Unit DiCo additionally
+retains department 206 in the query and postfilter. These are scalar project
+macro reads, without annual budgets, expense records or hour-budget substitutes.
 Metadata reads are limited to exact involved project IDs and the manager IDs
 returned by a metadata-confirmed `project.project.user_id` relation to
 `res.users`. Names and `image_128` are optional; only validated bounded
@@ -59,9 +101,44 @@ reuses this response; selection loads classified project hours separately.
 
 Unresolved own identity returns 422; unavailable actuals return 502. Planning
 failure returns 200 with actuals retained, `planning: null` and a generic
-`planningError`. Queries and returned records are scoped by exact own IDs;
-there is no unfiltered fallback. The browser applies the selected-year and
+`planningError`. Personal timesheet/planning queries and returned records are
+scoped by exact own IDs;
+there is no unfiltered fallback. Optional personnel evidence adds only exact
+involved-project reads and cannot broaden the catalogue. The browser applies the selected-year and
 Brussels today cutoff for the macro; this route retains raw record dates.
+
+## Connected person's work capacity
+
+`POST /api/odoo/my-work-capacity` accepts `{years: [2026, 2027]}`: 1–30 integer
+years between 1900 and 2200. A session is required. Invalid input returns 400,
+other methods 405, and a changed/invalid reauthenticated UID returns 401 before
+any HR reads. Caller employee, resource, calendar and connector overrides are
+ignored. The existing exact-UID employee resolution supplies the service scope.
+
+The optional response contains `ok`, `referenceYear`, `status`, `schedule`,
+`years` and sanitized warning codes. Schedule includes timezone, daily/weekly
+hours, work-time rate, alternating-week mode, current `basisYear` and bounded
+attendance intervals. Annual rows contain public-closure intervals, confirmed
+paid entitlement days/hours, and separate calendar/entitlement statuses:
+`available`, `missing` (unpublished future data), or `unavailable` (denied,
+ambiguous or malformed evidence). The current Brussels year is always read as
+the future estimate reference. Multiple own HR identities remain unavailable,
+preventing double-counted entitlements.
+
+Only `fields_get` and paginated `search_read` are used, through the unchanged
+read-only guard. Typed own calendars/resources, compatible company-wide or
+calendar-specific global closures (`resource_id = false`, `time_type = leave`)
+and approved own allocations are read. No leave requests, consumed/remaining
+balances, payroll or mutation/accrual-processing methods are queried. Paid
+categories 1/3/17 require their canonical names and absence type to be confirmed;
+their exact category lookup uses `lang: en_US`. Unpaid and other categories are
+excluded with warnings. Prior-year grants are not new annual rights. Paid
+accrual grants cannot establish a complete annual entitlement and remain
+unavailable. Missing/denied source components preserve the other components;
+the optional endpoint cannot prevent existing personal time from loading.
+
+The browser calculates annual/custom capacity with `WorkCapacity.summarize`;
+the route does not accept caller-defined entitlement or part-time values.
 
 ## Selected project hours
 
@@ -82,6 +159,37 @@ employés (hors Ormitters)** locally. The browser excludes known consultants by
 default, discloses included unknown functions, and applies selected-year/Brussels-date
 calculations; server full-history totals are not the displayed scoped totals.
 
+Planning additionally exposes optional resource identity evidence:
+
+- `planning.resources`: `{id, name, employeeId, linkStatus, isToHire}` records.
+  `name` and `employeeId` may be `null`; `linkStatus` is `linked`, `unlinked` or
+  `unknown`, and `isToHire` is `true`, `false` or `null`.
+- Each raw slot has `planningIdentity: {status, employeeId}`. Status is
+  `person`, `to-hire`, `unlinked` or `unknown`; only a confirmed person has a
+  positive employee ID. This snapshot precedes legacy employee/function
+  enrichment and must govern person/TH coverage even if that later lookup
+  populates a resource-only slot's top-level `employeeId`.
+
+`project-planning-service.js` scopes optional reads to the exact project's slot
+resource IDs. Approved employee relation names/types, exact resource ownership
+and original explicit slot owners establish technical links without matching
+person names. A unique readable exact-resource name independently identifies a
+collective placeholder through a case-insensitive `TH_` prefix with a nonempty
+suffix. `isToHire: true` and a `to-hire` slot snapshot take precedence over a
+positive employee link; the technical DTO link is retained. Missing/denied or
+duplicate resource-name evidence leaves resource-linked slot attribution unknown.
+On the inspected schema, `resource.resource.employee_id` is one-to-many to
+`hr.employee`; an empty typed list proves no technical linked employee, one
+unique ID can prove an owner, and multiple/malformed/conflicting IDs remain
+unknown. Optional names and links recover independently; an unreadable HR link
+does not discard a verified TH marker. An empty employee search alone cannot
+prove an unlinked resource. Source denials preserve planning amounts; explicit
+employee evidence with no source resource remains usable. No broad fallback query or
+Odoo write is added. These fields support local full-life planning/TH metrics
+and calendar-day coverage without a separate planning-information endpoint.
+The whole-service failure fallback follows the same rule: resource-linked slot
+identities stay unknown, while valid resource-free explicit person IDs survive.
+
 Each contributor has `employeeId`, `resourceIds`, `name`, `photoDataUrl` and
 `isSubcontractor`. Optional names/photos are read only for exact IDs found in
 project records or confirmed assignments, using `hr.employee` / `hr.employee.public`
@@ -100,6 +208,14 @@ in the selected-year project pair and lifetime actual records in the convention
 pair, without changing the personal comparison or making another request. Contributor
 actuals are grouped and rendered locally as positive stacks or a signed net
 breakdown when negative corrections exist.
+
+The browser also derives the four **Convention et planning** macro cards from
+this same cached response: convention, recorded actuals since project start
+through today, future planning with TH included, and projected excess/shortfall.
+Those derived cards exclude known Ormitters independently of the graph checkbox
+and selected years/dates. Their Brussels tomorrow-to-project-end planning and
+calendar-month gap logic are client calculations, not new API response fields
+or a separate source request. See [project macro measures](DOMAIN.md).
 
 `lifetime` contains `{conventionHours, conventionField, conventionStatus,
 startDate, endDate}`. The server uses only the confirmed technical field
@@ -135,6 +251,108 @@ actual reads 502. Planning failure returns 200 with actuals retained,
 guards are shared with other protected routes. The browser caches the response
 by project ID; years and inclusion recalculate locally, while refresh/retry can
 reload it.
+
+## Unité DiCo projects
+
+`POST /api/odoo/unit-dico-projects` uses JSON `{}` and the authenticated session
+identity. Caller credentials, department IDs, project fields, domains and date
+filters cannot change its fixed catalogue. It first requires
+`project.project.lead_unit_id` metadata to be a many-to-one relation to
+`hr.department`, then queries exactly `lead_unit_id = 206` with
+`active_test: false`. Translated labels and similarly named fields are not
+substitutes. The server postfilters returned rows by that exact department and
+positive project ID, deduplicates IDs and excludes normalized exact Interne /
+Overhead names, including a displayed numeric-code prefix.
+
+The successful response is `{ok, unit, responsibleField, projects, warnings,
+asOf}`. `unit` contains the fixed ID `206` and **RESEARCH & DEVELOPMENT / DIGITAL
+CONSTRUCTION UNIT**; `responsibleField` is `lead_unit_id`. Each project has
+`{id, name, startDate, endDate, manager, totalBudget}`. Accessible archived and zero-hour
+projects remain included without employee-membership or year/date restrictions.
+Dates use only metadata-confirmed `date_start` / `date` fields and become
+`YYYY-MM-DD` or `null`. Optional field denial retains readable core identities
+and recovers each date independently with exact catalogue IDs and the same unit
+domain; missing, invalid and reversed periods produce warnings rather than
+invented dates. A verified empty source returns an empty project array.
+
+Optional manager enrichment reuses the exact project/user-ID metadata and bounded
+raster-photo checks described for personal projects. Unavailable manager data
+keeps the project and yields initials fallbacks. Catalogue reads do not fetch
+project hours or finances; selecting a project separately reuses the existing
+exact-project detail routes.
+
+Anonymous calls return 401, unsupported methods 405, invalid JSON 400 and
+critical metadata/catalogue failures a sanitized 502. Authentication/origin
+guards and the read-only RPC allowlist remain shared. The service is independent
+of the connected-person Lead Unit portfolio and disabled configurable DiCo
+steering; source record rules still govern accessible membership.
+
+## Fixed programme catalogue
+
+`POST /api/odoo/programmes-catalogue` requires an authenticated session and
+exactly JSON `{}`. It rejects additional fields or non-object input with 400
+before RPC, including caller names, models, credentials, domains and date scope.
+The session account is reauthenticated; a changed/rejected UID returns 401
+before any user metadata or portrait read. Standard method/origin guards return
+405/403, and authentication/transport faults have sanitized responses.
+
+The successful response is `{ok: true, programmes: [...]}` with exactly these
+fixed rows:
+
+| id / code / name | subtitle | catchphrase | manager.name |
+| --- | --- | --- | --- |
+| DC1 | Backbone | To Structure | Pauline Dewez |
+| DC2 | Insight | To Act | Timothée Lonfils |
+| DC3 | Manufacturing | To Make | François Denis |
+
+Each `manager` also contains `id` (positive integer or `null`) and
+`photoDataUrl` (bounded validated PNG/JPEG/WebP data URL or `null`). Optional
+enrichment confirms `res.users.id`/`name` metadata, queries fixed whole-name
+`=ilike` variants in normal/reversed order with accent folding and archived
+users enabled, then requires a unique exact normalized identity. A separate
+photo query uses only resolved user IDs and confirmed binary `image_128`, with
+exact-ID/name/duplicate checks before safe decoding. Ambiguous names, denied
+metadata or unavailable images retain all three definitions and initials;
+optional-source failures return a successful fixed catalogue. Record rules
+remain those of the current session. No project, employee, planning or financial
+records are queried, and legacy steering configuration/year scope do not affect
+these definitions. Unexpected endpoint failures outside optional portrait
+enrichment return a generic 502 rather than raw source faults.
+
+## Selected programme projects
+
+`POST /api/odoo/programme-projects` requires an authenticated session and exactly
+`{"programmeId":"DC1"}`, `DC2` or `DC3`. Missing/unknown/case-changed identities,
+non-object input and extra fields return 400 before RPC. Standard method/origin
+guards apply. The session account is reauthenticated with the same UID required
+before project reads; rejected/mismatched identity returns 401.
+
+The dashboard's fixed source references contain 10 DC1, 8 DC2 and 5 DC3
+eight-digit business codes. Confirmed `project.project.id`/`name` metadata and
+optional `display_name` allow only bounded code-lookup OR domains. Returned
+bracketed or leading codes must match exactly and uniquely; incidental numeric
+substrings, contradictory identities and multiple records are excluded. These
+memberships do not come from a source programme field, department, personal
+hours or year/date filter. Archived records remain readable under account rules.
+
+The successful response contains:
+
+- `ok`, canonical `programme` definition and `asOf` timestamp;
+- `projects: [{id, name, startDate, endDate, manager, totalBudget}]`, with the
+  same optional exact-ID date/manager/full-convention-budget rules as the other
+  catalogues;
+- `coverage: {expected, matched, missing, ambiguous, lookupComplete}`; missing
+  and ambiguous entries contain the fixed `{code, name}` source references;
+- `warnings`, including unreadable lookups, unresolved references and invalid
+  source dates.
+
+Confirmed dates use exact matched IDs with independent optional recovery;
+currency/budget and managers retain existing safe metadata/photo behavior.
+Missing/ambiguous projects are disclosed without fabricated rows. A readable
+empty catalogue returns 200 with coverage; unavailable core metadata or all
+failed lookups return a generic 502. No hours, planning or financial-detail
+records are loaded by this route. Selecting a returned project uses the
+existing exact-project detail APIs.
 
 ## Project finance
 
@@ -252,14 +470,14 @@ Three authenticated POST routes are available under `/api/odoo/pilotage/`: `meta
 - /, /login and /login.html serve the public welcome page, or redirect signed-in users to /dashboard.
 - /dashboard and /index.html serve the protected dashboard.
 - /assets/buildwise-logo.svg is public; /favicon.ico returns 204.
-- /personal-time.js, /personal-time.css, /project-monthly.js, /project-browser.js, /project-browser.css, /project-budget.js and /project-budget.css are authenticated dashboard assets. The server-side /project-finance-service.js is not served.
+- /personal-time.js, /personal-time.css, /project-card.js, /project-card.css, /project-monthly.js, /project-planning.js, /project-browser.js, /project-browser.css, /project-budget.js, /project-budget.css, /unit-dico.js, /unit-dico.css, /programme-browser.js and /programme-browser.css are authenticated dashboard assets. The server-side /project-planning-service.js, /project-finance-service.js, /unit-dico-service.js and /programme-service.js are not served.
 - Other files/routes return 404 after login. Anonymous non-API requests redirect to /login.
 - Responses use no-store, nosniff, same-origin referrer policy and a CSP blocking framing and off-origin connections. Inline scripts/styles remain allowed for the current single-file pages.
 
 ## Refresh
 
-- Last refreshed: 2026-10-09
-- Source basis: server.js, project-finance-service.js, login.html, index.html/steering-client.js browser callers, personal-time.js, project-browser.js, project-budget.js and tests/auth.test.js.
+- Last refreshed: 2026-10-14
+- Source basis: server.js, project-planning-service.js, project-planning.js, tests/project-planning-service.test.js, tests/project-planning-http.test.js, programme-service.js, programme-browser.js, tests/programme-service.test.js, tests/programme-http.test.js, unit-dico-service.js, unit-dico.js, project-finance-service.js, login.html, index.html/steering-client.js browser callers, personal-time.js, project-browser.js, project-budget.js, tests/personal-personnel-budget.test.js, tests/personal-recommendations.test.js and tests/auth.test.js.
 - Limitations: automated integration tests use simulated Odoo; broad account/schema compatibility is not established.
 
 ## APIs retained from main

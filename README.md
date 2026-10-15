@@ -59,7 +59,8 @@ Compose publishes the port without a loopback-only binding. The dashboard and it
 
 The home page uses the Buildwise visual style and asks for your Odoo email and password. A successful login opens `/dashboard`; use **Se déconnecter** to end the session. The server authenticates against the configured Odoo instance, defaulting to `https://odoo.buildwise.be/` and database `buildwiseprd`.
 
-On the local welcome page, **Use config file** signs in with the username and
+On the local welcome page, **Utiliser le fichier de configuration** signs in
+with the username and
 API token stored in `config.local.json`. This option is available only through
 a direct loopback connection with a loopback Host header; proxied and remote
 access must use manual email/password login. Missing or invalid configuration
@@ -172,6 +173,13 @@ dates leave the reference unavailable. Recorded scoped hours remain unchanged.
 Missing planning,
 negative corrections and **Hors planning** remain explicit.
 
+Only **Mes heures** highlights overpointing: orange beyond the today reference,
+then red beyond the full scoped plan, with gradient fills and a **Surpointage**
+callout. The all-employees and lifetime bars retain their contributor colors.
+The four macro cards now keep supplemental notes behind the circled-i control;
+two visible sentences compare actuals to dated planning and the linearly
+interpolated convention, both through today.
+
 The third pair uses the project's **Budget personnel BW** convention hours from
 `budget_staffing_convention_hours` and its full start/end dates, independently
 of the year filter. Actuals include only
@@ -196,6 +204,15 @@ selected years. Employee colors match the bars; a thicker line shows the signed
 net total. Negative corrections stack below zero, keeping credits distinct from
 positive consumption. Zero-hour months remain visible and the current month is
 partial.
+
+A solid red **Planning daté** line follows the source allocations through today,
+for all displayed contributors or the selected employee. Existing dotted linear
+references remain distinct from that schedule.
+
+Below it, **Projets · 03 / Planning mensuel · durée du projet** stacks planned
+hours by employee/resource across the whole project, including future-only
+people and labelled TH positions. It shares monthly/cumulative and Ormitter
+choices with actual history, with an independent employee/resource filter.
 
 The **Par mois / Cumulé** control beside the Ormitter checkbox starts in monthly
 mode and remembers the choice separately for each project during the session.

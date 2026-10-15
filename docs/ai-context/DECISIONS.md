@@ -1,5 +1,588 @@
 # Decisions
 
+## 2026-10-15: Compare actual project hours with dated planning
+
+- Approved plan: move all supplemental notes below the four macro cards into
+  a circled-i popup beside **Convention et planning**, accessible by hover,
+  keyboard and click. Keep card captions and project period visible.
+- Replace the old note area with two actual-to-date gaps: versus planning due
+  through today, using dated slot overlap, and versus convention hours linearly
+  interpolated through today. Keep the macro's established BW/TH cohort and
+  independence from year filters and the graphs' Ormitter checkbox.
+- Only the **Mes heures** actual bar gains orange after its today reference,
+  then red beyond the scoped planned total, retaining gradients and adding a
+  **Surpointage** callout. Project-wide and lifetime bars keep their visuals.
+- Actual history gains a solid red dated-planning series, distinct from the
+  existing dotted linear references. New **Projets · 03 / Planning mensuel**
+  uses stacked areas across full project dates, including future and TH plans.
+  Reuse colors and the shared monthly/cumulative and Ormitter controls; each
+  chart has an independent employee/resource filter and accessible details.
+- Reuse cached read-only project data. Keep unknown planning distinct from
+  zero, signed corrections visible, and dates/identities/animation lifecycles
+  scoped correctly to each graph. No Odoo write or new source query is needed.
+
+## 2026-10-15: Warn when personal planning exceeds 100%
+
+- The user adds a second orange state to the percentage card: strictly above
+  100%, show **Vous êtes planifié au-delà de 100%. A clarifier avec votre Unit
+  Manager**. Keep the existing low warning below 85% and normal note from 85%
+  through 100%, including both endpoints.
+- Apply only machine-roundoff tolerance. A genuine excess that would round to
+  100% displays **> 100 %**. Unknown sources cannot retain overplanning advice.
+  This changes presentation thresholds only, without new Odoo reads.
+
+## 2026-10-15: Give planning coverage its own metric card
+
+- The user replaces the inline planning-percentage note with a third matching
+  card, **Pourcentage des heures planifiées**, to the right of available and
+  planned hours. Its value uses the same large typography as the other cards.
+- Below 85%, retain orange emphasis and the supplied French note advising
+  checking the low ratio with the Unit Manager. At/above 85%, use the supplied
+  explanation that normal planning headroom includes illness absences.
+- Keep the existing ratio, scope, threshold tolerance and unavailable states;
+  this presentation change does not alter the annual-capacity definition or
+  perform additional Odoo queries. Responsive layouts retain readable cards.
+
+## 2026-10-15: Warn on planning coverage below 85% of available work
+
+- Approved: show scoped planned hours divided by available hours as a compact
+  percentage in the existing planned-hours card. A planning level below 100%
+  is not itself exceptional; warn in orange with explicit text only below 85%.
+- Use the same complete scope and existing entitlement-based capacity. Do not
+  reduce available hours to a fixed billable target. Preserve signed planning
+  and values above 100%; unknown/nonpositive capacity gives no usable rate.
+- Compare unrounded rates with only machine-roundoff tolerance; decimal
+  formatting cannot suppress real shortfalls or flag mathematically exact 85%.
+- The user's Odoo Planning denominator is reproducible by subtracting registered
+  personal calendar intervals instead of annual leave entitlements. That is a
+  different operational definition; do not switch the dashboard's approved
+  annual-capacity policy or infer categories/reasons from calendar intervals.
+
+## 2026-10-14: Make complete planning scope explicit
+
+- The capacity panel compares available hours with all personal planning over
+  the complete selected years or custom range, including future allocations
+  and hidden projects. The existing calculation already used that scope;
+  clarify its caption and retain the established allocation boundaries.
+- Rename the first recommendation column **Arrêter (ou clarifier)**, including
+  its helper text, without changing recommendation classifications.
+
+## 2026-10-14: Compare personal annual work capacity with total planning
+
+- Approved request: place two compact, scoped available/planned-hour metrics
+  between Mon temps recommendations and the pie. Exclude unpaid leave.
+- Use the person's attendance calendar and public/collective closures, minus
+  approved new annual paid entitlements; ignore requests/consumption balances
+  and keep carryover outside this annual-rights definition. The source's
+  confirmed annual, compensatory and seniority categories govern this version.
+- Attendance already incorporates part-time. Unknown/ambiguous identity or
+  source evidence remains unavailable; no payroll/history inference or Odoo
+  write is permitted. The currently linked calendar is the schedule basis.
+- Missing future calendars reuse current-year net available days/hours, with
+  explicit estimates. Missing future rights with a published calendar reuse
+  current rights. Denied reads cannot prove missing publication. Custom ranges
+  use a disclosed work-hour prorata of annual entitlements, not request dates.
+- Total personal planning includes hidden pie projects. Cache annual sources
+  by scope/refresh generation, keep optional failures independent of existing
+  time charts, and expose an accessible per-year calculation.
+
+## 2026-10-13: Shorten Project Hours macro cards and clarify excess planning
+
+- Request: label positive excess as **planifiées en trop par rapport à la
+  convention**, and make the four hours cards 20% shorter.
+- Reduce minimum heights and spacing at desktop/tablet/phone breakpoints while
+  preserving font sizes and natural expansion for longer notes. Keep the
+  established actual-plus-remaining-minus-convention calculation unchanged.
+
+## 2026-10-13: Compact stop recommendations and name their period
+
+- Request: make recommendations more compact, show stop rows as short project
+  name plus reason, and include selected years in the linear-planning heading.
+- Stop summaries use Projet terminé, Non planifié and Budget BW consommé;
+  multiple applicable reasons share one inline row. Detailed evidence remains
+  in the native tooltip/accessibility description. Dates, stop classification,
+  arithmetic and sorting retain their established contracts.
+- The heading updates in place for sorted selected years or French custom-range
+  dates. Reduce padding/list spacing while preserving font readability, the
+  four/two/one-column layout and native slider focus.
+
+## 2026-10-13: Give stop-booking conditions their own recommendation column
+
+- Request: replace red comments inside Ralentir with a first, red **Arrêter**
+  column, also covering projects ended by today and projects whose Buildwise
+  personnel-hour allowance is fully consumed. Keep Ralentir, Augmenter and
+  Continuer after it, with responsive four/two/one-column presentation.
+- Stop priority is exclusive and independent of the tolerance slider. Combine
+  all known reasons once per scoped active project: valid project end on or
+  before Brussels today, no confirmed positive personal allocation today
+  through project end across all accessible years, or exhausted positive
+  **Budget personnel BW** convention hours. Current-day planning prevents the
+  no-planning reason; uncertain planning does not establish absence.
+- Personnel exhaustion means all employees' identified hours from project
+  start through today, excluding confirmed Ormitters, compared with the numeric
+  convention-hour field. It does not use the user's individual planning,
+  selected years, monetary personnel costs or projected future consumption.
+  Include post-end charges consistently with the lifetime macro actual card.
+- Evidence is an optional session-bound aggregate for exact personally involved
+  project IDs. Only positive readable conventions and valid starts trigger
+  employee-linked analytic-line reads; typed private/public HR function reads
+  exclude Ormitters without guessing. Unknown/malformed/duplicate/denied source
+  evidence remains unavailable. Colleague records and identities stay backend
+  only; personal records and catalogue membership stay intact.
+- Known stop reasons remain useful when interpolation is unavailable: disclose
+  the missing pace gap instead of showing zero. Retain known signed gaps and
+  show bold reasons without a weekly target or conflicting increase advice.
+  Sort known absolute gaps descending, unavailable stop gaps last, then stable
+  French title/ID ties. Do not add out-of-scope or zero-activity projects.
+- Accessible-record limitations remain explicit; no historical-role inference,
+  Odoo write or permission bypass is authorized. This supersedes the previous
+  decision to keep stop warnings inside the three tolerance groups.
+
+## 2026-10-13: Distinguish available scoped hours from pace and exhausted planning
+
+- Request: replace the personal bar's ambiguous below-plan badge with French
+  available planned hours through the selected period's end, and title the
+  recommendations explicitly as linear planning interpolation.
+- Personal bar and pie-legend balances remain `scoped planned - scoped actual`;
+  their deadline is the inclusive custom end or December 31 of the latest selected year,
+  independently of the project's clipped calendar reference. Unknown dates
+  stay explicit. Other project/convention comparisons retain their own labels.
+- A red, bold stop-booking recommendation requires confirmed readable personal
+  planning with no positive allocation from inclusive Brussels today through
+  the project end. Inspect all cached personal slots, including unselected
+  years, and retain the signed pace gap. This iteration originally kept the
+  three tolerance groups; the separate Arrêter column above supersedes that
+  grouping decision.
+  Current-day allocations prevent the warning; missing/partial/error data and
+  uncertain relevant allocations do not establish absence. The advice replaces
+  the weekly target so the same row cannot ask both to stop and to increase.
+- Source scope is all accessible personal planning returned by the existing
+  paginated read-only endpoint; access restrictions remain a completeness limit.
+  This local advisory wording does not change source hours or any Odoo data.
+
+## 2026-10-12: Show four project macro cards and material planning gaps
+
+- Request: above Project Hours, show four large cards for convention hours,
+  recorded hours since project start, future planned hours with an emphasized
+  TH share, and projected convention excess/shortfall. Use the supplied card
+  layout as visual guidance, with a responsive four/two/one-column grid.
+- Cohort: all macro figures exclude known Ormitters independently of the graph
+  checkbox and year/custom scope. Preserve the existing graphs' inclusion and
+  date contracts. Unknown functions remain disclosed rather than guessed.
+- Actual/future boundary: recorded actuals include project start through
+  inclusive Brussels today, including post-end charges because the card says
+  since start through today. Future planning begins tomorrow at Brussels
+  midnight, clips to Brussels project-start/end calendar dates and uses each
+  raw UTC slot's elapsed duration for proration. Today's planning is not added
+  on top of today's actuals. DST applies, no final-day UTC tail is counted, and
+  a finite closed project has known-zero future hours even if past planning is
+  unavailable.
+- Projection: `actual + remaining planned (TH included) - convention` assumes
+  the remaining plan will be consumed. Show signed excess/shortfall and leave
+  unavailable inputs explicit. TH are positions still to fill; keep their hours
+  included and highlight the known future share, with partial attribution
+  disclosed. The prior visible total/minus-TH metrics are superseded; their
+  legacy helper fields remain available without altering source calculations.
+- Alerts: retain the calendar-day real-person coverage method from today, but
+  alert only on continuous gaps of at least one calendar month. Compare the
+  exclusive gap end with the start's clamped next-month anniversary, not a
+  fixed 30-day count. Preserve short-gap evidence and avoid describing it as
+  complete coverage. One final day such as eXtRAI's May 31 is not an alert.
+- Source/interaction: derive the cards locally from the existing cached exact
+  project response. Keep native gap/resource details and focus/open state;
+  no new endpoint, source query, Odoo write or private-record logging is needed.
+
+## 2026-10-12: Recognize collective TH resources independently of HR links
+
+- Trigger: eXtRAI's missing TH hours came from a collective `TH_` resource that
+  Odoo represents with a positive employee link. An empty HR relation is not
+  the business criterion for a placeholder and must not gate its recognition.
+- Rule: a unique readable exact-ID source resource name with a case-insensitive
+  `TH_` prefix and nonempty suffix establishes the collective marker. Keep the
+  technical employee link/status in the DTO, but classify the slot as `to-hire`
+  before considering its positive employee ID. It cannot prove real-person
+  future coverage. Denied/missing/duplicate resource-name evidence leaves the
+  business identity unknown, while source hours remain intact.
+- Scope: retain exact project/resource reads, signed full-life proration,
+  current Ormitter inclusion and confirmed-only subtraction. Add no broad
+  fallback, source write or private-record logging. This supersedes the initial
+  empty-employee-relation assumption in the planning decision below.
+- Presentation: let the Mon temps macro use the available content width.
+  Give recommendation categories stronger headings and colored underlines;
+  put the largest absolute hour gaps first in Ralentir/Augmenter, with stable
+  French short-title/ID ties. Keep natural narrow-screen wrapping and existing
+  focus/threshold behavior.
+
+## 2026-10-12: Expose lifetime project planning and confirmed person coverage
+
+- Request: above the project Hours bars, show convention hours, total lifetime
+  planning, planning without collective `TH_` resources, convention mismatches
+  and future periods with no person planned. Hide the own scoped comparison
+  only when both its planned and actual values are confirmed numeric zero.
+- Scope: prorate signed source slots over inclusive project dates in UTC,
+  independently of year/custom scope. Reuse the existing exact-project read
+  and shared Ormitter inclusion choice. Preserve valid source/hour graph values.
+- Initial identity rule: snapshot original slot ownership before legacy
+  enrichment. The first implementation required both the TH source name and
+  a readable empty typed employee relation; linked collective evidence
+  disproved that premise, superseded by the TH decision above. The inspected
+  singular `resource.resource.employee_id` field is one-to-many to `hr.employee`,
+  so technical link cardinality still needs validation. An empty HR search
+  cannot establish an unlinked resource.
+- Trust: remove only confirmed TH hours and label partial subtraction explicitly.
+  Disclose other unlinked resources separately. Missing/invalid planning and
+  unavailable identities do not become confirmed zeros; nonpositive readable
+  convention hours remain unfilled and produce no comparison delta.
+- Coverage: merge positive confirmed-person allocations by Brussels calendar
+  day from today/project start through project end. Report inclusive gap dates
+  and day counts without inventing a working calendar or overnight gaps. TH
+  and confirmed unlinked non-TH resources do not cover person-days. Unknown
+  allocations
+  that could fill gaps, and relevant negative/null person or unknown corrections,
+  make coverage indeterminate; positive coverage alone cannot overrule possible
+  cancellations. Ended projects have no future target period.
+- Interaction/source: use compact French metrics and native expandable details,
+  retaining focus/open state on local inclusion redraws. Optional guarded reads
+  use only involved exact IDs and preserve hours on denial. Odoo stays strictly
+  read-only; no new write, broad source query or private record logging is added.
+
+## 2026-10-12: Keep French presentation and make hour periods explicit
+
+- Request: use French throughout the dashboard interface, with scoped years or
+  custom dates directly in own-hour comparison headings rather than a subtle
+  period subtitle. Translate navigation to **Unité DiCo** and responsible-person
+  terms; preserve source project/person names and canonical identities.
+- Programme catchphrases: display **Structurer**, **Agir** and **Fabriquer** in
+  place of the supplied English catchphrases while retaining canonical labels
+  and fixed DC mappings. Source business names remain literal.
+- Distinct measures: scoped bars retain selected-period totals; employee
+  history/reference retains full project life and future planning. Make this
+  reference basis explicit in its French labels and provenance. The targeted
+  eXtRAI discrepancy was reproduced as a period-basis difference, not a
+  calculation error. Do not alter valid values to force both views to agree.
+
+## 2026-10-12: Add personal pace advice with a live tolerance
+
+- Request: three compact columns above the Mon temps pie: orange **Ralentir**,
+  green **Augmenter**, black **Continuer**, with 15% default live tolerance.
+  Show signed hour gaps and remaining weekly targets on orange/green entries;
+  keep Continuer to project names only.
+- Baseline: distribute each selected year/custom-year portion's actual scoped
+  planning allocation linearly within its project-date intersection, then sum
+  expected hours through inclusive Brussels today. Keep actual totals intact,
+  including late corrections. The pie's existing calendar ring stays unchanged.
+- Targets: compare actual minus expected with the symmetric tolerance band.
+  Divide nonnegative remaining scoped hours by selected/project calendar weeks
+  strictly after today, excluding gaps. This is pacing against a calendar
+  assumption, not measured delivery or working-day capacity.
+- Trust: leave unknown or negative net totals, invalid dates, unreconciled
+  annual planning and nonzero allocations outside project-date calendar portions
+  without quantified advice. Disclose named reasons and future/ended dates;
+  never invent a future target after the deadline or a percentage of zero.
+- Interaction/source: use all scoped personal projects independently of pie
+  hiding. Keep the native slider/focus in place, expose percentage units and
+  polite counts, and make exclusion reasons expandable for keyboard/touch.
+  Reuse cached personal reads; threshold changes require no Odoo request or write.
+
+## 2026-10-11: Show fixed programme projects with shared lifetime charts
+
+- Request: keep all three DC cards visible, and show the selected programme's
+  associated project cards, timeline and monthly simultaneous-project chart
+  below them, using the Unit DiCo presentation. Selecting another programme
+  changes all lower sections together.
+- Membership: use the user's supplied fixed business-code references: 10 DC1,
+  8 DC2 and 5 DC3, maintained in `programme-service.js`. Do not infer an Odoo
+  programme field, require department 206 or restrict by personal year/activity
+  scope. A targeted read confirmed **in-beTwin** as business code `56261849`;
+  the other full-list source matches have not been broadly live-verified.
+- Identity and coverage: accept only canonical DC IDs at the authenticated
+  endpoint. Query fixed codes, require exact unique source-code/record matches,
+  and disclose missing, ambiguous or partly unreadable references. Add no
+  placeholder projects or broad fallback queries. Optional exact-ID dates,
+  budget and manager metadata cannot enlarge membership. Odoo remains read-only.
+- Presentation: reuse `UnitDico.render` with programme labels while preserving
+  compact project cards, whole-life scale, ended-last grey gradients, today
+  line, reveal and monthly maximum-overlap logic. Keep shared pseudo-project
+  and chart-only year-2999 exclusions. Programme cards remain above the lower
+  content even during existing Hours/Budget project drilldown and Back.
+- State: remember separate programme/project selection and per-programme
+  caches. Programme changes clear the selected programme project; obsolete
+  reads cannot repaint a different programme. Cleanup releases old chart/detail
+  lifecycles. This supersedes the initial selection-only iteration below.
+
+## 2026-10-11: Activate an independent three-programme card selector
+
+- Request: make the **Programmes** tab available with three larger radio cards,
+  using the same white animated appearance as the redesigned project cards.
+  Fronts show the DC code and responsible portrait; backs show the catchphrase,
+  DC code, responsible name and italic subtitle.
+- Definitions: DC1 / Backbone / To Structure / Pauline Dewez; DC2 / Insight /
+  To Act / Timothée Lonfils; DC3 / Manufacturing / To Make / François Denis.
+  Keep these fixed identities independent of date filters, accessible projects
+  and the older configured steering programme mapping. This activation does
+  not confirm or enable that portfolio's source/domain configuration.
+- Source: obtain only optional responsible portraits through metadata-confirmed
+  fixed exact-name `res.users` reads, requiring a unique normalized identity
+  before a separate exact-ID photo read. Preserve approved names and initials
+  when identity, permission or image data is unavailable. The authenticated
+  catalogue accepts only `{}` and rechecks the session UID; add no Odoo writes.
+- Interaction: select only the DC radio in page memory for this iteration;
+  programme project drilldown is not yet implemented. Lazy cached portrait
+  enrichment, generic retry, obsolete-response rejection and preserved radio
+  focus keep the three choices usable while photos load or fail.
+- Presentation: use 230px cards in three columns and 210px cards in one column
+  at phone/narrow widths up to 700px. Reuse shared card motion, touch and
+  reduced-motion behavior through presentation overrides without adding fake
+  project date/budget metadata to programme tooltips or descriptions.
+
+## 2026-10-11: Use white animated project cards with manager identity
+
+- Request: restyle both project grids using
+  [the supplied visual example](https://uiverse.io/ElSombrero2/tricky-robin-67)
+  as inspiration. Keep the manager portrait in place of the example logo and
+  the short project title in place of its hover instruction. Implement the
+  effect locally rather than copying the example's content.
+- Front: use white with black type, the existing portrait/initials chip and
+  one bold unbracketed short title. A five-second rotating turquoise `#00bfb6`
+  border accent runs while the front is visible.
+- Back: keep white with black type; place subtly floating `#00bfb6`, `#0087b7`
+  and `#ffce00` color orbs behind a translucent white content panel. Show a mini
+  portrait beside the source project number without brackets, followed by the
+  short title, manager name and smaller italic full title. Add no green icon.
+  Missing manager data is explicit, and a missing project code stays empty.
+- Retained behavior: preserve fixed 190px personal cards (180px at phone
+  width), 112px Unit cards, ellipsis, source-name parsing/case and safe bounded
+  portraits. Keep source dates and full convention budget in the native
+  tooltip and single accessible radio description without visible back rows.
+  Reuse the existing DTOs; add no source reads or backend changes.
+- Input and motion: preserve native radio selection and focus. Hover/focus
+  reveals the back and runs its gentle background motion. Touch/no-hover
+  layouts show both faces at twice the fixed height; reduced motion removes
+  all card animation and the flip transition. This supersedes the earlier
+  three-row front and blue metadata-back presentation; earlier dated decisions
+  remain historical.
+
+## 2026-10-11: Give project cards equal sizes and structured front titles
+
+- Request: keep equal card sizes in both project grids and separate the acronym,
+  project number and full title for readable fronts.
+- Naming: parse only the existing `project.name` through shared helpers. Show
+  the first nonnumeric bracketed acronym in bold without brackets, a bracketed
+  or leading numeric code of at least five digits, and the remaining full title
+  in smaller italic text with a two-line ellipsis. Without an acronym, show the
+  remaining text in bold and omit its duplicate italic row. Reserve a blank
+  number row when no source code exists; never substitute an Odoo record ID.
+- Sizes: use fixed 190px personal cards (180px at phone width) and 112px Unit
+  cards, with bounded front/back content and ellipsis. Touch/no-hover layouts
+  show both faces at twice the corresponding card height.
+- Retained behavior: keep the blue flip/back metadata, unbracketed acronym or
+  fallback with a separate number row, mini leader portrait or initials, native
+  radio selection, complete source-name/date/budget tooltips and source case.
+  Reuse existing names and manager metadata without any new Odoo read.
+  This supersedes the earlier bracketed-header and minimum-height presentation;
+  the earlier decisions below remain historical.
+
+## 2026-10-10: Preserve project identity on flipped cards
+
+- Request: keep the bracketed project shorthand, such as **[Autogrout]**, and a
+  mini leader portrait visible on the back of both project grids.
+- Display: retain the first bracketed token anywhere in the project name,
+  falling back to the complete name. Pair it with the existing manager photo or
+  initials above dates and total budget. The Unit back remains compact; narrow
+  personal metadata uses horizontal rows.
+- Source and input: reuse the existing manager DTO with bounded PNG/JPEG/WebP
+  data-URL validation and broken-image initials. Add no Odoo reads and preserve
+  native radio identity, selection and its single accessible description.
+
+## 2026-10-10: Add monthly simultaneous-project counts below the Unit calendar
+
+- Request: an area/line chart of simultaneous Unit DiCo projects by month,
+  aligned to the lifetime timeline's date scale.
+- Measure: the maximum number actually overlapping on any day of each month,
+  using inclusive project start/end dates. Distinct non-overlapping projects
+  within one month are not counted together. Keep zero-gap and future months.
+- Scope: reuse timeline membership, date bounds and Interne/Overhead/year-2999
+  exclusions. Only complete coherent dates contribute; disclose omitted dates,
+  unavailable scales and periods exceeding 2,400 monthly bins.
+- Interaction: retain an integer zero-baseline stepped area, month tooltip,
+  keyboard navigation and optional exact-values table. Shared gutters and linked
+  horizontal scrolling keep calendars aligned; no extra source read is needed.
+
+## 2026-10-10: Strengthen gradients in both project timelines
+
+- Request: make each duration bar's linear gradient clearly visible.
+- Display: share a left-to-right 50% white overlay, unchanged project color at
+  the midpoint and 30% black overlay at the end. Completed bars retain their
+  grey base. Date geometry, compact sizing and half-second reveal stay intact.
+
+## 2026-10-10: Replace project-grid blur with metadata flip cards
+
+- Request: remove sibling blur in both project radio grids and use a flip
+  interaction inspired by [the supplied example](https://uiverse.io/vamsidevendrakumar/soft-shrimp-94).
+  Fronts retain the project leader avatar/name; backs show start/end dates and
+  total budget on the requested `#4a85b3` background.
+- Budget: use the complete `project.project.total_budget_convention` macro
+  amount, including personnel, independently of year/custom-date scope and the
+  selected Budget panel's personnel choice. Do not sum annual allocations or
+  substitute personnel hours. Missing dates/amounts remain unavailable; a known
+  amount with unknown currency is disclosed explicitly.
+- Input: preserve native radio selection, reveal details on keyboard focus,
+  describe metadata through the radio's accessible description, show both faces
+  without rotation on touch/no-hover devices, and remove transition for reduced
+  motion. Unit cards remain substantially smaller than personal cards.
+- Source: add only optional exact-catalogue-ID scalar reads, with fixed unit
+  filtering, strict types/currency binding and independent denial recovery.
+  This supersedes the earlier hover-blur choice; the lifetime charts stay intact.
+
+## 2026-10-10: Share project lifetime calendars and place completed projects last
+
+- Request: move ended projects to the bottom of the timeline and add the same
+  chart below personal Projets radio choices.
+- Membership: personal calendar rows use the same year/custom-date activity
+  scope as the radio grid, while each duration retains the full project dates.
+  Unit DiCo retains its independent responsible-department catalogue.
+- Display: reuse one calendar renderer, with ongoing/unknown-end projects
+  before projects ending before Brussels today. Preserve start/name/ID ordering
+  within each group, compact rows, grey completed bars, the today marker,
+  half-second reveal and chart-only year-2999/pseudo-project exclusion.
+- Dates: optionally enrich only the personal catalogue's involved project IDs
+  with confirmed source dates; inaccessible dates preserve projects and hours.
+
+## 2026-10-10: Compact and animate the Unit DiCo lifetime timeline
+
+- Request: approximately halve timeline row height, reveal each duration bar
+  left to right over 0.5 seconds when it reaches the screen, grey projects ending
+  before today and add a dotted black vertical today reference across the bars.
+- Display: use 25px single-line rows, retaining full project names and exact
+  dates in tooltips/accessible labels. Keep the existing project-date axis and
+  year-2999 exclusion. Use the current Europe/Brussels day, independently of
+  the catalogue read timestamp; projects ending today retain their color.
+  If today lies outside the source date scale, disclose that in the caption
+  without stretching the axis. Radio tiles retain their current colors.
+- Lifecycle: observe each untransformed clickable bar and animate its inner
+  fill once per render. Release observers on rerender, tab exit or project-detail
+  entry; reduced motion and unavailable observers display complete bars.
+
+## 2026-10-10: Hover blur for both project radio grids
+
+- Request: use the [supplied Uiverse example](https://uiverse.io/kamehame-ha/chilly-snake-91)
+  as the interaction reference for personal and Unit DiCo project tiles, while
+  preserving their existing colors.
+- Display: keep the hovered tile sharp and soften other tiles with a 4px blur
+  and 250ms fade. Clear the blur when no tile is hovered, including grid gaps.
+  Preserve tile dimensions and current hover colors; no scale effect is added.
+- Input: enable only for hover-capable fine pointers, retain a sharp tile for
+  visible keyboard focus, and remove the transition for reduced motion. This
+  CSS-only refinement leaves selection behavior and source access intact.
+
+## 2026-10-10: Align the convention budget reference with the personnel choice
+
+- Approval: the user requested the French checkbox label **Afficher les coûts
+  de personnel BW** and clarified that, while unchecked, the **Budget
+  conventionnel** horizontal comparison must also exclude **Frais de personnel**
+  allocations. This supersedes the earlier decision below to retain the full
+  displayed convention reference when personnel actuals were hidden.
+- Reference: use the selected convention's own exact personnel rubric
+  allocations, preserving signed values and its confirmed currency. When only
+  the project macro is available, deduct its known monetary personnel budget
+  from its convention total in the same confirmed currency. Do not substitute
+  annual categories, hours-derived rates, another convention or an estimated
+  personnel allocation. An unverifiable filtered reference stays unavailable.
+- Display: the default comparison, ratio and calculated balance use both the
+  personnel-excluded budget reference and existing expense-only consumption.
+  Checking the control restores the complete reference and recorded costs.
+  Project macro cards and cached source values retain the original information;
+  the comparison names its selected personnel basis.
+- Boundaries: annual BW personnel exclusions and the independent Ormit supplier
+  filter remain unchanged. This refinement reuses cached finance data without
+  additional Odoo reads, writes or automatic publication.
+
+## 2026-10-10: Unit DiCo project catalogue and lifetime timeline
+
+- Approval: the user approved **Unit DiCo** as the third sticky tab after
+  **Mon temps** and **Projets**, with a compact manager-photo radio grid and
+  a colored project-duration timeline. Choosing a project opens the existing
+  Hours/Budget detail; Back returns to the unit overview.
+- Membership: use the project's **Unit responsable** relation to exactly
+  `hr.department` ID `206`, **RESEARCH & DEVELOPMENT / DIGITAL CONSTRUCTION
+  UNIT**, as supplied by the user. This catalogue includes accessible archived
+  and zero-hour projects and does not require the signed-in person to have hours
+  or planning on them. Exclude only the normalized exact **Interne** and
+  **Overhead** pseudo-project names; do not substitute employee department
+  membership, fuzzy names or the older configurable steering filter.
+- Source confirmation: guarded metadata and exact-project reads on 2026-10-10
+  confirmed `project.project.lead_unit_id` as a many-to-one `hr.department`
+  relation labelled **Lead Unit**, with the user's Extrai example linked to
+  department `206`. Use this fixed technical relation for the macro's requested
+  **Unit responsable** membership. This does not derive membership from the
+  connected person's Lead Unit or enable the older configurable steering view;
+  broad catalogue completeness and other accounts' permissions remain unverified.
+- Scope: the overview and timeline use full project dates independently of year
+  chips or the custom personal range. Scale the horizontal axis from the earliest
+  valid start to the latest valid end across included projects. Keep projects
+  with missing or invalid dates selectable and disclose them without inventing
+  a duration bar. Unit selection/catalogue state remains separate from personal
+  project membership.
+- Timeline refinement: the user requested removing projects ending in year
+  2999 from the horizontal chart. Exclude valid 2999 endings from its rows and
+  both axis bounds, while retaining those projects in the radio catalogue and
+  existing Hours/Budget navigation. No other ending year is excluded.
+- Safety: authenticate catalogue reads with the current session and validate
+  responsible-unit metadata before an exact-department project query. Optional
+  manager data uses only exact returned project/user IDs. The existing Odoo
+  read-only guard, source permissions and private configuration remain intact;
+  no automatic commit, push or publication is authorized.
+
+## 2026-10-10: Default budget comparisons exclude BW personnel costs
+
+- Approval: the user's **go** approved excluding BW employee costs from the
+  default convention comparison, with **Show BW personnel costs** restoring
+  them, and keeping annual comparisons permanently without BW personnel
+  categories. Initially the top source convention budget remained unchanged;
+  the checkbox changed the displayed consumption basis and rubric visibility.
+  The later decision **Align the convention budget reference with the personnel
+  choice** supersedes that displayed-reference rule and translates the control.
+- Lifetime basis: retain full consumption and add an independently aggregated
+  expense-only projection from the same exact-project records. Exclude only
+  confirmed employee Hours costs classified as personnel; posted expense costs,
+  including Ormit/subcontract invoices with employee or Hours dimensions, remain
+  expenses. Recompute compatible currency, exact rubric totals, unassigned costs,
+  quality and out-of-period notices for this projection. Never derive it by
+  subtracting rounded totals or estimating rates.
+- Annual basis: remove only confirmed BW personnel categories from all three
+  compared measures and their code bars/details, with an explicit scope note.
+  Classify categories by exact normalized source label, including an optional
+  displayed code, rather than interpreting account codes as personnel. Preserve
+  unknown classification and source net/reconciliation information. The existing
+  default-off Ormit supplier-cost exclusion remains independent.
+- State and safety: remember the BW choice per project independently of hours,
+  year/date, convention selection and Ormit preferences; reuse cached DTOs and
+  preserve control focus. No additional RPC reads, Odoo writes, automatic
+  commit, push or publication are authorized.
+
+## 2026-10-10: Custom personal date scope and symmetric hour shortfall
+
+- Approval: the user's **go** approved a far-right custom start/end calendar
+  control and a **−x h en-dessous du prévu** label against the displayed plan.
+  Applying a complete valid range is immediate; incomplete, invalid or reversed
+  edits preserve the last valid scope. Clicking a year returns to year mode,
+  while an explicit reset restores the remembered year selection.
+- Scope: the inclusive Brussels dates apply consistently to Mon temps totals,
+  the calendar ring, the personal project grid and the first two selected-project
+  comparisons. Actuals remain capped at Brussels today; future planning in the
+  selected period remains included. Prorate custom planning by actual elapsed
+  time between local midnights, including DST transitions. Preserve the existing
+  UTC-year planning calculation when year mode is active.
+- Reference: the new shortfall mirrors the existing overrun against the full
+  positive displayed planned total, rather than elapsed expectations at today's
+  linear tick. Show it in the Mon temps **Mes projets** legend as well as the
+  selected-project comparisons. The independent lifetime pair names its
+  convention reference.
+  Unknown, zero or negative plans cannot create a fictitious shortfall.
+- Boundaries: lifetime hours, monthly/cumulative employee history and annual
+  budgets retain their independent periods. Reuse cached read-only data; no Odoo
+  mutation, automatic commit, push or publication is authorized.
+
 ## 2026-10-09: Annual category bill drill-down
 
 - Approval: the user's **go** approved bill/entry popups on thin annual code
