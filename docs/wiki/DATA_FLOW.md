@@ -1,5 +1,24 @@
 # Data Flow
 
+## Language and local preference
+
+`i18n.js` and explicit core/shell/project/timeline/steering/server catalogues
+load before their renderers on the welcome page and dashboard. `language-client.js`
+reads the public `/api/preferences/language`, applies `document.lang` and static
+keyed text/attributes, and exposes a `ready` promise before dashboard data
+bootstrap. The FR/NL control changes the browser locale immediately, dispatches
+`dashboard:languagechange`, and serializes authenticated local preference saves.
+Revision checks prevent late reads/saves from replacing newer choices.
+
+The dashboard and steering handlers repaint cached personal, programme and
+project data without navigation or another Odoo fetch. Scope, selected
+project/programme, monthly mode, independent employee filters and exclusions
+remain in their existing state maps. Source names/descriptions are passed
+through unchanged; backend-authored warnings/errors use registered message
+templates and English aliases. A failed local save leaves the browser choice
+active with a localized persistence warning. See [configuration](CONFIGURATION.md#language-preference)
+and [API](API.md#local-language-preference) for the fixed-path store boundary.
+
 ## XLSX import
 
 1. A file input reads the workbook as an ArrayBuffer in the browser.
@@ -138,8 +157,9 @@ membership. Monetary field metadata includes its `currency_field`; a conflicting
 binding keeps currency unknown. No financial detail is loaded for these cards.
 The browser combines that metadata with the same scoped personal
 summary to render the **Projets** native radio grid and the shared
-`UnitDico.renderTimeline` calendar below it. The chart uses full project lives
-for those same scoped project IDs, preserving catalogue dates by exact identity.
+`UnitDico.renderTimeline` calendar below it. Full mode uses project lives for
+those same scoped project IDs; near mode clips the display to Brussels today
+minus/plus three calendar years, preserving catalogue dates by exact identity.
 `ProjectBrowser.cleanup` releases its calendar observer before rerender, detail
 entry or tab departure; timeline name/bar selection opens the same project view.
 Changing scope can clear
@@ -292,6 +312,15 @@ A keyed list always exposes all
 nonzero contributors. Negative contributors use a neutral net bar with a signed
 breakdown; unavailable planning keeps numbers/list without inventing a scale.
 
+`personalProjectIgnoredEmployees` stores exact excluded contributor keys per
+project for the scoped project-actual bar only. Legend buttons update this map
+and rerender cached summaries; planning and the date tick remain unchanged.
+Counted positive contributors precede a grey hatched excluded-hours subtotal,
+retaining the original total bar width/cap. Names are struck through, and
+counted/ignored totals remain explicit. Signed or unreconciled evidence retains
+the neutral bar and a disclosed numeric breakdown instead of invented areas.
+This state does not change personal/lifetime or monthly-chart filters.
+
 The page caches full history by project ID; scope and inclusion changes recalculate
 without another read. Concurrent duplicates are blocked. Successful personal
 refresh clears the cache and advances its generation, so obsolete responses
@@ -311,6 +340,11 @@ the valid project start through inclusive Brussels today, including recorded
 hours after the project end. Continuous month bins retain zeros and signed
 corrections. Monthly is the default mode; cumulative mode applies prefix sums
 to employee cents and their signed total before converting to display hours.
+The actual renderer suppresses known-zero person entries in month tooltips and
+known-all-zero displayed month rows in its exact-values table. Nonzero signed
+contributions, unknown cells or nonzero references preserve rows; the cached
+data, chart bins and totals are not filtered. Cumulative mode checks the values
+actually shown, while the planned-area chart retains its existing details.
 The convention reference uses the precise source scalar multiplied by each
 month's overlap with the inclusive project dates through today, divided by the
 total project days. Cumulative mode also sums this reference, which plateaus at
@@ -412,28 +446,38 @@ before caching the response. A separate fetch token rejects obsolete catalogue
 responses. Unit and personal project selections remain distinct; the overview
 uses **Unité DiCo · 01 / Projets** compact manager-radio tiles, followed by
 **Unité DiCo · 02 / Calendrier des projets**. `UnitDico.buildTimeline` determines
-the complete-life inclusive day scale from readable earliest starts and latest
-ends. Projects with valid end dates in year 2999 are omitted from timeline rows
+the full inclusive day scale from readable earliest starts and latest ends by
+default. `projectCalendarView` is shared across personal/Unit/programme overviews;
+its `near` mode fixes the scale to Brussels today +/-3 calendar years, clips
+complete overlapping bars and omits wholly outside rows with a count note.
+Source dates/cards and incomplete-date rows remain. Calendar switches rerender
+from cache and restore their native radio focus. Projects with valid end dates
+in year 2999 are omitted from timeline rows
 and both scale bounds, while remaining in the radio catalogue. Missing/reversed
 periods remain labelled without fabricated bars. Stable
-ID colors connect selectors and timeline rows, and the contained scroll region
+ID colors connect selectors and timeline rows. Left row labels reuse the shared
+short-name parser, with full source names retained in titles/accessible labels.
+The contained scroll region
 keeps project names sticky beside the time axis. Brussels today controls grey
 completed-project bars and an aligned dotted reference across the axis/rows.
 Both calendars place ongoing/unknown-end projects before completed projects,
-then sort each group by start date, French name and exact ID; sorting does not
+then sort each group by start date, localized name order and exact ID; sorting does not
 change their date bounds. A shared calendar builder preserves the same labels,
 geometry, selection, viewport reveal and focus behavior in both overviews.
 After mounting, one IntersectionObserver watches the untransformed duration
 buttons, including clipping by the horizontal scroll region. Each button's
 inner fill reveals once over 0.5 seconds. `UnitDico.cleanup` disconnects and
 invalidates callbacks on rerender, tab departure and entry into project detail;
-reduced-motion and observer-unavailable paths retain visible full durations.
+reduced-motion and observer-unavailable paths retain fully visible bar fills.
 
 The Unit renderer then adds **Unité DiCo · 03 / Projets simultanés** from the same
 timeline result, with no additional source request. Complete valid intervals become
 grouped start/end-next-day events; a chronological sweep records each month's
 maximum simultaneous count, including zero gaps and future months. Partial dates
-retain their existing bounds but are excluded from counts with a coverage note.
+can extend full-mode bounds but are excluded from counts with a coverage note.
+Near mode uses that same window and only each visible month fragment, retaining
+projects spanning the left edge. An all-outside known catalogue yields zero
+visible counts; missing complete evidence remains unavailable.
 Unavailable bounds/complete periods and spans exceeding 2,400 months produce an
 explicit notice without a numeric plot. The step SVG area/line, month tooltips and
 expandable values table share calendar bounds/ticks/today. Roving month controls
@@ -686,6 +730,8 @@ DiCo steering uses authenticated scoped portfolio reads, then additional one-pro
 
 ## Refresh
 
-- Last refreshed: 2026-10-15
+- Last refreshed: 2026-10-16
+- Additional source basis: i18n.js, i18n-*-messages.js, language-client.js,
+  language-preferences.js and index.html cached locale/calendar/employee handlers.
 - Source basis: personal-time.js, personal-time.css, tests/personal-recommendations.test.js, tests/personal-personnel-budget.test.js, project-planning-service.js, project-planning.js, tests/project-planning-service.test.js, tests/project-planning-http.test.js, tests/project-planning.test.js, project-card.js/css, programme-browser.js/css, programme-service.js, unit-dico-service.js, unit-dico.js/css, project-monthly.js, project-browser.js/css, project-budget.js, project-finance-service.js, steering-client.js, login.html, index.html personal/unit/programme/lifetime/planning/finance-fetch/scope/render functions and preference maps, server.js identity/contributor/assignment/convention/date/unit/programme/finance/authentication/transport handlers and summary helpers.
 - Limitations: broad live schema/permission coverage remains unverified; automated and browser checks use fictional data.

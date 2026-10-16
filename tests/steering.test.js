@@ -3,17 +3,20 @@ const assert = require("node:assert/strict");
 const S = require("../steering");
 const service = require("../steering-service");
 const UI = require("../steering-client");
+const I18n = require("../i18n");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 const { domFixture } = require("./dom-fixture");
 const { fixtureRpc, config } = require("./steering-fixture");
 
-async function loadNavigation(metadata) {
+async function loadNavigation(metadata, { allowHTML = false } = {}) {
   const root = domFixture(), document = root.ownerDocument, elements = new Map(), requests = [], events = [];
   const element = id => {
     if (!elements.has(id)) { const value = document.createElement("div"); value.value = ""; value.disabled = false;
-      value.removeAttribute = name => value.attributes.delete(name); elements.set(id, value); }
+      value.removeAttribute = name => value.attributes.delete(name);
+      if (allowHTML) { let html = ""; Object.defineProperty(value, "innerHTML", { get: () => html, set: next => { html = String(next); } }); }
+      elements.set(id, value); }
     return elements.get(id);
   };
   const buttons = ["time", "projects", "unit-dico", "programmes", "unit"].map(view => {
@@ -27,7 +30,10 @@ async function loadNavigation(metadata) {
     const excluded = [...selector.matchAll(/:not\(\[data-view=["']?([^\]"']+)["']?\]\)/g)].map(match => match[1]);
     return buttons.filter(button => !excluded.includes(button.dataset.view));
   };
-  const context = { document, window: { SteeringMetrics: S, dispatchEvent(event) { events.push(event); } },
+  const localeListeners = new Map();
+  const context = { document, window: { SteeringMetrics: S, DashboardI18n: I18n,
+    addEventListener(name, callback) { localeListeners.set(name, callback); },
+    dispatchEvent(event) { events.push(event); localeListeners.get(event.type)?.(event); } },
     CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } },
     async fetch(url, options) {
       requests.push({ url, options }); assert.equal(url, "/api/odoo/pilotage/metadata", "Independent programme navigation must not fetch legacy steering data");
@@ -38,7 +44,8 @@ async function loadNavigation(metadata) {
   const seam = 'post("metadata").then'; assert.equal(source.split(seam).length, 2);
   vm.runInNewContext(source.replace(seam, `globalThis.navigation = { state, setView };\n${seam}`), context, { filename: "steering-client.js" });
   await new Promise(setImmediate);
-  return { ...context.navigation, elements, buttons, requests, events, document };
+  return { ...context.navigation, elements, buttons, requests, events, document,
+    languageChange: () => localeListeners.get("dashboard:languagechange")?.({ type: "dashboard:languagechange" }) };
 }
 
 test("Programmes remains enabled when the legacy steering unit configuration is unavailable", async () => {
@@ -168,4 +175,109 @@ test("filters include unknown dates, exact leader identity and programme anomali
   assert.match(UI.projectTable([{ ...result.projects[0], name: '<script>bad</script>' }], []), /&lt;script&gt;/);
   assert.match(UI.cards(result.unitSummary), /data-contributors="11,12"/);
   assert.match(UI.detailBody((await service.load(config, fixtureRpc(), 7, 11)).project, "resources"), /WP 40/);
+});
+
+test("steering and backend catalogues preserve FR/NL and source interpolation parity", () => {
+  const placeholders = text => [...new Set(Array.from(text.matchAll(/\{([A-Za-z][A-Za-z0-9_]*)\}/g), match => match[1]))].sort();
+  for (const [file, minimum] of [["../i18n-steering-messages", 160], ["../i18n-server-messages", 240]]) {
+    const messages = require(file); assert.ok(Object.keys(messages).length >= minimum);
+    for (const [key, message] of Object.entries(messages)) {
+      assert.equal(typeof message.fr, "string", key); assert.equal(typeof message.nl, "string", key);
+      assert.deepEqual(placeholders(message.fr), placeholders(message.nl), key);
+      if (message.source) assert.deepEqual(placeholders(message.fr), placeholders(message.source), key);
+    }
+  }
+});
+
+test("visible backend messages translate original English aliases and French parameterized warnings", () => {
+  try {
+    I18n.setLanguage("fr");
+    assert.equal(I18n.message("Odoo rejected your credentials"), "Odoo a refusé vos identifiants.");
+    assert.equal(I18n.message('No employee found matching "Alex <Test>".'), "Aucun employé trouvé pour « Alex <Test> ».");
+    I18n.setLanguage("nl");
+    assert.equal(I18n.message("Odoo rejected your credentials"), "Odoo heeft uw aanmeldgegevens geweigerd.");
+    assert.equal(I18n.message("2 projet(s) référencé(s) sont absents des données accessibles : 54252043, 56261849."),
+      "2 opgenomen project(en) ontbreken in de toegankelijke gegevens: 54252043, 56261849.");
+    assert.match(I18n.message("Certains montants Odoo sont absents ou illisibles ; ils ne sont pas remplacés par zéro."), /niet door nul vervangen/);
+    assert.equal(I18n.message("Unknown source fault <private>"), "Unknown source fault <private>", "Unregistered upstream content is not guessed or rewritten");
+  } finally { I18n.setLanguage("fr"); }
+});
+
+test("steering functions switch locale dynamically across cards, budgets and every detail tab", async () => {
+  const result = await service.load(config, fixtureRpc(), 7), p = (await service.load(config, fixtureRpc(), 7, 11)).project;
+  const original = structuredClone(p);
+  try {
+    I18n.setLanguage("nl");
+    assert.match(UI.cards(result.unitSummary), /Gecumuleerde realisatie/);
+    assert.match(UI.cards(result.unitSummary), /Projecttotaal \/ beschikbare horizon/);
+    assert.match(UI.projectTable(result.projects, result.programmes), /Programma \/ verantwoordelijke/);
+    assert.match(UI.monetaryTable(p.budgets), /Gebudgetteerd/); assert.match(UI.monetaryTable(p.budgets), /Ter goedkeuring/);
+    const summary = UI.detailBody(p, "summary"), resources = UI.detailBody(p, "resources"), budget = UI.detailBody(p, "budgets"), quality = UI.detailBody(p, "quality");
+    assert.match(summary, /Mijlpalen/); assert.match(summary, /Impacttrajecten/); assert.match(summary, /Conventie overschreden/);
+    assert.match(resources, /Team en rollen/); assert.match(resources, /Werkpakketten/);
+    assert.match(resources, /aria-label="Zichtbare maanduren, mogelijk gedeeltelijke dekking"/);
+    assert.match(budget, /Rubriek \/ rekening/); assert.match(quality, /Bron geladen op/);
+    assert.match(quality, /Odoo past de toegangsrechten/); assert.doesNotMatch(quality, /Source chargée le/);
+    assert.equal(UI.format(1234.5), `${new Intl.NumberFormat("nl-BE", { maximumFractionDigits: 1 }).format(1234.5)} h`);
+    assert.equal(UI.format(null), "Niet beschikbaar");
+    I18n.setLanguage("fr"); assert.match(UI.cards(result.unitSummary), /Réalisé cumulé/); assert.match(UI.detailBody(p, "resources"), /Équipe et rôles/);
+    assert.deepEqual(p, original);
+  } finally { I18n.setLanguage("fr"); }
+});
+
+test("steering translation preserves and escapes source project, programme, person, role and budget labels", async () => {
+  const p = (await service.load(config, fixtureRpc(), 7, 11)).project;
+  p.name = '<b>Non affecté</b>'; p.owner.name = "Responsable source"; p.stage = "Étape source";
+  p.people[0].name = "Convention"; p.people[0].roles = ["Rôle source <unsafe>"];
+  p.budgets[0].categories[0].category = "Rubrique source <unsafe>";
+  try {
+    I18n.setLanguage("nl");
+    const table = UI.projectTable([p], [{ id: p.assignment.programmeId, name: "Programme source <unsafe>" }]);
+    assert.match(table, /&lt;b&gt;Non affecté&lt;\/b&gt;/); assert.match(table, /Responsable source/);
+    assert.match(table, /Étape source/); assert.match(table, /Programme source &lt;unsafe&gt;/);
+    const resources = UI.detailBody(p, "resources"), budgets = UI.detailBody(p, "budgets");
+    assert.match(resources, /<td>Convention/); assert.match(resources, /Rôle source &lt;unsafe&gt;/);
+    assert.match(budgets, /Rubrique source &lt;unsafe&gt;/); assert.doesNotMatch(table + resources + budgets, /<unsafe>|<b>Non affecté/);
+  } finally { I18n.setLanguage("fr"); }
+});
+
+test("live navigation language changes preserve view and generations without dispatching navigation or fetching", async () => {
+  const nav = await loadNavigation({ ok: true, enabled: false, leader: { available: false } });
+  nav.setView("unit-dico");
+  const generation = nav.state.generation, detailGeneration = nav.state.detailGeneration, events = nav.events.length;
+  try {
+    I18n.setLanguage("nl"); nav.languageChange();
+    assert.equal(nav.document.title, "Eenheid DiCo · Odoo-dashboard");
+    assert.equal(nav.elements.get("page-title").textContent, "Eenheid DiCo");
+    assert.match(nav.elements.get("page-subtitle").textContent, /kalender en projectweergaven/);
+    assert.equal(nav.state.view, "unit-dico"); assert.equal(nav.state.generation, generation); assert.equal(nav.state.detailGeneration, detailGeneration);
+    assert.equal(nav.events.length, events); assert.equal(nav.requests.length, 1);
+    assert.equal(nav.elements.get("unit-dico-view").hidden, false);
+    I18n.setLanguage("fr"); nav.languageChange(); assert.equal(nav.document.title, "Unité DiCo · Tableau de bord Odoo");
+  } finally { I18n.setLanguage("fr"); }
+});
+
+test("legacy cached language repaint preserves filters, contributor selection, detail tab and source names", async () => {
+  const nav = await loadNavigation({ ok: true, enabled: true, leader: { available: true, field: "user_id" } }, { allowHTML: true });
+  nav.state.portfolio = await service.load(config, fixtureRpc(), 7);
+  nav.state.detail = (await service.load(config, fixtureRpc(), 7, 11)).project;
+  nav.state.view = "unit"; nav.state.tab = "resources"; nav.state.contributorIds = [11];
+  // Materialize controls before setting selections, matching the initialized page.
+  for (const id of ["pilotage-programme", "pilotage-owner", "pilotage-stage", "pilotage-period", "pilotage-leader"])
+    if (!nav.elements.has(id)) nav.document.getElementById(id);
+  nav.elements.get("pilotage-programme").value = "digital"; nav.elements.get("pilotage-owner").value = "7";
+  nav.elements.get("pilotage-stage").value = "En cours"; nav.elements.get("pilotage-period").value = "2026";
+  const generation = nav.state.generation, detailGeneration = nav.state.detailGeneration, events = nav.events.length;
+  const selectedDetail = nav.state.detail;
+  try {
+    I18n.setLanguage("nl"); nav.languageChange();
+    assert.match(nav.elements.get("pilotage-content").innerHTML, /Metaoverzicht/);
+    assert.match(nav.elements.get("pilotage-detail").innerHTML, /role="tablist" aria-label="Projectdetails"/);
+    assert.match(nav.elements.get("pilotage-detail").innerHTML, /Team en rollen/);
+    assert.equal(nav.elements.get("pilotage-programme").value, "digital"); assert.equal(nav.elements.get("pilotage-owner").value, "7");
+    assert.equal(nav.elements.get("pilotage-stage").value, "En cours"); assert.equal(nav.elements.get("pilotage-period").value, "2026");
+    assert.equal(nav.state.detail, selectedDetail); assert.equal(nav.state.tab, "resources"); assert.deepEqual(nav.state.contributorIds, [11]);
+    assert.equal(nav.state.generation, generation); assert.equal(nav.state.detailGeneration, detailGeneration);
+    assert.equal(nav.events.length, events); assert.equal(nav.requests.length, 1);
+  } finally { I18n.setLanguage("fr"); }
 });

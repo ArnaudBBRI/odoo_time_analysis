@@ -1,9 +1,10 @@
 (function (root, factory) {
-  const api = factory();
+  const api = factory(typeof module === "object" && module.exports ? require("./i18n-core-messages") : root.DashboardI18n);
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.WorkCapacity = api;
-})(typeof globalThis !== "undefined" ? globalThis : this, function () {
+})(typeof globalThis !== "undefined" ? globalThis : this, function (I18n) {
   "use strict";
+  const t = I18n.t;
   const DAY = 864e5, HOUR = 36e5, MAX_YEARS = 150;
   const clocks = new Map();
   const finite = value => typeof value === "number" && Number.isFinite(value) ? value : null;
@@ -149,33 +150,33 @@
   function annual(year, row, schedule, referenceYear, reference) {
     const result = blankAnnual(year, row?.warnings || []), daily = dailyWork(year, schedule);
     if (!row || !daily) {
-      result.warnings.push("Calendrier annuel ou horaires de travail indisponibles."); return result;
+      result.warnings.push(t("workCapacity.calendarUnavailable")); return result;
     }
     result.scheduledHours = sum(daily, "scheduledHours"); result.daily = daily;
     if (!["available", "missing", "unavailable"].includes(row.calendarStatus) ||
       !["available", "missing", "unavailable"].includes(row.entitlementStatus)) {
-      result.warnings.push("L’état du calendrier ou des droits annuels ne peut pas être confirmé."); return result;
+      result.warnings.push(t("workCapacity.statusUnknown")); return result;
     }
     if (row.calendarStatus === "unavailable" || row.entitlementStatus === "unavailable") {
-      result.warnings.push("Les jours fériés ou les droits de congé ne sont pas accessibles pour cette année."); return result;
+      result.warnings.push(t("workCapacity.sourcesUnavailable")); return result;
     }
     if (row.calendarStatus === "missing" && year > referenceYear) {
       if (!reference || reference.status !== "available") {
-        result.warnings.push("La capacité de l’année actuelle n’est pas disponible pour estimer cette année future."); return result;
+        result.warnings.push(t("workCapacity.referenceUnavailable")); return result;
       }
       result.availableHours = reference.availableHours; result.availableDays = reference.availableDays;
       result.entitlementHours = reference.entitlementHours; result.status = "estimated";
       result.calendarBasisYear = referenceYear; result.entitlementBasisYear = referenceYear;
       result.estimateReason = "reference-year-calendar";
-      result.warnings.push(`Calendrier futur non publié : nombre de jours et d’heures disponibles repris de ${referenceYear}.`);
+      result.warnings.push(t("workCapacity.futureCalendarBasis", { p0: referenceYear }));
       return result;
     }
     if (row.calendarStatus !== "available") {
-      result.warnings.push("Les jours fériés de cette année ne peuvent pas être confirmés."); return result;
+      result.warnings.push(t("workCapacity.holidaysUnknown")); return result;
     }
     const closures = publicIntervals(row.publicClosures);
     if (closures === null) {
-      result.warnings.push("Certaines périodes de fermeture ont des dates invalides."); return result;
+      result.warnings.push(t("workCapacity.invalidClosures")); return result;
     }
     result.daily = applyClosures(daily, closures); result.publicHolidayHours = sum(result.daily, "publicHolidayHours");
     result.calendarBasisYear = year;
@@ -184,21 +185,21 @@
     } else if (row.entitlementStatus === "missing" && year > referenceYear && reference?.status === "available") {
       result.entitlementHours = reference.entitlementHours; result.entitlementBasisYear = referenceYear;
       result.estimateReason = "reference-year-entitlement";
-      result.warnings.push(`Droits futurs non attribués : droit annuel de congé repris de ${referenceYear}.`);
+      result.warnings.push(t("workCapacity.futureRightsBasis", { p0: referenceYear }));
     }
     if (result.entitlementHours === null) {
-      result.warnings.push("Le droit annuel de congé payé est indisponible."); return result;
+      result.warnings.push(t("workCapacity.rightsUnavailable")); return result;
     }
     const available = result.scheduledHours - result.publicHolidayHours - result.entitlementHours;
     if (!Number.isFinite(available) || available < 0) {
-      result.warnings.push("Les congés et fermetures dépassent les heures ouvrées ; capacité annuelle non confirmée."); return result;
+      result.warnings.push(t("workCapacity.leaveExceedsHours")); return result;
     }
     result.availableHours = available; result.availableDays = available / schedule.hoursPerDay;
     result.status = result.estimateReason ? "estimated" : "available";
     if (schedule.basisYear !== null && year !== schedule.basisYear) {
       result.status = "estimated";
       if (!result.estimateReason) result.estimateReason = "current-work-schedule";
-      result.warnings.push(`Le calendrier de travail de ${schedule.basisYear} est appliqué à ${year} ; les changements historiques ou futurs de régime ne peuvent pas être confirmés.`);
+      result.warnings.push(t("workCapacity.scheduleBasisYears", { p0: schedule.basisYear, p1: year }));
     }
     return result;
   }
@@ -209,7 +210,7 @@
       publicHolidayHours: null, entitlementHours: null, workTimeRate: rate !== null && rate >= 0 ? rate : null,
       partialPeriod: false, years: [], warnings: warnings(source?.warnings || []) };
     if (source?.status !== "available" || !scope || referenceYear === null || !schedule || !Array.isArray(source.years)) {
-      output.warnings.push("La capacité de travail ne peut pas être calculée avec les données accessibles."); return output;
+      output.warnings.push(t("workCapacity.unavailable")); return output;
     }
     const years = new Map(), duplicateYears = new Set();
     for (const row of source.years) {
@@ -219,7 +220,7 @@
     }
     const reference = duplicateYears.has(referenceYear) ? null : annual(referenceYear, years.get(referenceYear), schedule, referenceYear, null);
     for (const year of scope.years) {
-      const result = duplicateYears.has(year) ? blankAnnual(year, ["Plusieurs sources annuelles se contredisent pour cette année."])
+      const result = duplicateYears.has(year) ? blankAnnual(year, [t("workCapacity.conflictingYears")])
         : year === referenceYear && reference ? { ...reference, daily: [...reference.daily], warnings: [...reference.warnings] }
           : annual(year, years.get(year), schedule, referenceYear, reference);
       const startDate = scope.custom && scope.startDate > `${String(year).padStart(4, "0")}-01-01` ? scope.startDate : `${String(year).padStart(4, "0")}-01-01`;
@@ -241,13 +242,13 @@
         }
         if (scoped.availableHours < 0 || !Number.isFinite(scoped.availableHours)) {
           scoped.availableHours = null; result.status = "unavailable";
-          result.warnings.push("Les congés estimés dépassent les heures ouvrées de la période sélectionnée.");
+          result.warnings.push(t("workCapacity.partialLeaveExceedsHours"));
         } else {
           scoped.availableDays = scoped.availableHours / schedule.hoursPerDay;
           if (partial && result.entitlementHours > 0) {
             if (result.status === "available") result.status = "estimated";
             if (!result.estimateReason) result.estimateReason = "partial-period-entitlement";
-            result.warnings.push("Sur une période partielle, le droit annuel de congé est réparti au prorata des heures ouvrées, indépendamment des demandes de congé.");
+            result.warnings.push(t("workCapacity.partialLeavePolicy"));
           }
         }
       }

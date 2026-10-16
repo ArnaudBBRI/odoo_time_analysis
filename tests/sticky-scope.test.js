@@ -63,7 +63,7 @@ function loadDashboard(mockFetch, { allowedRoutes = ["/api/odoo/project-timeshee
   const elements = new Map();
   const scopeRoot = dateControls || programmeDOM ? domFixture() : null;
   const requests = [];
-  const context = {
+  const context = { DashboardI18n: require("./i18n-fixture"),
     renderCalls: 0,
     Date: class DashboardTestDate extends Date {
       constructor(...args) { super(...(args.length ? args : [new Date(2026, 9, 5, 12).getTime()])); }
@@ -1013,8 +1013,8 @@ test("persistent sticky navigation starts on Mon temps and hides legacy populati
   assert.match(menuStyle, /position:\s*sticky/);
   const menu = source.match(/<section class="dashboard-menu"[\s\S]*?<\/section>/)?.[0];
   assert.match(menu, /<nav id="pilotage-nav"/);
-  assert.match(menu, /data-view="time" aria-current="page">Mon temps<\/button>/);
-  assert.match(menu, /data-view="projects">Projets<\/button>\s*<button type="button" data-view="unit-dico">Unité DiCo<\/button>/);
+  assert.match(menu.replace(/<span[^>]*>|<\/span>/g, ""), /data-view="time" aria-current="page">(?:<span[^>]*>)?Mon temps(?:<\/span>)?<\/button>/);
+  assert.match(menu.replace(/<span[^>]*>|<\/span>/g, ""), /data-view="projects">Projets<\/button>\s*<button type="button" data-view="unit-dico">Unité DiCo<\/button>/);
   assert.match(menu, /id="hoursScopeControl"[^>]*hidden/);
   assert.match(menu, /id="hoursInclusionControl"[^>]*hidden/);
   assert.ok(source.indexOf('id="time-view"') > source.indexOf(menu) + menu.length,
@@ -1436,7 +1436,7 @@ test("personal project drilldown retains own consultant records and describes an
   assert.equal(dashboard.state.includeOrmittersHours, false);
   dashboard.renderRemainingHoursScope();
   assert.match(dashboard.els.remainingDataScope.textContent, /Mes heures.*quelle que soit ma fonction/);
-  assert.doesNotMatch(dashboard.els.remainingDataScope.textContent, /excluded|Whole Project/);
+  assert.doesNotMatch(dashboard.els.remainingDataScope.textContent, /exclues|Tout le projet/);
 });
 
 test("personal projects sharing a bracketed code keep distinct Remaining totals by Odoo project ID", () => {
@@ -2261,7 +2261,7 @@ test("full render sends scoped overview and project feeds to charts while preser
   assert.equal(mine.kpis[0][0].value, 8);
   assert.equal(mine.overview[0][0].value, 8);
   assert.equal(mine.overview[1][0].value, 6);
-  assert.match(mine.overview[3].scopeLabel, /^Me/);
+  assert.match(mine.overview[3].scopeLabel, /^Moi/);
   const mineSummary = mine.projects[0][0];
   assert.equal(total(mineSummary.project), 8);
   assert.equal(total(mineSummary.plan), 6);
@@ -2274,7 +2274,7 @@ test("full render sends scoped overview and project feeds to charts while preser
   const whole = dashboard.captureRenderFeeds();
   assert.equal(whole.kpis[0].reduce((sum, entry) => sum + entry.value, 0), 28);
   assert.equal(whole.overview[0].reduce((sum, entry) => sum + entry.value, 0), 28);
-  assert.match(whole.overview[3].scopeLabel, /^Whole Project/);
+  assert.match(whole.overview[3].scopeLabel, /^Tout le projet/);
   assert.equal(whole.projects[0][0].project, baseline);
   assert.equal(total(whole.projects[0][0].project), 28);
   assert.equal(total(whole.projects[0][0].plan), 6);
@@ -2288,7 +2288,7 @@ test("Me project macro uses scoped ID records and keeps its overrides separate f
   const project = dashboard.scopeProjectHours(dashboard.state.projects[0]);
   const plan = dashboard.scopeProjectHours(dashboard.state.plans[0], "slots");
   const mine = dashboard.buildWholeProjectMacroInfo(project, plan, null, true);
-  assert.equal(mine.title, "My project plan");
+  assert.equal(mine.title, "Mon planning projet");
   assert.equal(mine.plannedTotal, 6);
   assert.equal(mine.actualToDate, 8);
   assert.match(mine.overrideKey, /::employee::/);
@@ -2431,9 +2431,9 @@ test("Dico without a personal identity preserves baseline totals with an honest 
   dashboard.state.dicoProjects = dashboard.buildDicoProjectListFromApi(fixtures().dico);
   const overview = dashboard.getScopedOverview();
   assert.equal(total(overview.actual), 28);
-  assert.match(overview.scopeLabel, /baseline.*all employees/i);
-  assert.match(overview.message, /Fetch your employee hours/);
-  assert.doesNotMatch(overview.scopeLabel, /^Me/);
+  assert.match(overview.scopeLabel, /référence.*tous les employés/i);
+  assert.match(overview.message, /Chargez vos heures/);
+  assert.doesNotMatch(overview.scopeLabel, /^Moi/);
 });
 
 test("unidentifiable workbook series retain their baseline with an explicit scope fallback", () => {
@@ -2514,7 +2514,7 @@ test("Whole Project skips unassigned hours in its overview and read queue while 
   assert.deepEqual(Array.from(overview.projects), [projectName]);
   assert.equal(total(overview.actual), 28);
   assert.ok(!overview.actual.rows.some((row) => row.name === "(No project)"));
-  assert.match(overview.message, /Unassigned hours.*Me/i);
+  assert.match(overview.message, /heures non affectées.*Moi/i);
 });
 
 test("an unassigned-only Whole Project view cannot substitute the Me hours", async () => {
@@ -2530,8 +2530,8 @@ test("an unassigned-only Whole Project view cannot substitute the Me hours", asy
   assert.equal(overview.projects.length, 0);
   assert.equal(overview.actual, null);
   assert.equal(overview.planned, null);
-  assert.match(overview.scopeLabel, /^Whole Project/);
-  assert.match(overview.message, /Unassigned hours.*Me/i);
+  assert.match(overview.scopeLabel, /^Tout le projet/);
+  assert.match(overview.message, /heures non affectées.*Moi/i);
 });
 
 test("simultaneous Whole Project requests share one in-progress pair of read calls", async () => {
@@ -2569,7 +2569,7 @@ test("legacy whole-project cache retains monthly totals and exposes unavailable 
   assert.equal(overview.actual.lines, undefined, "Missing raw actuals must allow the disclosed monthly fallback");
   assert.equal(overview.planned.slots, undefined);
   assert.equal(dashboard.buildRemainingHoursScopeInfo().filteringAvailable, false);
-  assert.match(dashboard.buildSubcontractorHoursNote(), /^Filter unavailable/i);
+  assert.match(dashboard.buildSubcontractorHoursNote(), /^Filtre indisponible/i);
   dashboard.setIncludeOrmittersHours(true);
   assert.equal(total(dashboard.getScopedOverview().actual), 40);
   assert.equal(total(dashboard.getScopedOverview().planned), 30);

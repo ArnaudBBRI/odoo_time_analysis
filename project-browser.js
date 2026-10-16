@@ -1,13 +1,18 @@
 (function (root, factory) {
-  const api = factory(typeof module === "object" && module.exports ? require("./project-card") : root.ProjectCard);
+  const commonJs = typeof module === "object" && module.exports;
+  const i18n = commonJs ? require("./i18n") : root.DashboardI18n;
+  if (commonJs) require("./i18n-project-messages");
+  const api = factory(commonJs ? require("./project-card") : root.ProjectCard, i18n);
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.ProjectBrowser = api;
-})(typeof globalThis !== "undefined" ? globalThis : this, function (ProjectCard) {
+})(typeof globalThis !== "undefined" ? globalThis : this, function (ProjectCard, I18n) {
   "use strict";
 
-  const numberFormat = new Intl.NumberFormat("fr-BE", { maximumFractionDigits: 2 });
-  const exactNumberFormat = new Intl.NumberFormat("fr-BE", { maximumSignificantDigits: 17 });
-  const percentFormat = new Intl.NumberFormat("fr-BE", { style: "percent", maximumFractionDigits: 0 });
+  const t = (key, params) => I18n.t(key, params);
+  const message = value => I18n.message(value);
+  const numberFormat = { format: value => I18n.formatNumber(value, { maximumFractionDigits: 2 }) };
+  const exactNumberFormat = { format: value => I18n.formatNumber(value, { maximumSignificantDigits: 17 }) };
+  const percentFormat = { format: value => I18n.formatNumber(value, { style: "percent", maximumFractionDigits: 0 }) };
   let renderId = 0;
   const employeeColors = new Map(), assignedEmployeeColors = new Set();
   const employeePalette = ["#008bab", "#1c9c8c", "#6368ae", "#cd8747", "#b65c7b", "#488c62", "#5b88b4", "#8865a5", "#bc7057", "#86933f", "#448d8d", "#637d94"];
@@ -42,38 +47,38 @@
 
   function formatHours(value) {
     const number = numeric(value);
-    return number === null ? "Indisponible" : `${numberFormat.format(number)} h`;
+    return number === null ? t("project.browser.indisponible.m9mk9v") : `${numberFormat.format(number)} h`;
   }
 
   function projectDate(value) {
     if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
     const date = new Date(`${value}T00:00:00Z`);
     if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== value) return null;
-    return { value, label: `${value.slice(8, 10)}/${value.slice(5, 7)}/${value.slice(0, 4)}` };
+    return { value, label: I18n.formatDate(date, { day: "2-digit", month: "2-digit", year: "numeric" }) };
   }
 
-  function periodTitle(scope, years, subject = "Mes heures") {
+  function periodTitle(scope, years, subject = t("project.browser.mesHeures.1smqbg4")) {
     const selected = scope == null ? years : scope;
-    const fallback = `${subject} · période sélectionnée`;
+    const fallback = t("project.browser.periodeSelectionnee.3dm9lq", { p0: subject });
     if (selected && typeof selected === "object" && selected.kind !== "years" &&
       (Object.hasOwn(selected, "startDate") || Object.hasOwn(selected, "endDate"))) {
       const start = projectDate(selected.startDate), end = projectDate(selected.endDate);
       if (!start || !end || start.value > end.value || Number(start.value.slice(0, 4)) < 1 ||
         Number(end.value.slice(0, 4)) > 9998) return fallback;
-      const months = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
       const date = value => {
         const day = Number(value.slice(8, 10));
-        return `${day === 1 ? "1er" : day} ${months[Number(value.slice(5, 7)) - 1]} ${Number(value.slice(0, 4))}`;
+        const suffix = I18n.language() === "fr" && day === 1 ? "1er" : String(day);
+        return `${suffix} ${I18n.formatDate(`${value}T00:00:00Z`, { month: "long", year: "numeric" })}`;
       };
-      return `${subject} du ${date(start.value)} au ${date(end.value)}`;
+      return t("project.browser.duAu.2j40gd", { p0: subject, p1: date(start.value), p2: date(end.value) });
     }
     const values = selected?.kind === "years" ? selected.years : selected;
     if (typeof values === "string" || typeof values?.[Symbol.iterator] !== "function") return fallback;
     const valid = [...new Set(Array.from(values).map(value => numeric(value))
       .filter(value => Number.isInteger(value) && value >= 1 && value <= 9998))].sort((a, b) => a - b);
     if (!valid.length) return fallback;
-    const period = valid.length === 1 ? String(valid[0]) : `${valid.slice(0, -1).join(", ")} et ${valid.at(-1)}`;
-    return `${subject} en ${period}`;
+    const period = valid.length === 1 ? String(valid[0]) : t("project.browser.et.1gc6hrz", { p0: valid.slice(0, -1).join(", "), p1: valid.at(-1) });
+    return t("project.browser.en.1176rxd", { p0: subject, p1: period });
   }
 
   function selectedPeriodEnd(scope, years) {
@@ -95,13 +100,13 @@
     const info = data.planningInfo;
     const section = node("section", "project-planning-info"), controls = new Map();
     section.setAttribute("data-project-planning-info", "");
-    const heading = node("h4", "project-planning-info-title", "Convention et planning"); heading.id = `${id}-planning-info`;
+    const heading = node("h4", "project-planning-info-title", t("project.browser.conventionEtPlanning.pne8w4")); heading.id = `${id}-planning-info`;
     const header = node("div", "project-planning-info-header"), anchor = node("div", "project-planning-info-anchor");
     const infoButton = node("button", "project-planning-info-button", "i"); infoButton.type = "button";
-    infoButton.setAttribute("aria-label", "Informations sur la convention et le planning");
+    infoButton.setAttribute("aria-label", t("project.browser.informationsSurLaConventionEtLePlanning.8kfjkz"));
     infoButton.setAttribute("data-planning-info-control", "");
     const notes = node("div", "project-planning-info-popover"); notes.id = `${id}-planning-notes`;
-    notes.setAttribute("role", "region"); notes.setAttribute("aria-label", "Informations sur la convention et le planning");
+    notes.setAttribute("role", "region"); notes.setAttribute("aria-label", t("project.browser.informationsSurLaConventionEtLePlanning.8kfjkz"));
     notes.setAttribute("data-planning-info-popover", ""); notes.hidden = !infoOpen;
     infoButton.setAttribute("aria-controls", notes.id); infoButton.setAttribute("aria-expanded", String(infoOpen));
     let pinned = infoOpen, hovered = false, suppressFocus = false, listening = false, stopped = false;
@@ -137,25 +142,25 @@
       const loading = Boolean(data.loading);
       section.setAttribute("data-planning-info-status", loading ? "loading" : "unavailable");
       section.setAttribute("aria-busy", String(loading));
-      const message = node("p", "project-planning-info-note", loading ? "Chargement des informations de planning…" : "Informations de planning indisponibles.");
-      message.setAttribute("role", "status"); section.append(message); notes.append(node("p", "project-planning-info-note", loading ? "Les détails seront disponibles après le chargement du planning." : "Les informations détaillées de planning sont indisponibles."));
+      const message = node("p", "project-planning-info-note", loading ? t("project.browser.chargementDesInformationsDePlanning.19p8se6") : t("project.browser.informationsDePlanningIndisponibles.1hoa4c9"));
+      message.setAttribute("role", "status"); section.append(message); notes.append(node("p", "project-planning-info-note", loading ? t("project.browser.lesDetailsSerontDisponiblesApresLeChargement.g2vh7x") : t("project.browser.lesInformationsDetailleesDePlanningSontIndisponibles.1ctsnhf")));
       return { section, controls, infoButton, cleanup };
     }
     section.setAttribute("data-planning-info-status", ["available", "partial", "unavailable"].includes(info.status) ? info.status : "unavailable");
     const start = projectDate(info.startDate), end = projectDate(info.endDate);
-    section.append(node("p", "project-planning-info-period", `${start && end && start.value <= end.value ? `Du ${start.label} au ${end.label}` : "Dates du projet indisponibles"} · durée totale du projet · indépendamment de la période sélectionnée · hors Ormitters.`));
+    section.append(node("p", "project-planning-info-period", t("project.browser.dureeTotaleDuProjetIndependammentDeLa.hka6yn", { p0: start && end && start.value <= end.value ? t("project.browser.duAu.1nvv6b9", { p0: start.label, p1: end.label }) : t("project.browser.datesDuProjetIndisponibles.1r7666u") })));
     const metrics = node("dl", "project-planning-info-metrics");
     const delta = info.projectionStatus === "unavailable" ? null : numeric(info.projectionDifference);
     const roundedDelta = delta === null ? null : Math.abs(delta) <= 0.005 ? 0 : delta;
-    const definitions = [["convention", "prévues par la convention", info.conventionHours],
-      ["actual", "déjà prestées au total depuis le début du projet", info.actualStatus === "unavailable" ? null : info.actualHours],
-      ["remaining", "restantes planifiées au total", info.remainingPlannedStatus === "unavailable" ? null : info.remainingPlannedHours],
-      ["projection", roundedDelta === null ? "écart projeté avec la convention" : roundedDelta > 0 ? "planifiées en trop par rapport à la convention"
-        : roundedDelta < 0 ? "en moins par rapport à la convention" : "d’écart avec la convention", roundedDelta]];
+    const definitions = [["convention", t("project.browser.prevuesParLaConvention.1yacpue"), info.conventionHours],
+      ["actual", t("project.browser.dejaPresteesAuTotalDepuisLeDebut.1qllhvp"), info.actualStatus === "unavailable" ? null : info.actualHours],
+      ["remaining", t("project.browser.restantesPlanifieesAuTotal.1d68ghm"), info.remainingPlannedStatus === "unavailable" ? null : info.remainingPlannedHours],
+      ["projection", roundedDelta === null ? t("project.browser.ecartProjeteAvecLaConvention.1o1n4n0") : roundedDelta > 0 ? t("project.browser.planifieesEnTropParRapportALa.alqp0m")
+        : roundedDelta < 0 ? t("project.browser.enMoinsParRapportALaConvention.xtdt13") : t("project.browser.dEcartAvecLaConvention.mmlsgk"), roundedDelta]];
     for (const [key, title, value] of definitions) {
       const metric = node("div", "project-planning-info-metric"); metric.setAttribute("data-planning-metric", key);
       const amount = numeric(value);
-      const text = key === "convention" && amount === null && info.conventionStatus === "empty" ? "Non renseigné"
+      const text = key === "convention" && amount === null && info.conventionStatus === "empty" ? t("project.browser.nonRenseigne.un1dwo")
         : key === "projection" && amount !== null ? `${amount > 0 ? "+" : amount < 0 ? "−" : ""}${formatHours(Math.abs(amount))}` : formatHours(value);
       const label = node("dt", "project-planning-info-caption", title);
       const valueNode = node("dd", "project-planning-info-value", text);
@@ -164,35 +169,35 @@
         metric.setAttribute("data-planning-projection-direction", roundedDelta === null ? "unknown" : roundedDelta > 0 ? "over" : roundedDelta < 0 ? "under" : "balanced");
       } else if (key === "actual") {
         const through = projectDate(info.actualThroughDate);
-        label.append(node("em", "project-planning-info-card-note", `Hors Ormitters${through ? ` · jusqu’au ${through.label}` : ""}.`));
+        label.append(node("em", "project-planning-info-card-note", t("project.browser.actualExclusion", { through: through ? t("project.browser.jusquAu.1muw713", { p0: through.label }) : "" })));
       } else if (key === "remaining") {
         const knownHire = numeric(info.remainingToHireHours);
-        const hireText = info.remainingToHireStatus === "unavailable" || knownHire === null ? "Part des heures TH indisponible."
-          : `dont ${formatHours(knownHire)} à recruter (TH)${info.remainingToHireStatus === "partial" ? " identifiées" : ""}.`;
+        const hireText = info.remainingToHireStatus === "unavailable" || knownHire === null ? t("project.browser.partDesHeuresTHIndisponible.2g1ea4")
+          : t("project.browser.dontARecruterTH.1vdehlo", { p0: formatHours(knownHire), p1: info.remainingToHireStatus === "partial" ? t("project.browser.identifiees.tvicya") : "" });
         const hireNote = node("strong", "project-planning-info-card-th", hireText); hireNote.setAttribute("data-planning-remaining-to-hire", "");
         label.append(hireNote);
         const remainingStart = projectDate(info.remainingStartDate);
-        if (remainingStart) label.append(node("em", "project-planning-info-card-note", `À partir du ${remainingStart.label}.`));
+        if (remainingStart) label.append(node("em", "project-planning-info-card-note", t("project.browser.aPartirDu.you2fc", { p0: remainingStart.label })));
       }
       metric.append(label, valueNode); metrics.append(metric);
     }
     section.append(metrics);
     const comparisons = node("div", "project-planning-info-comparisons");
     for (const [key, reference, status, difference] of [
-      ["planning", "au planning daté", info.plannedToDateStatus, info.planningToDateDifference],
-      ["convention", "à la convention (interpolation linéaire)", info.conventionToDateStatus, info.conventionToDateDifference]
+      ["planning", t("project.browser.auPlanningDate.1bfzva0"), info.plannedToDateStatus, info.planningToDateDifference],
+      ["convention", t("project.browser.aLaConventionInterpolationLineaire.1kz6grd"), info.conventionToDateStatus, info.conventionToDateDifference]
     ]) {
       const delta = status === "available" && info.actualStatus !== "unavailable" ? numeric(difference) : null;
       const rounded = delta === null ? null : Math.abs(delta) <= 0.005 ? 0 : delta;
-      const text = rounded === null ? `Comparaison ${reference} à ce jour indisponible.` : rounded === 0
-        ? `À ce jour, les heures pointées correspondent ${reference}.`
-        : `À ce jour, ${formatHours(Math.abs(rounded))} pointées ${rounded > 0 ? "en trop" : "en moins"} par rapport ${reference}.`;
+      const text = rounded === null ? t("project.browser.comparaisonACeJourIndisponible.b2dtvz", { p0: reference }) : rounded === 0
+        ? t("project.browser.aCeJourLesHeuresPointeesCorrespondent.1c2iw00", { p0: reference })
+        : t("project.browser.aCeJourPointeesParRapport.gpdblq", { p0: formatHours(Math.abs(rounded)), p1: rounded > 0 ? t("project.browser.enTrop.15cor83") : t("project.browser.enMoins.1tga3fu"), p2: reference });
       const sentence = node("p", `project-planning-info-comparison${rounded > 0 ? " is-over" : ""}`, text);
       sentence.setAttribute("data-planning-to-date-comparison", key); comparisons.append(sentence);
     }
     section.append(comparisons);
-    notes.append(node("p", "project-planning-info-note", "Écart projeté = heures déjà prestées + heures restantes planifiées (TH inclus) − convention. Tous ces chiffres sont hors Ormitters."));
-    notes.append(node("p", "project-planning-info-note", "Les comparaisons à ce jour utilisent le planning réellement daté et la convention répartie linéairement sur les dates du projet. Elles sont indépendantes de la période sélectionnée."));
+    notes.append(node("p", "project-planning-info-note", t("project.browser.ecartProjeteHeuresDejaPresteesHeuresRestantes.194yuth")));
+    notes.append(node("p", "project-planning-info-note", t("project.browser.lesComparaisonsACeJourUtilisentLe.10ti53d")));
     const details = (key, summaryText, items) => {
       const group = node("details", "project-planning-info-details"); group.open = openDetails.has(key); group.setAttribute("data-planning-details", key);
       const summary = node("summary", "", summaryText); summary.setAttribute("data-planning-detail-control", key);
@@ -204,42 +209,42 @@
       const gaps = Array.isArray(coverage.gaps) ? coverage.gaps : [];
       const gapText = gap => {
         const from = projectDate(gap.startDate), to = projectDate(gap.endDate), count = numeric(gap.days);
-        return `${from && to ? `du ${from.label} au ${to.label}` : "dates indisponibles"}${count === null ? "" : ` (${numberFormat.format(count)} jours calendaires)`}`;
+        return `${from && to ? t("project.browser.duAu.1aa9v9x", { p0: from.label, p1: to.label }) : t("project.browser.datesIndisponibles.gjpgh5")}${count === null ? "" : t("project.browser.joursCalendaires.1jc1k9e", { p0: numberFormat.format(count) })}`;
       };
       const periods = gaps.slice(0, 2).map(gapText).join(" ; ");
-      const note = node("p", "project-planning-info-warning", `Planning futur : aucune personne réellement planifiée${periods ? ` ${periods}` : " sur certaines périodes d’au moins un mois"}${gaps.length > 2 ? ` ; et ${gaps.length - 2} autre${gaps.length === 3 ? " période" : "s périodes"}` : ""}.`);
+      const note = node("p", "project-planning-info-warning", t("project.browser.planningFuturAucunePersonneReellementPlanifiee.iqoow0", { p0: periods ? ` ${periods}` : t("project.browser.surCertainesPeriodesDAuMoinsUn.q9owpy"), p1: gaps.length > 2 ? t(gaps.length === 3 ? "project.browser.otherGap" : "project.browser.otherGaps", { count: numberFormat.format(gaps.length - 2) }) : "" }));
       note.setAttribute("data-planning-coverage", "gaps"); notes.append(note);
-      if (gaps.length) details("gaps", `Voir ${gaps.length === 1 ? "la période" : `les ${gaps.length} périodes`} sans personne planifiée`, gaps.map(gap => {
+      if (gaps.length) details("gaps", t("project.browser.voirSansPersonnePlanifiee.n7wdn3", { p0: gaps.length === 1 ? t("project.browser.laPeriode.ouyo1q") : t("project.browser.lesPeriodes.1trh9za", { p0: gaps.length }) }), gaps.map(gap => {
         const from = projectDate(gap.startDate), to = projectDate(gap.endDate), count = numeric(gap.days);
-        return `${from && to ? `Du ${from.label} au ${to.label}` : "Dates indisponibles"}${count === null ? "" : ` · ${numberFormat.format(count)} jour${count === 1 ? " calendaire" : "s calendaires"}`}.`;
+        return `${from && to ? t("project.browser.duAu.1nvv6b9", { p0: from.label, p1: to.label }) : t("project.browser.datesUnavailable")}${count === null ? "" : t(count === 1 ? "project.browser.calendarDay" : "project.browser.calendarDays", { count: numberFormat.format(count) })}.`;
       }));
     } else {
       const knownCoverage = ["complete", "no-substantial-gaps"].includes(coverage.status);
       const text = knownCoverage ? first && last && first.value <= last.value
-        ? "Aucune période sans personne réellement planifiée d’au moins un mois." : "Aucune période future à couvrir."
-        : "Couverture future indéterminée : le planning ou les identités accessibles ne permettent pas de confirmer les périodes sans personne planifiée.";
+        ? t("project.browser.aucunePeriodeSansPersonneReellementPlanifieeD.jmdd29") : t("project.browser.aucunePeriodeFutureACouvrir.8vnfoj")
+        : t("project.browser.couvertureFutureIndetermineeLePlanningOuLes.1tgskrv");
       const note = node("p", knownCoverage ? "project-planning-info-note" : "project-planning-info-warning", text);
       note.setAttribute("data-planning-coverage", knownCoverage ? coverage.status : "unavailable"); notes.append(note);
     }
-    notes.append(node("p", "project-planning-info-note", "Seules les interruptions continues d’au moins un mois sont signalées."));
+    notes.append(node("p", "project-planning-info-note", t("project.browser.seulesLesInterruptionsContinuesDAuMoins.1u4paw5")));
     const toHire = Array.isArray(info.toHireResources) ? info.toHireResources : [];
-    const resourceText = resource => `${typeof resource.name === "string" && resource.name.trim() ? resource.name : `Ressource ${resource.id}`} · ${formatHours(resource.hours)}.`;
+    const resourceText = resource => `${typeof resource.name === "string" && resource.name.trim() ? resource.name : t("project.browser.ressource.18ho8hs", { p0: resource.id })} · ${formatHours(resource.hours)}.`;
     if (toHire.length) {
       const hours = numeric(info.knownToHireHours);
-      details("to-hire", `Ressources TH · durée totale du projet : ${toHire.length} ressource${toHire.length === 1 ? "" : "s"}${hours === null ? "" : ` · ${formatHours(hours)} identifiées`}`, toHire.map(resourceText));
-      notes.append(node("p", "project-planning-info-note", "Les ressources TH représentent des postes à pourvoir ; leurs heures restent incluses dans le planning et dans l’écart projeté."));
+      details("to-hire", t("project.browser.ressourcesTHDureeTotaleDuProjetRessource.57cldv", { p0: toHire.length, p1: toHire.length === 1 ? "" : "s", p2: hours === null ? "" : t("project.browser.identifiees.12sjkrn", { p0: formatHours(hours) }) }), toHire.map(resourceText));
+      notes.append(node("p", "project-planning-info-note", t("project.browser.lesRessourcesTHRepresententDesPostesA.s9grcp")));
     }
     if (info.toHireStatus !== "complete") {
       const note = node("p", "project-planning-info-warning", info.toHireStatus === "partial"
-        ? "Identification des ressources TH incomplète : seules les heures TH confirmées peuvent être distinguées dans le planning."
-        : "Identification des ressources TH indisponible : leur part dans le planning ne peut pas être confirmée.");
+        ? t("project.browser.identificationDesRessourcesTHIncompleteSeulesLes.1dvi590")
+        : t("project.browser.identificationDesRessourcesTHIndisponibleLeurPart.194e0gc"));
       note.setAttribute("data-planning-to-hire-coverage", info.toHireStatus === "partial" ? "partial" : "unavailable"); notes.append(note);
     }
     const unlinked = Array.isArray(info.unlinkedResources) ? info.unlinkedResources : [];
-    if (unlinked.length) details("unlinked", `${unlinked.length} autre${unlinked.length === 1 ? "" : "s"} ressource${unlinked.length === 1 ? "" : "s"} sans personne attribuée`, unlinked.map(resourceText));
+    if (unlinked.length) details("unlinked", t(unlinked.length === 1 ? "project.browser.unlinkedResource" : "project.browser.unlinkedResources", { count: numberFormat.format(unlinked.length) }), unlinked.map(resourceText));
     const warnings = Array.isArray(info.warnings) ? [...new Set(info.warnings.filter(value => typeof value === "string" && value.trim()))] : [];
     if (warnings.length) {
-      const list = node("ul", "project-planning-info-notes"); warnings.forEach(warning => list.append(node("li", "", warning))); notes.append(list);
+      const list = node("ul", "project-planning-info-notes"); warnings.forEach(warning => list.append(node("li", "", message(warning)))); notes.append(list);
     }
     return { section, controls, infoButton, cleanup };
   }
@@ -268,7 +273,7 @@
 
   function initials(name) {
     return String(name || "").trim().split(/\s+/).filter(Boolean).slice(0, 2)
-      .map(part => Array.from(part)[0]).join("").toLocaleUpperCase("fr") || "?";
+      .map(part => Array.from(part)[0]).join("").toLocaleUpperCase(I18n.locale()) || "?";
   }
 
   function monthlyGeometry(data, requestedWidth = 800, employeeId = null) {
@@ -359,7 +364,7 @@
     section.setAttribute("data-monthly-project", String(selected.id));
     section.setAttribute("data-monthly-kind", kind);
     section.setAttribute("data-monthly-mode", mode);
-    const heading = node("h3", "project-browser-section-title", isPlanned ? "Projets · 03 / Planning mensuel · durée du projet" : "Projets · 02 / Évolution mensuelle · durée du projet");
+    const heading = node("h3", "project-browser-section-title", isPlanned ? t("project.browser.projets03PlanningMensuelDureeDuProjet.1o4mhtq") : t("project.browser.projets02EvolutionMensuelleDureeDuProjet.1sqrl4c"));
     heading.id = `${id}-monthly`;
     section.setAttribute("aria-labelledby", heading.id);
     section.append(heading);
@@ -371,11 +376,11 @@
       toggle.type = "checkbox"; toggle.checked = data.includeOrmitters === true;
       toggle.setAttribute("data-monthly-include-ormitters", "");
       toggle.addEventListener("change", () => options.onIncludeOrmittersChange?.(toggle.checked));
-      label.append(toggle, node("span", "", "Inclure les heures des Ormitters")); controls.append(label);
+      label.append(toggle, node("span", "", t("project.browser.inclureLesHeuresDesOrmitters.4nxxt6"))); controls.append(label);
     }
     const modeGroup = node("fieldset", "project-monthly-mode-toggle"), modeInputs = [];
-    modeGroup.append(node("legend", "project-browser-sr-only", isPlanned ? "Affichage des heures planifiées" : "Affichage des heures réalisées"));
-    for (const [value, text] of [["monthly", "Par mois"], ["cumulative", "Cumulé"]]) {
+    modeGroup.append(node("legend", "project-browser-sr-only", isPlanned ? t("project.browser.affichageDesHeuresPlanifiees.xl33n1") : t("project.browser.affichageDesHeuresRealisees.tdvbu6")));
+    for (const [value, text] of [["monthly", t("project.browser.parMois.p8cog8")], ["cumulative", t("project.browser.cumule.1jfjd6g")]]) {
       const label = node("label", "project-monthly-mode-choice"), input = node("input", "project-monthly-mode-input");
       input.type = "radio"; input.name = `${id}-monthly-mode`; input.value = value; input.checked = mode === value;
       input.setAttribute("data-monthly-mode-choice", value);
@@ -387,7 +392,7 @@
     section.setAttribute("data-monthly-status", status);
     section.setAttribute("aria-busy", String(status === "loading"));
     const addWarnings = () => {
-      const warnings = Array.isArray(summary?.warnings) ? summary.warnings.filter(value => typeof value === "string" && value.trim()) : [];
+      const warnings = Array.isArray(summary?.warnings) ? summary.warnings.filter(value => typeof value === "string" && value.trim()).map(message) : [];
       if (warnings.length) {
         const list = node("ul", "project-hours-warnings");
         [...new Set(warnings)].forEach(warning => list.append(node("li", "", warning))); section.append(list);
@@ -403,20 +408,20 @@
       if (outsideFocus) doc.removeEventListener?.("focusin", outsideFocus);
     };
     if (status !== "available" || !Array.isArray(summary?.months) || !summary.months.length) {
-      const message = node("p", "project-monthly-status", isPlanned ? status === "loading" ? "Chargement du planning mensuel…" : "Planning mensuel indisponible : vérifiez le planning et les dates du projet." : status === "loading" ? "Chargement de l’évolution mensuelle…" :
-        status === "not-started" ? "Le projet n’a pas encore commencé." : "Évolution mensuelle indisponible : vérifiez les dates du projet.");
+      const message = node("p", "project-monthly-status", isPlanned ? status === "loading" ? t("project.browser.chargementDuPlanningMensuel.15xdjkq") : t("project.browser.planningMensuelIndisponibleVerifiezLePlanningEt.1wehhr0") : status === "loading" ? t("project.browser.chargementDeLEvolutionMensuelle.163i15w") :
+        status === "not-started" ? t("project.browser.leProjetNAPasEncoreCommence.18vxctf") : t("project.browser.evolutionMensuelleIndisponibleVerifiezLesDatesDu.wpt9d2"));
       message.setAttribute("role", "status"); section.append(message); addWarnings();
       return { section, toggle, modeInputs, cleanup, mount() {}, focus() {} };
     }
     const employees = (Array.isArray(summary.employees) ? summary.employees : []).filter(employee => employee?.id != null)
-      .map(employee => ({ ...employee, name: String(employee.name || "Employé non identifié") }));
+      .map(employee => ({ ...employee, name: String(employee.name || t("project.browser.employeNonIdentifie.1je10ie")) }));
     const names = new Map();
     employees.forEach(employee => names.set(employee.name, (names.get(employee.name) || 0) + 1));
     employees.forEach(employee => { employee.label = names.get(employee.name) > 1 ? `${employee.name} (ID ${employee.id})` : employee.name; });
     const requestedEmployee = isPlanned ? data.plannedMonthlyEmployeeId : data.monthlyEmployeeId;
     const selectedEmployee = requestedEmployee == null ? null : employees.find(employee => String(employee.id) === String(requestedEmployee));
     const visibleEmployees = selectedEmployee ? [selectedEmployee] : employees;
-    const plannedLabel = `Planning individuel · référence linéaire${cumulative ? " cumulée" : ""} sur tout le projet`;
+    const plannedLabel = t("project.browser.planningIndividuelReferenceLineaireSurToutLe.kl0tl5", { p0: cumulative ? t("project.browser.cumulee.1ntd16p") : "" });
     const plannedAvailable = selectedEmployee?.plannedStatus === "available" && Array.isArray(selectedEmployee.plannedReference)
       && selectedEmployee.plannedReference.length === summary.months.length && selectedEmployee.plannedReference.every(value => numeric(value) !== null);
     const plannedValues = plannedAvailable ? selectedEmployee.plannedReference : null;
@@ -424,57 +429,57 @@
     const scheduledPlanningStatus = selectedEmployee ? selectedEmployee.scheduledPlanningStatus : summary.planningStatus;
     const datedPlanningAvailable = !isPlanned && scheduledPlanningStatus === "available" && Array.isArray(scheduledPlanning)
       && scheduledPlanning.length === summary.months.length && scheduledPlanning.every(value => numeric(value) !== null);
-    const datedPlanningLabel = cumulative ? "Planning daté cumulé à ce jour" : "Planning daté à ce jour";
+    const datedPlanningLabel = cumulative ? t("project.browser.planningDateCumuleACeJour.ixfgb1") : t("project.browser.planningDateACeJour.vjw4g0");
     const shownTotal = selectedEmployee && isPlanned ? selectedEmployee.values : summary.total;
     const employeeButtons = [];
     let employeeReset = null;
     section.setAttribute("data-monthly-selected-employee", selectedEmployee ? String(selectedEmployee.id) : "");
     if (selectedEmployee) {
-      employeeReset = node("button", "project-monthly-employee-reset", "Tous les employés"); employeeReset.type = "button";
+      employeeReset = node("button", "project-monthly-employee-reset", t("project.browser.tousLesEmployes.1cn3rkm")); employeeReset.type = "button";
       employeeReset.setAttribute("data-monthly-employee-reset", "");
       employeeReset.addEventListener("click", () => onEmployeeChange?.(null)); controls.append(employeeReset);
     }
     const start = projectDate(summary.startDate), through = projectDate(summary.throughDate), end = projectDate(summary.endDate);
-    const planningPeriod = start && end ? `Du ${start.label} au ${end.label} · totalité du planning individuel, indépendamment de la période sélectionnée.`
-      : "Totalité du planning individuel sur les dates du projet, indépendamment de la période sélectionnée.";
-    const projectPeriod = start && end ? `Dates du projet : du ${start.label} au ${end.label}.` : "Dates de référence du projet indisponibles.";
-    heading.title = `${start && through ? `Heures du ${start.label} au ${through.label}. ` : ""}${selectedEmployee ? planningPeriod : `${projectPeriod} Indépendamment de la période sélectionnée.`}`;
+    const planningPeriod = start && end ? t("project.browser.duAuTotaliteDuPlanningIndividuelIndependamment.cc67q4", { p0: start.label, p1: end.label })
+      : t("project.browser.totaliteDuPlanningIndividuelSurLesDates.1n6eysj");
+    const projectPeriod = start && end ? t("project.browser.datesDuProjetDuAu.1kynew1", { p0: start.label, p1: end.label }) : t("project.browser.datesDeReferenceDuProjetIndisponibles.1suef02");
+    heading.title = `${start && through ? t("project.browser.heuresDuAu.1m1awp1", { p0: start.label, p1: through.label }) : ""}${selectedEmployee ? planningPeriod : t("project.browser.independammentDeLaPeriodeSelectionnee.m3i1v2", { p0: projectPeriod })}`;
     const period = node("p", "project-monthly-period", start && through ?
-      `Du ${start.label} au ${through.label} · hors période sélectionnée · ${data.includeOrmitters ? "Ormitters inclus" : "hors Ormitters"}` : "Période du projet · hors période sélectionnée");
+      t("project.browser.duAuHorsPeriodeSelectionnee.1wfzy2l", { p0: start.label, p1: through.label, p2: data.includeOrmitters ? t("project.browser.ormittersInclus.1vjemeq") : t("project.browser.horsOrmitters.v90iw6") }) : t("project.browser.periodeDuProjetHorsPeriodeSelectionnee.1p9kbnx"));
     section.append(period);
     const months = summary.months;
     const currentKey = isPlanned ? null : summary.throughDate?.slice(0, 7);
-    const monthLabel = month => `${month.label || month.key}${month.key === currentKey ? ` · au ${through?.label || summary.throughDate} (mois en cours)` : ""}`;
+    const monthLabel = month => `${projectDate(`${month.key}-01`) ? I18n.formatDate(`${month.key}-01T00:00:00Z`, { month: "long", year: "numeric" }) : month.label || month.key}${month.key === currentKey ? t("project.browser.auMoisEnCours.qadwma", { p0: through?.label || summary.throughDate }) : ""}`;
     section.append(node("p", "project-monthly-note", isPlanned ?
-      `Heures planifiées ${cumulative ? "cumulées mois après mois" : "par mois"}, réparties selon les dates des créneaux sur toute la durée du projet, y compris les allocations futures et les ressources à recruter (TH). Indépendamment de la période sélectionnée.` : selectedEmployee ?
-      `${selectedEmployee.label} · ${cumulative ? "heures cumulées" : "heures de chaque mois"}, du début du projet à aujourd’hui. Le mois en cours est partiel. La référence répartit son planning total, y compris les allocations futures, linéairement sur toute la durée du projet. Elle est indépendante de la période sélectionnée.` : cumulative ?
-      "Heures cumulées mois après mois depuis le début du projet. Le mois en cours est partiel. La convention s’accumule au prorata des jours du projet, puis reste constante après sa fin." :
-      "Heures de chaque mois, du début du projet à aujourd’hui. Le mois en cours est partiel. La convention est répartie par jour sur les dates du projet, puis nulle après sa fin."));
+      t("project.browser.heuresPlanifieesRepartiesSelonLesDatesDes.1vb6uh7", { p0: cumulative ? t("project.browser.cumuleesMoisApresMois.ap6m10") : t("project.browser.parMois.1m3su94") }) : selectedEmployee ?
+      t("project.browser.duDebutDuProjetAAujourdHui.f4nku2", { p0: selectedEmployee.label, p1: cumulative ? t("project.browser.heuresCumulees.1bn48vi") : t("project.browser.heuresDeChaqueMois.1aczx4h") }) : cumulative ?
+      t("project.browser.heuresCumuleesMoisApresMoisDepuisLe.1f94wm5") :
+      t("project.browser.heuresDeChaqueMoisDuDebutDu.1sd24c4")));
     if (selectedEmployee && !isPlanned) {
       const planning = node("p", "project-monthly-note", plannedAvailable ?
-        `Planning total de ${selectedEmployee.label} sur toute la durée du projet : ${formatHours(selectedEmployee.plannedHours)}${numeric(selectedEmployee.plannedHours) === 0 ? " · aucune heure planifiée." : "."}` :
-        `Planning de ${selectedEmployee.label} indisponible ; la projection linéaire ne peut pas être affichée.`);
+        t("project.browser.planningTotalDeSurTouteLaDuree.1ch5rh8", { p0: selectedEmployee.label, p1: formatHours(selectedEmployee.plannedHours), p2: numeric(selectedEmployee.plannedHours) === 0 ? t("project.browser.aucuneHeurePlanifiee.1pavted") : "." }) :
+        t("project.browser.planningDeIndisponibleLaProjectionLineaireNe.y6adoc", { p0: selectedEmployee.label }));
       planning.setAttribute("data-monthly-employee-planning", plannedAvailable ? "available" : "unavailable"); section.append(planning);
       if (typeof selectedEmployee.plannedWarning === "string" && selectedEmployee.plannedWarning.trim()) {
         const warning = node("p", "project-monthly-note", selectedEmployee.plannedWarning);
-        warning.setAttribute("data-monthly-planned-warning", ""); section.append(warning);
+        warning.textContent = message(selectedEmployee.plannedWarning); warning.setAttribute("data-monthly-planned-warning", ""); section.append(warning);
       }
     }
     if (!isPlanned) {
       const notice = node("p", "project-monthly-note", datedPlanningAvailable ?
-        "La ligne rouge continue suit les heures des créneaux de planning datés, jusqu’à aujourd’hui ; elle ne représente pas une interpolation linéaire." :
-        "Planning daté indisponible : la ligne rouge de comparaison ne peut pas être affichée.");
+        t("project.browser.laLigneRougeContinueSuitLesHeures.g5dnen") :
+        t("project.browser.planningDateIndisponibleLaLigneRougeDe.ypncfg"));
       notice.setAttribute("data-monthly-dated-planning", datedPlanningAvailable ? "available" : "unavailable"); section.append(notice);
       const warning = selectedEmployee ? selectedEmployee.scheduledPlanningWarning : summary.planningWarning;
-      if (typeof warning === "string" && warning.trim()) section.append(node("p", "project-monthly-note", warning));
+      if (typeof warning === "string" && warning.trim()) section.append(node("p", "project-monthly-note", message(warning)));
     }
     if (visibleEmployees.some(employee => employee.values?.some(value => numeric(value) < 0))) {
-      const note = node("p", "project-monthly-note", selectedEmployee ? "Les corrections négatives restent visibles sous zéro." : "Les corrections négatives sont empilées sous zéro. La ligne Total indique la somme nette des employés.");
+      const note = node("p", "project-monthly-note", selectedEmployee ? t("project.browser.lesCorrectionsNegativesRestentVisiblesSousZero.2xtj4m") : t("project.browser.lesCorrectionsNegativesSontEmpileesSousZero.duvfph"));
       note.setAttribute("data-monthly-corrections", ""); section.append(note);
     }
-    const totalLabel = isPlanned ? `${selectedEmployee ? "Total individuel" : "Total du projet"} planifié${cumulative ? " cumulé" : ""}` : cumulative ? "Total cumulé du projet" : "Total du projet";
-    const conventionLabel = cumulative ? "Convention cumulée · prorata journalier" : "Convention · prorata journalier";
-    const legend = node("ul", "project-monthly-legend"); legend.setAttribute("aria-label", "Choisir un employé ou afficher tous les employés");
+    const totalLabel = isPlanned ? t("project.browser.planifie.1urbp38", { p0: selectedEmployee ? t("project.browser.totalIndividuel.1k2ikus") : t("project.browser.totalDuProjet.1gwm8km"), p1: cumulative ? t("project.browser.cumule.k6ftxa") : "" }) : cumulative ? t("project.browser.totalCumuleDuProjet.imrt4l") : t("project.browser.totalDuProjet.1gwm8km");
+    const conventionLabel = cumulative ? t("project.browser.conventionCumuleeProrataJournalier.xnbvk7") : t("project.browser.conventionProrataJournalier.1y5fz0n");
+    const legend = node("ul", "project-monthly-legend"); legend.setAttribute("aria-label", t("project.browser.choisirUnEmployeOuAfficherTousLes.1gq4dq5"));
     const legendItem = (key, label, kind, color, employee) => {
       const item = node("li", "project-monthly-legend-item"); item.setAttribute("data-monthly-legend", key);
       let content = item;
@@ -483,7 +488,7 @@
         item.classList.add(isSelected ? "is-selected" : selectedEmployee ? "is-muted" : "is-all");
         content = node("button", "project-monthly-employee-choice"); content.type = "button";
         content.setAttribute("data-monthly-employee-choice", String(employee.id)); content.setAttribute("aria-pressed", String(Boolean(isSelected)));
-        content.setAttribute("aria-label", `${isSelected ? "Afficher tous les employés" : "Afficher uniquement"} : ${employee.label}`);
+        content.setAttribute("aria-label", `${isSelected ? t("project.browser.afficherTousLesEmployes.1krklem") : t("project.browser.afficherUniquement.v0fl4e")} : ${employee.label}`);
         content.addEventListener("click", () => onEmployeeChange?.(isSelected ? null : String(employee.id)));
         item.append(content); employeeButtons.push(content);
       }
@@ -493,8 +498,8 @@
       sample.setAttribute("aria-hidden", "true");
       content.append(sample);
       if (employee) content.append(makeAvatar(employee));
-      content.append(node("span", "project-monthly-legend-name", label), node("span", "project-browser-sr-only", kind === "convention" || kind === "employee-planned" ? "courbe pointillée" : kind === "total" ? "courbe pleine épaisse" : kind === "planning" || selectedEmployee && !isPlanned ? "courbe pleine" : "aire empilée"));
-      if (employee?.isSubcontractor) content.append(node("span", "project-hours-employee-tag", "Ormitter"));
+      content.append(node("span", "project-monthly-legend-name", label), node("span", "project-browser-sr-only", kind === "convention" || kind === "employee-planned" ? t("project.browser.courbePointillee.1lgkiks") : kind === "total" ? t("project.browser.courbePleineEpaisse.jxmab0") : kind === "planning" || selectedEmployee && !isPlanned ? t("project.browser.courbePleine.shngv4") : t("project.browser.aireEmpilee.2stcmz")));
+      if (employee?.isSubcontractor) content.append(node("span", "project-hours-employee-tag", t("project.browser.ormitter.1aqkj5")));
       legend.append(item);
       return item;
     };
@@ -510,12 +515,12 @@
     const chart = node("div", "project-monthly-chart-wrap");
     const svg = doc.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("class", "project-monthly-chart"); svg.setAttribute("data-monthly-chart", "");
-    svg.setAttribute("role", "group"); svg.setAttribute("aria-label", `${cumulative ? "Évolution cumulée" : "Évolution mensuelle"} ${isPlanned ? "du planning " : ""}de ${selectedEmployee ? selectedEmployee.label : selected.name}, ${selectedEmployee && !isPlanned ? "réalisé et prévu en lignes" : "en aires empilées"} et en heures, ${isPlanned ? "sur toute la durée du projet" : "depuis le début du projet"} et indépendamment de la période sélectionnée. Flèches gauche et droite pour parcourir les mois.`);
+    svg.setAttribute("role", "group"); svg.setAttribute("aria-label", t("project.browser.deEtEnHeuresEtIndependammentDe.1uh3hr", { p0: cumulative ? t("project.browser.evolutionCumulee.11wbt3u") : t("project.browser.evolutionMensuelle.2rp778"), p1: isPlanned ? t("project.browser.duPlanning.157l591") : "", p2: selectedEmployee ? selectedEmployee.label : selected.name, p3: selectedEmployee && !isPlanned ? t("project.browser.realiseEtPrevuEnLignes.1o8okhe") : t("project.browser.enAiresEmpilees.gk119g"), p4: isPlanned ? t("project.browser.surTouteLaDureeDuProjet.1d8ne0n") : t("project.browser.depuisLeDebutDuProjet.f544wl") }));
     chart.append(svg); section.append(chart);
     const tooltip = node("div", "project-monthly-tooltip"); tooltip.id = `${id}-monthly-tooltip`;
     tooltip.setAttribute("role", "tooltip"); tooltip.setAttribute("data-monthly-tooltip", ""); tooltip.hidden = true; section.append(tooltip);
     tooltip.setAttribute("data-monthly-pinned", "false"); tooltip.setAttribute("tabindex", "-1");
-    const instruction = node("p", "project-monthly-note", "Survolez ou touchez un mois pour le détail. Au clavier : flèches gauche/droite, Début/Fin ; Échap ferme le détail."); section.append(instruction);
+    const instruction = node("p", "project-monthly-note", t("project.browser.survolezOuTouchezUnMoisPourLe.zf2mw9")); section.append(instruction);
     let geometry = null, targets = [], cursor = null, pinnedMonth = null, skipNextFocus = false, activeIndex = Math.max(0, months.findIndex(month => month.key === focusMonth));
     if (!focusMonth) activeIndex = months.length - 1;
     const hide = () => {
@@ -535,12 +540,13 @@
         row.append(dot, node("span", "", label), node("strong", "", formatHours(value))); list.append(row);
       };
       if (selectedEmployee && !isPlanned) {
-        valueItem(String(selectedEmployee.id), `${selectedEmployee.label} · Réalisé${cumulative ? " cumulé" : ""}`, selectedEmployee.values?.[index], "employee-actual", employeeColor(selectedEmployee.id));
+        if (numeric(selectedEmployee.values?.[index]) !== 0) valueItem(String(selectedEmployee.id), t("project.browser.realise.9jp52q", { p0: selectedEmployee.label, p1: cumulative ? t("project.browser.cumule.k6ftxa") : "" }), selectedEmployee.values?.[index], "employee-actual", employeeColor(selectedEmployee.id));
         valueItem(`planned:${selectedEmployee.id}`, plannedLabel, plannedValues?.[index], "employee-planned", employeeColor(selectedEmployee.id));
       } else {
         valueItem("total", totalLabel, shownTotal?.[index], "total", "#183b53");
-        if (Array.isArray(summary.convention)) valueItem("convention", cumulative ? "Convention cumulée" : "Convention", summary.convention[index], "convention", "#8496a2");
-        visibleEmployees.forEach(employee => valueItem(String(employee.id), employee.label, employee.values?.[index], "employee", employeeColor(employee.id)));
+        if (Array.isArray(summary.convention)) valueItem("convention", cumulative ? t("project.browser.conventionCumulee.13mnilu") : t("project.browser.convention.1b9uycy"), summary.convention[index], "convention", "#8496a2");
+        visibleEmployees.filter(employee => isPlanned || numeric(employee.values?.[index]) !== 0)
+          .forEach(employee => valueItem(String(employee.id), employee.label, employee.values?.[index], "employee", employeeColor(employee.id)));
       }
       if (!isPlanned) valueItem("planning", datedPlanningLabel, datedPlanningAvailable ? scheduledPlanning[index] : null, "planning", "#cf3347");
       tooltip.append(list); tooltip.hidden = false;
@@ -558,12 +564,12 @@
     outsideFocus = event => { if (pinnedMonth !== null && !chart.contains(event.target) && !tooltip.contains(event.target)) hide(); };
     doc.addEventListener?.("pointerdown", outsidePointer); doc.addEventListener?.("focusin", outsideFocus);
     const tableDetails = node("details", "project-monthly-details"); tableDetails.open = Boolean(tableOpen);
-    const tableToggle = node("summary", "project-monthly-table-toggle", cumulative ? "Voir les valeurs cumulées par mois" : "Voir les valeurs exactes par mois"); tableToggle.setAttribute("data-monthly-table-toggle", ""); tableDetails.append(tableToggle);
+    const tableToggle = node("summary", "project-monthly-table-toggle", cumulative ? t("project.browser.voirLesValeursCumuleesParMois.1j9d1nh") : t("project.browser.voirLesValeursExactesParMois.1jvpbnt")); tableToggle.setAttribute("data-monthly-table-toggle", ""); tableDetails.append(tableToggle);
     const tableWrap = node("div", "project-monthly-table-wrap"), table = node("table", "project-monthly-table"); table.setAttribute("data-monthly-table", "");
-    table.append(node("caption", "project-browser-sr-only", `Heures ${cumulative ? "cumulées" : "mensuelles"} de ${selectedEmployee ? selectedEmployee.label : selected.name} depuis le début du projet, indépendamment de la période sélectionnée`));
+    table.append(node("caption", "project-browser-sr-only", t("project.browser.heuresDeDepuisLeDebutDuProjet.ft4s16", { p0: cumulative ? t("project.browser.cumulees.bwck2k") : t("project.browser.mensuelles.1w90zce"), p1: selectedEmployee ? selectedEmployee.label : selected.name })));
     const tableHead = node("thead", ""), headerRow = node("tr", "");
-    const columnLabels = selectedEmployee && !isPlanned ? ["Mois", `${selectedEmployee.label} · Réalisé${cumulative ? " cumulé" : ""}`, plannedLabel] :
-      ["Mois", ...visibleEmployees.map(employee => employee.label), totalLabel, ...(Array.isArray(summary.convention) ? [cumulative ? "Convention cumulée" : "Convention"] : [])];
+    const columnLabels = selectedEmployee && !isPlanned ? [t("project.browser.mois.s4y96t"), t("project.browser.realise.9jp52q", { p0: selectedEmployee.label, p1: cumulative ? t("project.browser.cumule.k6ftxa") : "" }), plannedLabel] :
+      [t("project.browser.mois.s4y96t"), ...visibleEmployees.map(employee => employee.label), totalLabel, ...(Array.isArray(summary.convention) ? [cumulative ? t("project.browser.conventionCumulee.13mnilu") : t("project.browser.convention.1b9uycy")] : [])];
     if (!isPlanned) columnLabels.push(datedPlanningLabel);
     for (const text of columnLabels) {
       const cell = node("th", "", text); cell.setAttribute("scope", "col");
@@ -577,7 +583,8 @@
       const values = selectedEmployee && !isPlanned ? [selectedEmployee.values?.[index], plannedValues?.[index]] :
         [...visibleEmployees.map(employee => employee.values?.[index]), shownTotal?.[index], ...(Array.isArray(summary.convention) ? [summary.convention[index]] : [])];
       if (!isPlanned) values.push(datedPlanningAvailable ? scheduledPlanning[index] : null);
-      values.forEach(value => row.append(node("td", "", numeric(value) === null ? "Indisponible" : `${exactNumberFormat.format(Number(value))} h`)));
+      if (!isPlanned && values.every(value => numeric(value) === 0)) return;
+      values.forEach(value => row.append(node("td", "", numeric(value) === null ? t("project.browser.indisponible.m9mk9v") : `${exactNumberFormat.format(Number(value))} h`)));
       body.append(row);
     });
     table.append(body); tableWrap.append(table); tableDetails.append(tableWrap); section.append(tableDetails); addWarnings();
@@ -594,8 +601,8 @@
       geometry = monthlyGeometry(summary, width, selectedEmployee?.id); measuredWidth = geometry.width; targets = [];
       svg.setAttribute("viewBox", `0 0 ${geometry.width} ${geometry.height}`); svg.replaceChildren();
       const { plot } = geometry;
-      svg.append(svgNode("text", { x: plot.left, y: 15, class: "project-monthly-axis-title" }, cumulative ? "Heures cumulées" : "Heures par mois"));
-      const compact = new Intl.NumberFormat("fr-BE", { maximumFractionDigits: 2, notation: "compact" });
+      svg.append(svgNode("text", { x: plot.left, y: 15, class: "project-monthly-axis-title" }, cumulative ? t("project.browser.heuresCumulees.15h9vda") : t("project.browser.heuresParMois.1ha1m2e")));
+      const compact = { format: value => I18n.formatNumber(value, { maximumFractionDigits: 2, notation: "compact" }) };
       for (const tick of geometry.ticks) {
         svg.append(svgNode("line", { x1: plot.left, x2: plot.left + plot.width, y1: tick.y, y2: tick.y,
           class: `project-monthly-grid-line${tick.value === 0 ? " is-zero" : ""}`, "data-monthly-y-tick": tick.value }));
@@ -605,11 +612,11 @@
       const lastY = plot.top + plot.height;
       for (const index of geometry.monthIndices) {
         const month = months[index], date = projectDate(`${month.key}-01`);
-        const text = date ? new Intl.DateTimeFormat("fr-BE", { month: "short", year: "2-digit", timeZone: "UTC" }).format(new Date(`${date.value}T12:00:00Z`)) : month.label || month.key;
+        const text = date ? I18n.formatDate(`${date.value}T12:00:00Z`, { month: "short", year: "2-digit" }) : month.label || month.key;
         svg.append(svgNode("line", { x1: geometry.x[index], x2: geometry.x[index], y1: lastY, y2: lastY + 5, class: "project-monthly-axis" }));
         svg.append(svgNode("text", { x: geometry.x[index], y: lastY + 23, "text-anchor": index === 0 ? "start" : index === months.length - 1 ? "end" : "middle", class: "project-monthly-axis-label" }, `${text}${month.key === currentKey ? "*" : ""}`));
       }
-      svg.append(svgNode("text", { x: plot.left + plot.width, y: geometry.height - 8, "text-anchor": "end", class: "project-monthly-axis-title" }, isPlanned ? "Mois" : "Mois · * en cours"));
+      svg.append(svgNode("text", { x: plot.left + plot.width, y: geometry.height - 8, "text-anchor": "end", class: "project-monthly-axis-title" }, isPlanned ? t("project.browser.mois.s4y96t") : t("project.browser.moisEnCours.1xh7y3r")));
       const definitions = svgNode("defs"), clip = svgNode("clipPath", { id: `${id}-monthly-clip`, clipPathUnits: "userSpaceOnUse" });
       const reveal = svgNode("rect", { x: plot.left - 4, y: plot.top - 5, width: plot.width + 8, height: plot.height + 10, class: "project-monthly-reveal-window" });
       reveal.addEventListener("animationend", () => section.setAttribute("data-monthly-reveal", "complete")); clip.append(reveal); definitions.append(clip); svg.append(definitions);
@@ -634,8 +641,8 @@
         const left = index === 0 ? plot.left : (geometry.x[index - 1] + geometry.x[index]) / 2;
         const right = index === months.length - 1 ? plot.left + plot.width : (geometry.x[index] + geometry.x[index + 1]) / 2;
         const target = svgNode("g", { tabindex: index === activeIndex ? 0 : -1, role: "button", "data-monthly-month": month.key,
-          "aria-label": selectedEmployee && !isPlanned ? `${monthLabel(month)} : ${selectedEmployee.label}, ${formatHours(selectedEmployee.values?.[index])} réalisé${cumulative ? " cumulé" : ""} ; ${plannedLabel}, ${formatHours(plannedValues?.[index])}. Afficher le détail.` :
-            `${monthLabel(month)} : ${formatHours(shownTotal?.[index])} ${isPlanned ? "planifiées" : "au total"}. Afficher le détail.`, "aria-describedby": tooltip.id, class: "project-monthly-month" });
+          "aria-label": selectedEmployee && !isPlanned ? t("project.browser.realiseAfficherLeDetail.xkcmqu", { p0: monthLabel(month), p1: selectedEmployee.label, p2: formatHours(selectedEmployee.values?.[index]), p3: cumulative ? t("project.browser.cumule.k6ftxa") : "", p4: plannedLabel, p5: formatHours(plannedValues?.[index]) }) :
+            t("project.browser.afficherLeDetail.1r4gjbk", { p0: monthLabel(month), p1: formatHours(shownTotal?.[index]), p2: isPlanned ? t("project.browser.planifiees.1f4tf6n") : t("project.browser.auTotal.1jwlw1") }), "aria-describedby": tooltip.id, class: "project-monthly-month" });
         target.append(svgNode("rect", { x: left, y: plot.top, width: Math.max(1, right - left), height: plot.height, fill: "transparent" }));
         target.addEventListener("pointerenter", event => show(index, event));
         target.addEventListener("pointerleave", () => { if (pinnedMonth === null) hide(); });
@@ -713,7 +720,8 @@
     };
     const projects = (Array.isArray(options.projects) ? options.projects : []).slice()
       .filter(project => Number.isSafeInteger(Number(project.id)) && Number(project.id) > 0)
-      .sort((a, b) => String(a.name).localeCompare(String(b.name), "fr", { numeric: true }) || Number(a.id) - Number(b.id));
+      .map(project => project.nameMessageKey ? { ...project, name: I18n.displayName(project) } : project)
+      .sort((a, b) => String(a.name).localeCompare(String(b.name), I18n.locale(), { numeric: true }) || Number(a.id) - Number(b.id));
     const selected = options.selectedId == null ? null : projects.find(project => String(project.id) === String(options.selectedId));
     const priorBudget = budgetLifecycles.get(container);
     const closedBudgetTrigger = priorBudget?.renderer?.cleanup?.(priorBudget.host, false) || null;
@@ -754,7 +762,7 @@
       const detail = node("section", "project-browser-detail");
       detail.setAttribute("data-selected-project", String(selected.id));
       const header = node("div", "project-browser-detail-header");
-      const back = node("button", "project-browser-back", "Tous les projets");
+      const back = node("button", "project-browser-back", t("project.browser.tousLesProjets.swzqmr"));
       back.type = "button";
       back.setAttribute("data-project-back", "");
       back.addEventListener("click", () => options.onBack?.());
@@ -762,12 +770,12 @@
       heading.setAttribute("tabindex", "-1");
       header.append(back, heading);
       const budgetMode = options.panel === "budget";
-      if (budgetMode) header.append(node("span", "project-hours-period", "Durée totale du projet"));
+      if (budgetMode) header.append(node("span", "project-hours-period", t("project.browser.dureeTotaleDuProjet.1egner8")));
       detail.append(header);
       const switcher = node("div", "project-view-switch");
-      switcher.setAttribute("role", "group"); switcher.setAttribute("aria-label", "Vue du projet");
+      switcher.setAttribute("role", "group"); switcher.setAttribute("aria-label", t("project.browser.vueDuProjet.1kmjl1s"));
       const panelButtons = ["hours", "budget"].map(panel => {
-        const button = node("button", "project-view-button", panel === "hours" ? "Heures" : "Budget");
+        const button = node("button", "project-view-button", panel === "hours" ? t("project.browser.heures.q1d82l") : t("project.browser.budget.auevmw"));
         button.type = "button"; button.setAttribute("data-project-view", panel);
         button.setAttribute("aria-pressed", String((budgetMode ? "budget" : "hours") === panel));
         button.addEventListener("click", () => options.onViewChange?.(panel));
@@ -790,7 +798,7 @@
           onExcludeOrmitterCostsChange: options.onExcludeOrmitterCostsChange,
           onShowBwPersonnelCostsChange: options.onShowBwPersonnelCostsChange
         });
-        else host.append(node("p", "project-browser-status", "La vue Budget est indisponible. Rechargez le tableau de bord."));
+        else host.append(node("p", "project-browser-status", t("project.browser.laVueBudgetEstIndisponibleRechargezLe.a0hrbj")));
         detail.append(host);
         budgetLifecycles.set(container, { host, renderer, projectId: selected.id });
         content.append(detail); container.replaceChildren(content);
@@ -836,16 +844,16 @@
         }
         return avatar;
       };
-      const attachEmployeeDetail = (element, employee, comparisonKey) => {
+      const attachEmployeeDetail = (element, employee, comparisonKey, pinOnClick = true) => {
         element.setAttribute("aria-describedby", employeeTooltip.id);
         element.setAttribute("data-employee-comparison", comparisonKey);
         const tooltipKey = `${comparisonKey}:${employee.id}`;
         const show = event => {
           if (pinnedEmployee !== null && pinnedEmployee !== tooltipKey) pinnedEmployee = null;
           employeeTooltip.replaceChildren(node("strong", "", employee.label),
-            node("span", "", `${formatHours(employee.actual)} réalisés`),
-            node("span", "", comparisonKey === "lifetime" ? "Sur les dates du projet" : "Sur la période sélectionnée"));
-          if (employee.isSubcontractor) employeeTooltip.append(node("span", "project-hours-employee-tag", "Ormitter"));
+            node("span", "", t("project.browser.realises.buswm7", { p0: formatHours(employee.actual) })),
+            node("span", "", comparisonKey === "lifetime" ? t("project.browser.surLesDatesDuProjet.hvbstv") : t("project.browser.surLaPeriodeSelectionnee.pphm6")));
+          if (employee.isSubcontractor) employeeTooltip.append(node("span", "project-hours-employee-tag", t("project.browser.ormitter.1aqkj5")));
           employeeTooltip.hidden = false;
           const bounds = detail.getBoundingClientRect(), anchor = element.getBoundingClientRect(), own = employeeTooltip.getBoundingClientRect();
           const x = Number.isFinite(event?.clientX) ? event.clientX - bounds.left : anchor.left - bounds.left + anchor.width / 2;
@@ -857,15 +865,15 @@
         element.addEventListener("pointerleave", () => hideEmployeeTooltip());
         element.addEventListener("focus", () => show());
         element.addEventListener("blur", () => hideEmployeeTooltip(true));
-        element.addEventListener("click", event => {
+        if (pinOnClick) element.addEventListener("click", event => {
           if (pinnedEmployee === tooltipKey) hideEmployeeTooltip(true);
           else { pinnedEmployee = tooltipKey; show(event); }
         });
       };
       detail.addEventListener("keydown", event => { if (event.key === "Escape") hideEmployeeTooltip(true); });
-      const inclusionLabel = data.includeOrmitters ? "Ormitters inclus" : "hors Ormitters";
-      for (const [key, title] of [["personal", periodTitle(options.scope, options.years)], ["project", `${periodTitle(options.scope, options.years, "Heures du projet")} · tous les employés (${inclusionLabel})`],
-        ["lifetime", `Convention · durée du projet (${inclusionLabel})`]]) {
+      const inclusionLabel = data.includeOrmitters ? t("project.browser.ormittersInclus.1vjemeq") : t("project.browser.horsOrmitters.v90iw6");
+      for (const [key, title] of [["personal", periodTitle(options.scope, options.years)], ["project", t("project.browser.tousLesEmployes.13yop4z", { p0: periodTitle(options.scope, options.years, t("project.browser.heuresDuProjet.o2jfc6")), p1: inclusionLabel })],
+        ["lifetime", t("project.browser.conventionDureeDuProjet.12ze0a4", { p0: inclusionLabel })]]) {
         const lifetime = key === "lifetime";
         const source = data[key];
         if (key === "personal" && source && numeric(source.planned) === 0 && numeric(source.actual) === 0) continue;
@@ -882,12 +890,12 @@
         comparison.append(titleNode);
         if (lifetime) {
           const period = node("p", "project-hours-lifetime-period", validDates ?
-            `Du ${startDate.label} au ${endDate.label} · hors période sélectionnée` : "Dates du projet indisponibles · hors période sélectionnée");
+            t("project.browser.duAuHorsPeriodeSelectionnee.uf3780", { p0: startDate.label, p1: endDate.label }) : t("project.browser.datesDuProjetIndisponiblesHorsPeriodeSelectionnee.nktreb"));
           period.setAttribute("data-project-lifetime-period", "");
           comparison.append(period);
         } else if (hasCalendarScope && validCalendarScope) {
           const period = node("p", "project-hours-scale-note",
-            `Repère linéaire du ${scopedStart.label} au ${scopedEnd.label} · période sélectionnée dans les dates du projet.`);
+            t("project.browser.repereLineaireDuAuPeriodeSelectionneeDans.ph6wjx", { p0: scopedStart.label, p1: scopedEnd.label }));
           period.setAttribute("data-project-calendar-period", "");
           comparison.append(period);
         }
@@ -898,18 +906,18 @@
           includeToggle.checked = data.includeOrmitters === true;
           includeToggle.setAttribute("data-include-ormitters", "");
           includeToggle.addEventListener("change", () => options.onIncludeOrmittersChange?.(includeToggle.checked));
-          toggle.append(includeToggle, node("span", "", "Inclure les heures des Ormitters"));
+          toggle.append(includeToggle, node("span", "", t("project.browser.inclureLesHeuresDesOrmitters.4nxxt6")));
           comparison.append(toggle);
         }
         if (!summary) {
           const skeleton = node("div", "project-hours-skeleton");
           skeleton.setAttribute("aria-hidden", "true");
-          for (const label of [lifetime ? "Convention" : "Prévu", "Réalisé"]) {
+          for (const label of [lifetime ? t("project.browser.convention.1b9uycy") : t("project.browser.prevu.laxr1v"), t("project.browser.realise.1mgjmgg")]) {
             const row = node("div", "project-hours-skeleton-row");
             row.append(node("span", "", label), node("span", "project-hours-skeleton-track"));
             skeleton.append(row);
           }
-          const status = node("p", "project-hours-unavailable", data.loading ? "Chargement des heures…" : "Heures indisponibles.");
+          const status = node("p", "project-hours-unavailable", data.loading ? t("project.browser.chargementDesHeures.zt1p2v") : t("project.browser.heuresIndisponibles.1snb9vs"));
           status.setAttribute("role", "status");
           comparison.append(skeleton, status);
         } else {
@@ -922,24 +930,32 @@
           if (missingBudget) {
             const budgetStatus = summary.budgetStatus === "unavailable" ? "unavailable" : "empty";
             const message = node("p", "project-hours-budget-missing", budgetStatus === "unavailable" ?
-              "Budget personnel BW indisponible. Impossible de lire ce champ dans Odoo." :
-              "Budget personnel BW non renseigné. Demandez au MIS de mettre ce champ à jour.");
+              t("project.browser.budgetPersonnelBWIndisponibleImpossibleDeLire.116ezr3") :
+              t("project.browser.budgetPersonnelBWNonRenseigneDemandezAu.3gj8ma"));
             message.setAttribute("data-convention-missing", "");
             message.setAttribute("data-convention-status", budgetStatus);
             comparison.append(message);
           }
           const employees = key !== "personal" && Array.isArray(summary.employees) ? summary.employees
             .filter(employee => employee && employee.id != null && numeric(employee.actual) !== null && numeric(employee.actual) !== 0)
-            .map(employee => ({ ...employee, actual: numeric(employee.actual), name: String(employee.name || "Employé non identifié") }))
-            .sort((a, b) => a.name.localeCompare(b.name, "fr", { numeric: true }) || String(a.id).localeCompare(String(b.id), "fr", { numeric: true })) : [];
+            .map(employee => ({ ...employee, actual: numeric(employee.actual), name: String(employee.name || t("project.browser.employeNonIdentifie.1je10ie")) }))
+            .sort((a, b) => a.name.localeCompare(b.name, I18n.locale(), { numeric: true }) || String(a.id).localeCompare(String(b.id), I18n.locale(), { numeric: true })) : [];
           const names = new Map();
           employees.forEach(employee => names.set(employee.name, (names.get(employee.name) || 0) + 1));
           employees.forEach(employee => { employee.label = names.get(employee.name) > 1 ? `${employee.name} (ID ${employee.id})` : employee.name; });
           const employeeTotal = employees.reduce((sum, employee) => sum + employee.actual, 0);
           const negativeContributions = employees.some(employee => employee.actual < 0);
           const reconciled = numeric(summary.actual) !== null && Math.abs(employeeTotal - numeric(summary.actual)) <= 1e-8 * Math.max(1, Math.abs(employeeTotal), Math.abs(numeric(summary.actual)));
+          const ignoredIds = key === "project" && typeof data.ignoredEmployeeIds !== "string" &&
+            typeof data.ignoredEmployeeIds?.[Symbol.iterator] === "function" ? new Set(Array.from(data.ignoredEmployeeIds, String)) : new Set();
+          const ignoredEmployees = employees.filter(employee => ignoredIds.has(String(employee.id)));
+          const activeEmployees = employees.filter(employee => !ignoredIds.has(String(employee.id)));
+          const hasIgnored = ignoredEmployees.length > 0;
+          const ignoredActual = ignoredEmployees.reduce((sum, employee) => sum + Math.round(employee.actual * 100), 0) / 100;
+          const countedActual = hasIgnored ? reconciled ? activeEmployees.reduce((sum, employee) => sum + Math.round(employee.actual * 100), 0) / 100 : null : actual;
           const stacked = employees.length > 0 && !negativeContributions && reconciled && employeeTotal > 0 && geometry.actualWidth > 0;
           const pair = node("div", "project-hours-pair");
+          if (hasIgnored && stacked) pair.classList.add("has-ignored-hours");
           if (missingBudget) pair.classList.add("is-actual-only");
           const labels = node("div", "project-hours-labels");
           const tracks = node("div", "project-hours-tracks");
@@ -949,11 +965,11 @@
           if (hasOverpointing) pair.classList.add("has-personal-overpointing");
           tracks.setAttribute("role", stacked ? "group" : "img");
           tracks.setAttribute("aria-label", lifetime ?
-            `${title} : ${missingBudget ? "budget conventionnel indisponible" : `${formatHours(plan)} conventionnelles`}, ${formatHours(actual)} réalisés sur les dates du projet à ce jour.` :
-            `${title} : ${formatHours(plan)} prévus sur la période, ${formatHours(actual)} réalisés à ce jour.`);
+            t("project.browser.realisesSurLesDatesDuProjetA.q4o8qk", { p0: title, p1: missingBudget ? t("project.browser.budgetConventionnelIndisponible.17bl09w") : t("project.browser.conventionHoursCaption", { hours: formatHours(plan) }), p2: formatHours(actual) }) :
+            t("project.browser.prevusSurLaPeriodeRealisesACe.1qre3hq", { p0: title, p1: formatHours(plan), p2: formatHours(actual) }));
           const rows = [
-            ["planned", lifetime ? "Convention" : "Prévu", summary.planned, geometry.plannedWidth],
-            ["actual", "Réalisé", summary.actual, geometry.actualWidth]
+            ["planned", lifetime ? t("project.browser.convention.1b9uycy") : t("project.browser.prevu.laxr1v"), summary.planned, geometry.plannedWidth],
+            ["actual", hasIgnored ? t("project.browser.realiseCompte.zsnv34") : t("project.browser.realise.1mgjmgg"), countedActual, geometry.actualWidth]
           ];
           for (const [kind, label, value, width] of missingBudget ? rows.slice(1) : rows) {
             const text = node("div", "project-hours-label");
@@ -982,8 +998,8 @@
                 fill.classList.add("is-stacked");
                 fill.setAttribute("data-employee-total", String(employeeTotal));
                 let used = 0;
-                employees.forEach((employee, index) => {
-                  const share = index === employees.length - 1 ? 100 - used : employee.actual / employeeTotal * 100;
+                activeEmployees.forEach((employee, index) => {
+                  const share = !hasIgnored && index === activeEmployees.length - 1 ? 100 - used : employee.actual / employeeTotal * 100;
                   used += share;
                   const segment = node("button", "project-hours-employee-segment");
                   segment.type = "button";
@@ -992,7 +1008,7 @@
                   segment.setAttribute("data-employee-id", String(employee.id));
                   segment.setAttribute("data-employee-kind", "segment");
                   segment.setAttribute("data-employee-share", String(share));
-                  segment.setAttribute("aria-label", `${employee.label} : ${formatHours(employee.actual)} réalisés`);
+                  segment.setAttribute("aria-label", t("project.browser.realises.182d1j4", { p0: employee.label, p1: formatHours(employee.actual) }));
                   attachEmployeeDetail(segment, employee, key);
                   const callout = node("span", "project-hours-employee-callout");
                   callout.setAttribute("aria-hidden", "true");
@@ -1000,6 +1016,15 @@
                   segment.append(callout);
                   fill.append(segment);
                 });
+                if (hasIgnored) {
+                  const ignored = node("span", "project-hours-ignored-segment");
+                  ignored.style.width = `${100 - used}%`;
+                  ignored.setAttribute("role", "img");
+                  ignored.setAttribute("data-ignored-hours", String(ignoredActual));
+                  ignored.setAttribute("data-employee-share", String(100 - used));
+                  ignored.setAttribute("aria-label", t("project.browser.heuresIgnorees.1e7728t", { p0: formatHours(ignoredActual) }));
+                  fill.append(ignored);
+                }
               } else if (kind === "actual" && negativeContributions) fill.classList.add("is-net-actual");
               track.append(fill);
             }
@@ -1010,38 +1035,47 @@
             tick.style.left = `${geometry.tickPosition}%`;
             tick.setAttribute("data-calendar-position", String(geometry.tickPosition));
             tick.setAttribute("aria-hidden", "true");
-            tick.append(node("span", "project-hours-date-label", "Aujourd’hui"));
+            tick.append(node("span", "project-hours-date-label", t("project.browser.today")));
             tracks.append(tick);
-            tracks.setAttribute("aria-label", tracks.getAttribute("aria-label") + ` Repère du jour : ${percentFormat.format(Math.min(1, Math.max(0, comparisonFraction)))} de la période écoulée.`);
+            tracks.setAttribute("aria-label", tracks.getAttribute("aria-label") + t("project.browser.repereDuJourDeLaPeriodeEcoulee.t28y72", { p0: percentFormat.format(Math.min(1, Math.max(0, comparisonFraction))) }));
           }
           if (hasOverpointing) {
-            const badge = node("span", `project-hours-overpointing${geometry.unplanned || geometry.actualWidth > 75 ? " is-over-plan" : ""}`, "Surpointage");
+            const badge = node("span", `project-hours-overpointing${geometry.unplanned || geometry.actualWidth > 75 ? " is-over-plan" : ""}`, t("project.browser.surpointage.116gb9s"));
             badge.setAttribute("data-personal-surpointage", "");
             badge.style.left = `clamp(44px, ${(warningStart + geometry.actualWidth) / 2}%, calc(100% - 44px))`;
             badge.setAttribute("aria-hidden", "true"); tracks.append(badge);
             tracks.setAttribute("aria-label", tracks.getAttribute("aria-label") +
-              `${geometry.unplanned || geometry.actualWidth > 75 ? " Surpointage : le réalisé dépasse le maximum planifié de la période (rouge)." : ""}` +
-              `${geometry.tickPosition !== null && geometry.actualWidth > geometry.tickPosition && geometry.tickPosition < 75 ? " Surpointage : le réalisé dépasse le repère linéaire d’aujourd’hui (orange)." : ""}`);
+              `${geometry.unplanned || geometry.actualWidth > 75 ? t("project.browser.surpointageLeRealiseDepasseLeMaximumPlanifie.klodvv") : ""}` +
+              `${geometry.tickPosition !== null && geometry.actualWidth > geometry.tickPosition && geometry.tickPosition < 75 ? t("project.browser.surpointageLeRealiseDepasseLeRepereLineaire.1qnmh94") : ""}`);
+          }
+          if (hasIgnored) {
+            tracks.setAttribute("aria-label", tracks.getAttribute("aria-label") + t("project.browser.heuresCompteesHeuresIgnoreesLaLongueurTotale.1wrj1nl", { p0: formatHours(countedActual), p1: formatHours(ignoredActual) }));
+            if (stacked) {
+              const badge = node("span", "project-hours-ignored-badge", t("project.browser.heuresIgnorees.1m1pe05"));
+              badge.setAttribute("data-ignored-hours-label", ""); badge.setAttribute("aria-hidden", "true");
+              badge.style.left = `clamp(52px, ${geometry.actualWidth * (1 - ignoredActual / employeeTotal / 2)}%, calc(100% - 52px))`;
+              tracks.append(badge);
+            }
           }
           pair.append(labels, tracks);
           comparison.append(pair);
-          const note = missingBudget ? "Répartition du réalisé · sans échelle conventionnelle." : lifetime ?
-            "Convention : Budget personnel BW, réparti linéairement sur les dates du projet ; le repère du jour suit le calendrier." :
+          const note = missingBudget ? t("project.browser.repartitionDuRealiseSansEchelleConventionnelle.sr6hjd") : lifetime ?
+            t("project.browser.conventionBudgetPersonnelBWRepartiLineairementSur.2yukvi") :
             geometry.scaleAvailable ? hasCalendarScope ? validCalendarScope ?
-              "Prévu réparti linéairement sur la période sélectionnée, dans les dates du projet ; le repère du jour suit cette période." :
-              "Prévu sur la période sélectionnée ; repère linéaire indisponible sans dates valides du projet." :
-              "Prévu réparti linéairement sur la période sélectionnée ; le repère du jour suit le calendrier." :
-            geometry.unplanned ? "Hors planning · aucune heure prévue sur la période." : plan === null ? "Planning indisponible · échelle de comparaison indisponible." :
-              plan < 0 ? "Planning net négatif après corrections · échelle de comparaison indisponible." : "Aucune heure prévue · échelle de comparaison indisponible.";
+              t("project.browser.prevuRepartiLineairementSurLaPeriodeSelectionnee.hy20xr") :
+              t("project.browser.prevuSurLaPeriodeSelectionneeRepereLineaire.9dyxy3") :
+              t("project.browser.prevuRepartiLineairementSurLaPeriodeSelectionnee.8eubvq") :
+            geometry.unplanned ? t("project.browser.horsPlanningAucuneHeurePrevueSurLa.1qfh1gb") : plan === null ? t("project.browser.planningIndisponibleEchelleDeComparaisonIndisponible.1ik4cue") :
+              plan < 0 ? t("project.browser.planningNetNegatifApresCorrectionsEchelleDe.2qpgbq") : t("project.browser.aucuneHeurePrevueEchelleDeComparaisonIndisponible.xg8t6k");
           comparison.append(node("p", "project-hours-scale-note", note));
-          if (lifetime && !validDates) comparison.append(node("p", "project-hours-date-warning", "Dates du projet absentes ou invalides ; le réalisé est indisponible."));
+          if (lifetime && !validDates) comparison.append(node("p", "project-hours-date-warning", t("project.browser.datesDuProjetAbsentesOuInvalidesLe.1yvf6os")));
           if (!lifetime && hasCalendarScope && !validCalendarScope) comparison.append(node("p", "project-hours-date-warning",
-            "Repère du jour indisponible · dates du projet absentes, invalides ou hors de la période sélectionnée."));
+            t("project.browser.repereDuJourIndisponibleDatesDuProjet.1qrayht")));
           if (key !== "personal" && employees.length) {
-            if (negativeContributions) comparison.append(node("p", "project-hours-breakdown-note", "La barre montre le réalisé net. Les corrections négatives restent dans le détail signé ; elles ne sont pas dessinées comme des surfaces positives."));
-            else if (!reconciled) comparison.append(node("p", "project-hours-breakdown-note", "Le détail par employé ne se réconcilie pas avec le total affiché ; la barre conserve le total net."));
+            if (negativeContributions) comparison.append(node("p", "project-hours-breakdown-note", t("project.browser.laBarreMontreLeRealiseNetLes.3bekl1")));
+            else if (!reconciled) comparison.append(node("p", "project-hours-breakdown-note", t("project.browser.leDetailParEmployeNeSeReconcilie.tdwzu2")));
             const legend = node("ul", "project-hours-employees");
-            legend.setAttribute("aria-label", "Heures réalisées par employé");
+            legend.setAttribute("aria-label", t("project.browser.heuresRealiseesParEmploye.wvx7lw"));
             employees.forEach(employee => {
               const item = node("li", "project-hours-employee-item");
               const button = node("button", "project-hours-employee-key");
@@ -1049,42 +1083,59 @@
               button.setAttribute("data-employee-id", String(employee.id));
               button.setAttribute("data-employee-kind", "legend");
               button.setAttribute("data-employee-actual", String(employee.actual));
-              button.setAttribute("aria-label", `${employee.label} : ${formatHours(employee.actual)} réalisés. Afficher le détail.`);
+              const ignored = key === "project" && ignoredIds.has(String(employee.id));
+              if (key === "project") {
+                button.setAttribute("aria-pressed", String(!ignored));
+                button.setAttribute("data-employee-included", String(!ignored));
+                if (ignored) button.classList.add("is-ignored");
+                button.setAttribute("aria-label", t(ignored ? "project.browser.restoreEmployeeHours" : "project.browser.ignoreEmployeeHours", { name: employee.label, hours: formatHours(employee.actual) }));
+                button.addEventListener("click", () => { hideEmployeeTooltip(true); options.onEmployeeInclusionChange?.(String(employee.id), ignored); });
+              } else button.setAttribute("aria-label", t("project.browser.realisesAfficherLeDetail.1tai6q2", { p0: employee.label, p1: formatHours(employee.actual) }));
               const dot = node("span", "project-hours-employee-dot");
               dot.style.backgroundColor = employeeColor(employee.id); dot.setAttribute("aria-hidden", "true");
               const text = node("span", "project-hours-employee-text");
               text.append(node("span", "project-hours-employee-name", employee.label));
-              if (employee.isSubcontractor) text.append(node("span", "project-hours-employee-tag", "Ormitter"));
+              if (employee.isSubcontractor) text.append(node("span", "project-hours-employee-tag", t("project.browser.ormitter.1aqkj5")));
               button.append(dot, employeeAvatar(employee), text, node("strong", "project-hours-employee-hours", formatHours(employee.actual)));
-              attachEmployeeDetail(button, employee, key);
+              attachEmployeeDetail(button, employee, key, key !== "project");
               item.append(button); legend.append(item);
             });
-            const detailedTotal = node("p", "project-hours-employees-total", `Total réalisé détaillé : ${formatHours(employeeTotal)}`);
+            const detailedTotal = node("p", "project-hours-employees-total", hasIgnored && reconciled ?
+              t("project.browser.heuresCompteesHeuresIgnoreesTotalRealiseLe.1d88zcp", { p0: formatHours(countedActual), p1: formatHours(ignoredActual), p2: formatHours(employeeTotal) }) : t("project.browser.totalRealiseDetaille.1v5vh3e", { p0: formatHours(employeeTotal) }));
             detailedTotal.setAttribute("data-employee-total", String(employeeTotal));
             comparison.append(legend, detailedTotal);
           }
-          const baseline = lifetime ? "de la convention" : "du prévu";
-          if (geometry.capped) comparison.append(node("p", "project-hours-badge is-capped", `Barre plafonnée · +${formatHours(actual - plan)} au-delà ${baseline}`));
-          else if (plan > 0 && actual > plan) comparison.append(node("p", "project-hours-badge", `+${formatHours(actual - plan)} au-delà ${baseline}`));
+          const baseline = lifetime ? t("project.browser.deLaConvention.984x34") : t("project.browser.duPrevu.q9w2za");
+          const appendComparisonBadge = (className, text) => {
+            const fullActualReference = key === "project" && hasIgnored;
+            const badge = node("p", className, fullActualReference ? t("project.browser.fullActualBadge", { detail: text }) : text);
+            if (fullActualReference) {
+              badge.setAttribute("data-project-full-actual-reference", "");
+              badge.setAttribute("title", t("project.browser.fullActualBadgeReference"));
+            }
+            comparison.append(badge);
+          };
+          if (geometry.capped) appendComparisonBadge("project-hours-badge is-capped", t("project.browser.barrePlafonneeAuDela.xn1dic", { p0: formatHours(actual - plan), p1: baseline }));
+          else if (plan > 0 && actual > plan) appendComparisonBadge("project-hours-badge", t("project.browser.auDela.1by8cjt", { p0: formatHours(actual - plan), p1: baseline }));
           else if (plan > 0 && actual !== null && actual < plan) {
             const end = key === "personal" ? selectedPeriodEnd(options.scope, options.years) : null;
-            const text = key === "personal" ? `Plus que ${formatHours(plan - actual)} prévues disponibles${end ? ` d’ici au ${end.label}`
-              : " sur la période sélectionnée (date de fin indisponible)"}` : `−${formatHours(plan - actual)} en-dessous ${baseline}`;
-            comparison.append(node("p", "project-hours-badge is-below", text));
+            const text = key === "personal" ? t("project.browser.plusQuePrevuesDisponibles.vlno8z", { p0: formatHours(plan - actual), p1: end ? t("project.browser.dIciAu.gbhlm5", { p0: end.label })
+              : t("project.browser.surLaPeriodeSelectionneeDateDeFin.1s6zmzj") }) : t("project.browser.enDessous.dgs1yg", { p0: formatHours(plan - actual), p1: baseline });
+            appendComparisonBadge("project-hours-badge is-below", text);
           }
-          if (actual !== null && actual < 0) comparison.append(node("p", "project-hours-credit", "Réalisé négatif après corrections ; le total signé est conservé."));
+          if (actual !== null && actual < 0) comparison.append(node("p", "project-hours-credit", t("project.browser.realiseNegatifApresCorrectionsLeTotalSigne.jzbfxe")));
           const warnings = Array.isArray(summary.warnings) ? summary.warnings : typeof summary.warnings === "string" ? [summary.warnings] : [];
           if (warnings.length) {
             const warningList = node("ul", "project-hours-warnings");
             Array.from(new Set(warnings.filter(warning => typeof warning === "string" && warning.trim())))
-              .forEach(warning => warningList.append(node("li", "", warning)));
+              .forEach(warning => warningList.append(node("li", "", message(warning))));
             comparison.append(warningList);
           }
         }
         comparisons.append(comparison);
       }
       const overview = node("section", "project-browser-section project-browser-overview");
-      const overviewTitle = node("h3", "project-browser-section-title", "Projets · 01 / Vue d’ensemble"); overviewTitle.id = `${id}-overview`;
+      const overviewTitle = node("h3", "project-browser-section-title", t("project.browser.projets01VueDEnsemble.qczmgn")); overviewTitle.id = `${id}-overview`;
       const planningInfo = planningInfoView(node, data, id, openPlanningDetails, planningInfoOpen);
       overview.setAttribute("aria-labelledby", overviewTitle.id); overview.append(overviewTitle, planningInfo.section, comparisons); detail.append(overview);
       detail.append(employeeTooltip);
@@ -1097,11 +1148,11 @@
       let retryButton = null;
       if (data.error) {
         const failure = node("div", "project-hours-error");
-        const message = node("p", "", data.error);
-        message.setAttribute("role", "alert");
-        failure.append(message);
+        const errorMessage = node("p", "", message(data.error));
+        errorMessage.setAttribute("role", "alert");
+        failure.append(errorMessage);
         if (typeof options.onRetry === "function") {
-          const retry = node("button", "project-browser-back project-hours-retry", "Réessayer");
+          const retry = node("button", "project-browser-back project-hours-retry", t("project.browser.reessayer.1eklqww"));
           retry.type = "button";
           retry.disabled = Boolean(data.loading);
           retry.addEventListener("click", () => options.onRetry());
@@ -1136,14 +1187,14 @@
     }
 
     if (options.error || options.loading || !projects.length) {
-      const status = node("p", "project-browser-status", options.error ||
-        (options.loading ? "Chargement de mes projets…" : "Aucun projet avec des heures prévues ou réalisées sur cette période."));
+      const status = node("p", "project-browser-status", message(options.error) ||
+        (options.loading ? t("project.browser.chargementDeMesProjets.1b3kx9q") : t("project.browser.aucunProjetAvecDesHeuresPrevuesOu.ofpau6")));
       status.setAttribute("role", "status");
       content.append(status);
     }
     if (projects.length) {
       const grid = node("fieldset", "project-browser-grid");
-      grid.append(node("legend", "project-browser-sr-only", "Choisir un projet"));
+      grid.append(node("legend", "project-browser-sr-only", t("project.browser.choisirUnProjet.1zoqej")));
       projects.forEach(project => {
         const tile = node("label", "project-browser-tile");
         const input = node("input", "project-browser-radio");
@@ -1155,7 +1206,7 @@
         input.addEventListener("change", () => { if (input.checked) options.onSelect?.(project.id); });
         const manager = project.manager;
         const avatar = node("span", "project-browser-avatar");
-        avatar.title = manager?.name ? `Responsable : ${manager.name}` : "Responsable indisponible";
+        avatar.title = manager?.name ? t("project.browser.responsable.13gup33", { p0: manager.name }) : t("project.browser.responsableIndisponible.5oo2wv");
         const fallback = node("span", "project-browser-initials", initials(manager?.name));
         fallback.setAttribute("aria-hidden", "true");
         avatar.append(fallback);
@@ -1163,7 +1214,7 @@
         if (source) {
           const image = node("img", "project-browser-photo");
           image.src = source;
-          image.alt = manager?.name ? `Photo de ${manager.name}` : "Photo du responsable";
+          image.alt = manager?.name ? t("project.browser.photoDe.1du8mqi", { p0: manager.name }) : t("project.browser.photoDuResponsable.1avcx9i");
           image.width = 56;
           image.height = 56;
           image.addEventListener("error", () => { image.hidden = true; });
@@ -1182,7 +1233,9 @@
     if (timelineHost) {
       timelineLifecycles.set(container, { renderer: timelineRenderer, host: timelineHost });
       timelineRenderer.renderTimeline(timelineHost, projects, {
-        heading: "Projets · 02 / Calendrier des projets", now: options.now, onSelect: options.onSelect,
+        heading: t("project.browser.projets02CalendrierDesProjets.ki8buc"), now: options.now, onSelect: options.onSelect,
+        calendarView: options.calendarView, onCalendarViewChange: options.onCalendarViewChange,
+        focusCalendarView: options.focusCalendarView,
         focusProjectId: options.focusProjectId == null ? focusedTimelineId : null, focusKind: focusedTimelineKind
       });
     }

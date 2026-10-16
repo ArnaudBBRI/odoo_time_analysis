@@ -26,6 +26,32 @@ the missing/invalid-config and rejected-token responses.
 
 Authenticated queries accept employeeName or projectCode (aliases projectName/projectQuery). Request URL, database, username and apiKey values are ignored in favor of the session. /api/config returns the session's public connector fields, authenticated: true and hasApiKey: false, never its password.
 
+## Language preference
+
+The optional top-level `language` key accepts `"fr"` or `"nl"`; other or missing
+values use French. A minimal private configuration can contain only:
+
+```json
+{"language": "nl"}
+```
+
+No username, token or password is required to store/read this preference, and
+manual login continues to use the usual instance defaults. The authenticated
+FR/NL selector beside logout applies immediately and saves through
+[`/api/preferences/language`](API.md#local-language-preference). Login reads the
+same preference. This is the local server installation's last saved choice,
+shared by its users; it is not an Odoo-account setting.
+
+The store uses only the fixed `config.local.json` path and preserves other JSON
+values, including credential whitespace and nested settings. It creates the
+file if absent, refuses malformed/unreadable/non-object or symbolic-link
+targets, and checks for external edits before its temporary-file rename.
+Configuration formatting may change. A failed save keeps the selected browser
+language and shows a localized warning; it does not overwrite invalid config
+or require an Odoo connection. Read-only mounts or insufficient filesystem
+permissions can prevent persistence. The existing Compose `:ro` mount remains
+unchanged.
+
 ## DiCo steering
 
 The optional `pilotage` object controls a confirmed `unitDomain`, the `projectLeaderField` user relation and a non-secret programme/project-ID reference. Defaults are disabled with an empty reference. See [steering configuration](PILOTAGE.md#configuration-and-activation) for validation and an illustrative example. The connected-person Lead Unit flow is separate.
@@ -54,12 +80,19 @@ from local file access. Keep it private. Docker port forwarding does not
 necessarily present a loopback peer to the container, so configured login can
 be unavailable there; manual sign-in remains available.
 
-Only login.html, index.html and assets/buildwise-logo.svg are served by the application routes. Repository sources, documentation, workbooks and config files are not exposed, even after login. Compose still publishes port 8765 without a loopback-only binding.
+Only explicitly allowed application pages, logo and browser assets are served.
+The shared i18n catalogues/language client are public for the welcome page;
+dashboard modules remain authenticated. Server/service sources, documentation,
+workbooks and config files are not exposed, even after login. Temporary
+`.config-language-*.tmp` files are ignored by Git/Docker and are not served.
+Compose still publishes port 8765 without a loopback-only binding.
 
 ## Refresh
 
-- Last refreshed: 2026-10-11
-- Source basis: server.js, login.html, config.example.json, Docker/config files and tests/auth.test.js.
+- Last refreshed: 2026-10-16
+- Source basis: server.js, language-preferences.js, language-client.js, login.html,
+  index.html, config.example.json, Docker/config files, tests/auth.test.js and
+  tests/language-preferences.test.js / tests/language-preferences-http.test.js.
 - Limitations: real Buildwise credentials, proxy/TLS deployment and Docker runtime were not verified.
 
 The portfolio ownership field is fixed to project.project.lead_unit_id. User-unit resolution is server-side and does not use projectOwnerField or client-selected team values.

@@ -3,9 +3,10 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const I18n = require('./i18n-fixture');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 function dashboardFunctions(names, initial = {}) {
-  const context = vm.createContext({ ...initial });
+  const context = vm.createContext({ I18n, t: I18n.t, ...initial });
   for (const name of names) {
     const start = html.indexOf(`      function ${name}(`);
     assert.ok(start >= 0, `Missing dashboard function ${name}`);
@@ -30,11 +31,34 @@ test('owner portfolio lists zero-hour projects and keeps selected-year remaining
 });
 
 test('missing planning shows unknown values rather than a false negative remaining total', () => {
-  const context = dashboardFunctions(['escapeHtml', 'formatHours', 'compactLegendLabel', 'compactLegendLabelWithDates', 'renderRemainingRow']);
+  const context = dashboardFunctions(['escapeHtml', 'formatHours', 'compactLegendLabel', 'compactLegendLabelWithDates', 'displayEntityLabel', 'renderRemainingRow']);
   const html = context.renderRemainingRow({ name: 'Owned <project>', actual: 8, unknownPlanning: true }, 0);
-  assert.match(html, /Planning unavailable/);
+  assert.match(html, /Planning indisponible/);
   assert.equal((html.match(/>—<\/td>/g) || []).length, 2);
   assert.ok(!html.includes('-8'));
   assert.ok(!html.includes('Owned <project>'));
   assert.match(html, /data-project-drilldown/);
+});
+
+test('translated unassigned labels preserve canonical drilldown identities with known or unavailable planning', () => {
+  const context = dashboardFunctions(['escapeHtml', 'formatHours', 'formatSignedHours', 'formatPercent', 'formatMacroWarningDate',
+    'toHours', 'buildRemainingComparison', 'compactLegendLabel', 'compactLegendLabelWithDates', 'displayEntityLabel', 'renderRemainingRow'], {
+    state: { activeProjectKey: '' }, CHART_COLORS: ['#008bab']
+  });
+  try {
+    for (const language of ['fr', 'nl']) {
+      I18n.setLanguage(language);
+      for (const [name, label] of [['(No project)', language === 'fr' ? '(Sans projet)' : '(Geen project)'],
+        ['(No employee)', language === 'fr' ? '(Sans employé)' : '(Geen medewerker)']]) {
+        for (const unknownPlanning of [true, false]) {
+          const row = { name, actual: 8, planned: 10, remaining: 2, actualToDate: 8, foreseenToDate: 10, unknownPlanning };
+          const output = context.renderRemainingRow(row, 10);
+          assert.ok(output.includes(`data-project-name="${name}"`), 'Drilldown keeps its untranslated identity');
+          assert.ok(output.includes(`>${label}</button>`), 'The visible sentinel uses the selected language');
+          assert.ok(!output.includes(`>${name}</button>`));
+          assert.equal(row.name, name, 'Rendering does not mutate canonical source labels');
+        }
+      }
+    }
+  } finally { I18n.setLanguage('fr'); }
 });

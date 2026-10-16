@@ -1625,7 +1625,7 @@ test("negative contributor corrections keep a neutral net bar and a reconciled s
   const entries = container.querySelectorAll('[data-employee-kind="legend"]');
   assert.equal(entries.reduce((sum, entry) => sum + Number(entry.getAttribute("data-employee-actual")), 0), 8);
   const negative = entries.find(entry => entry.getAttribute("data-employee-id") === "employee:2");
-  negative.dispatch("click");
+  negative.focus();
   assert.match(container.querySelectorAll('[role="tooltip"]')[0].textContent, /-2 h/);
   container.querySelectorAll(".project-browser-detail")[0].dispatch("keydown", { key: "Escape" });
   assert.equal(container.querySelectorAll('[role="tooltip"]')[0].hidden, true);
@@ -1664,7 +1664,7 @@ test("employee callouts and legends keep safe photos, fallback initials and lite
   assert.equal(container.querySelectorAll("script").length, 0);
   assert.ok(container.textContent.includes('<script>Private name</script>'));
   const resource = container.querySelectorAll('[data-employee-kind="legend"]').find(entry => entry.getAttribute("data-employee-id") === "resource:3");
-  resource.dispatch("click");
+  resource.focus();
   assert.match(container.querySelectorAll('[role="tooltip"]')[0].textContent, /Unknown Resource.*4 h.*Ormitter/);
 });
 
@@ -1793,4 +1793,186 @@ test("empty, loading and failed project lists expose a safe status", () => {
   assert.equal(container.querySelectorAll("script").length, 0);
   render(container, { projects: [] });
   assert.match(container.textContent, /Aucun projet/);
+});
+
+test("scoped employee exclusions append reconciled ignored hours without changing reference geometry", () => {
+  const container = domFixture(), changes = [], ignoredEmployeeIds = new Set();
+  const employees = [{ id: "employee:1", name: "Same name", actual: 10.2 }, { id: "employee:2", name: "Same name", actual: 5.3 }];
+  const project = { planned: 20, actual: 15.5, employees }, detail = { personal: { planned: 20, actual: 10.2 }, project,
+    lifetime: { ...project, startDate: "2026-01-01", endDate: "2026-12-31", calendarFraction: 0.5 }, calendarFraction: 0.5, ignoredEmployeeIds };
+  const draw = () => render(container, { projects: projects(), selectedId: 2, detail, onEmployeeInclusionChange(id, included) {
+    changes.push([id, included]); if (included) ignoredEmployeeIds.delete(id); else ignoredEmployeeIds.add(id); draw();
+  } });
+  draw();
+  const section = () => container.querySelectorAll('[data-comparison="project"]')[0];
+  const widths = section().querySelectorAll("[data-hours-width]").map(fill => fill.style.width);
+  const tick = section().querySelectorAll("[data-calendar-position]")[0].style.left;
+  const first = section().querySelectorAll('[data-employee-kind="legend"]')[0]; first.focus(); first.dispatch("click");
+  assert.deepEqual(changes, [["employee:1", false]]);
+  let whole = section(), legend = whole.querySelectorAll('[data-employee-kind="legend"]');
+  assert.equal(legend[0].getAttribute("aria-pressed"), "false");
+  assert.match(legend[0].className, /is-ignored/);
+  assert.equal(container.ownerDocument.activeElement, legend[0]);
+  assert.equal(whole.querySelectorAll('[data-employee-kind="segment"]').length, 1);
+  assert.equal(whole.querySelectorAll("[data-ignored-hours]")[0].getAttribute("data-ignored-hours"), "10.2");
+  assert.equal(whole.querySelectorAll("[data-ignored-hours-label]")[0].textContent, "Heures ignorées");
+  assert.deepEqual(whole.querySelectorAll("[data-hours-width]").map(fill => fill.style.width), widths);
+  assert.equal(whole.querySelectorAll("[data-calendar-position]")[0].style.left, tick);
+  assert.match(whole.querySelectorAll(".project-hours-employees-total")[0].textContent, /Heures comptées : 5,3 h.*Heures ignorées : 10,2 h.*Total réalisé : 15,5 h/);
+  assert.equal(container.querySelectorAll('[data-comparison="lifetime"]')[0].querySelectorAll("[data-ignored-hours]").length, 0);
+  legend[1].dispatch("click"); whole = section();
+  assert.equal(whole.querySelectorAll('[data-employee-kind="segment"]').length, 0);
+  assert.equal(whole.querySelectorAll("[data-ignored-hours]")[0].style.width, "100%");
+  whole.querySelectorAll('[data-employee-kind="legend"]')[0].dispatch("click");
+  assert.deepEqual(changes.at(-1), ["employee:1", true]);
+  assert.equal(section().querySelectorAll('[data-employee-kind="segment"]')[0].getAttribute("data-employee-id"), "employee:1");
+  assert.equal(project.actual, 15.5);
+});
+
+test("ignored signed corrections remain exact with neutral geometry, unknown IDs and unavailable planning", () => {
+  const container = domFixture(), employees = [{ id: "employee:1", name: "A", actual: 10 }, { id: "employee:2", name: "B", actual: -2 }];
+  const draw = (planned, ids) => render(container, { projects: projects(), selectedId: 2, detail: {
+    project: { planned, actual: 8, employees }, ignoredEmployeeIds: ids } });
+  draw(10, ["employee:2", "missing"]);
+  let whole = container.querySelectorAll('[data-comparison="project"]')[0];
+  assert.equal(whole.querySelectorAll("[data-ignored-hours]").length, 0);
+  assert.equal(whole.querySelectorAll(".is-net-actual")[0].style.width, "60%");
+  assert.match(whole.querySelectorAll(".project-hours-employees-total")[0].textContent, /Heures comptées : 10 h.*Heures ignorées : -2 h.*Total réalisé : 8 h/);
+  draw(null, ["employee:1"]); whole = container.querySelectorAll('[data-comparison="project"]')[0];
+  assert.equal(whole.querySelectorAll("[data-hours-width]").length, 0);
+  assert.match(whole.querySelectorAll(".project-hours-employees-total")[0].textContent, /Heures comptées : -2 h.*Heures ignorées : 10 h/);
+  draw(10, ["missing"]);
+  assert.equal(container.querySelectorAll("[data-ignored-hours-label]").length, 0);
+});
+
+test("actual hover omits only exact zero employee values and monthly table omits only confirmed all-zero rows", () => {
+  const container = domFixture(), detail = monthlyDetail();
+  detail.monthly.employees[0].values = [0, 2, 0]; detail.monthly.employees[1].values = [0, -2, 0];
+  detail.monthly.total = [0, 0, 0]; detail.monthly.convention = [0, 0, 0];
+  detail.monthly.planningStatus = "available"; detail.monthly.planning = [0, 0, 1];
+  const draw = () => render(container, { projects: projects(), selectedId: 2, detail });
+  draw(); let section = container.querySelectorAll('[data-monthly-kind="actual"]')[0];
+  assert.equal(section.querySelectorAll("tbody")[0].children.length, 2, "Opposite corrections and nonzero planning stay visible");
+  section.querySelectorAll('[data-monthly-month="2026-01"]')[0].focus();
+  assert.deepEqual(section.querySelectorAll("[data-monthly-value]").map(row => row.getAttribute("data-monthly-value")), ["total", "convention", "planning"]);
+  section.querySelectorAll('[data-monthly-month="2026-02"]')[0].focus();
+  assert.ok(section.querySelectorAll("[data-monthly-value]").some(row => row.getAttribute("data-monthly-value") === "employee:2"));
+  detail.monthly.planningStatus = "unavailable"; detail.monthly.planning = null; draw();
+  section = container.querySelectorAll('[data-monthly-kind="actual"]')[0];
+  assert.equal(section.querySelectorAll("tbody")[0].children.length, 3, "Unknown reference cannot establish an empty month");
+  detail.monthlyMode = "cumulative"; detail.monthly.mode = "cumulative";
+  detail.monthly.employees[0].values = [0, 2, 2]; detail.monthly.employees[1].values = [0, -2, -2];
+  detail.monthly.planningStatus = "available"; detail.monthly.planning = [0, 0, 0]; draw();
+  section = container.querySelectorAll('[data-monthly-kind="actual"]')[0];
+  assert.equal(section.querySelectorAll("tbody")[0].children.length, 2);
+});
+
+test("project browser translates French and Dutch text, accessible labels and dates while preserving source names", () => {
+  const i18n = require("../i18n"), container = domFixture(), detail = pairedMonthlyDetail();
+  const original = structuredClone(detail);
+  detail.planningInfo = planningInfoFixture(); detail.ignoredEmployeeIds = new Set(["employee:2"]); detail.calendarFraction = 0.5;
+  try {
+    i18n.setLanguage("nl");
+    assert.equal(periodTitle([2026, 2027]), "Mijn uren in 2026 en 2027");
+    assert.equal(periodTitle({ startDate: "2026-08-01", endDate: "2026-12-31" }), "Mijn uren van 1 augustus 2026 tot 31 december 2026");
+    render(container, { projects: projects(), selectedId: 2, detail, years: [2026] });
+    assert.match(container.textContent, /Overeenkomst en planning/);
+    assert.match(container.textContent, /Projecten · 01 \/ Overzicht/);
+    assert.match(container.textContent, /Projecturen in 2026 · alle medewerkers \(zonder Ormitters\)/);
+    assert.match(container.textContent, /Genegeerde uren/);
+    assert.match(container.textContent, /Projecten · 02 \/ Maandelijkse evolutie/);
+    assert.match(container.textContent, /Projecten · 03 \/ Maandelijkse planning/);
+    assert.match(container.textContent, /Exacte waarden per maand bekijken/);
+    assert.ok(container.textContent.includes("Zulu project"));
+    assert.ok(container.textContent.includes("Alex Example"));
+    assert.equal(container.querySelectorAll("[data-planning-info-control]")[0].getAttribute("aria-label"), "Informatie over de overeenkomst en de planning");
+    assert.equal(container.querySelectorAll(".project-hours-date-label")[0].textContent, "Vandaag");
+    const actual = container.querySelectorAll('[data-monthly-kind="actual"]')[0];
+    actual.querySelectorAll('[data-monthly-month="2026-02"]')[0].focus();
+    assert.match(actual.querySelectorAll("[data-monthly-tooltip]")[0].textContent, /februari 2026/);
+    assert.ok(!actual.querySelectorAll("[data-monthly-tooltip]")[0].textContent.includes("février"));
+    assert.equal(detail.monthly.employees[0].name, original.monthly.employees[0].name);
+    i18n.setLanguage("fr");
+    render(container, { projects: projects(), selectedId: 2, detail, years: [2026] });
+    assert.match(container.textContent, /Convention et planning/);
+    assert.match(container.textContent, /Heures ignorées/);
+    assert.equal(periodTitle([2026]), "Mes heures en 2026");
+  } finally { i18n.setLanguage("fr"); cleanup(container); }
+});
+
+test("project calendar forwards the shared view and accessible focus contract", () => {
+  const container = domFixture(), calls = [], choices = [];
+  render(container, { projects: projects(), calendarView: "near", focusCalendarView: true,
+    onCalendarViewChange: value => choices.push(value), timelineRenderer: { renderTimeline(host, rows, options) { calls.push(options); } } });
+  assert.equal(calls[0].calendarView, "near");
+  assert.equal(calls[0].focusCalendarView, true);
+  calls[0].onCalendarViewChange("full");
+  assert.deepEqual(choices, ["full"]);
+});
+
+test("cached application errors repaint when the project grid or detail language changes", () => {
+  const i18n = require("../i18n"), container = domFixture(), error = "Heures indisponibles.";
+  try {
+    i18n.setLanguage("fr"); render(container, { projects: [], error });
+    assert.equal(container.querySelectorAll(".project-browser-status")[0].textContent, error);
+    i18n.setLanguage("nl"); render(container, { projects: [], error });
+    assert.equal(container.querySelectorAll(".project-browser-status")[0].textContent, "Uren niet beschikbaar.");
+    render(container, { projects: projects(), selectedId: 2, detail: { error } });
+    assert.ok(container.querySelectorAll('[role="alert"]').some(element => element.textContent === "Uren niet beschikbaar."));
+  } finally { i18n.setLanguage("fr"); cleanup(container); }
+});
+
+test("Dutch comparison badges and employee controls use complete grammatical phrases", () => {
+  const i18n = require("../i18n"), container = domFixture();
+  const employees = [{ id: "employee:1", name: "Source Alice", actual: 15 }, { id: "employee:2", name: "Source Bob", actual: 10 }];
+  const detail = { personal: { planned: 20, actual: 25 }, project: { planned: 20, actual: 25, employees },
+    lifetime: { planned: 30, actual: 25, employees, startDate: "2026-01-01", endDate: "2026-12-31", calendarFraction: 0.5 },
+    calendarFraction: 0.5, ignoredEmployeeIds: new Set(["employee:2"]) };
+  try {
+    i18n.setLanguage("nl"); render(container, { projects: projects(), selectedId: 2, detail, years: [2026] });
+    const whole = container.querySelectorAll('[data-comparison="project"]')[0], lifetime = container.querySelectorAll('[data-comparison="lifetime"]')[0];
+    assert.ok(whole.textContent.includes("+5 h boven de planning")); assert.ok(!whole.textContent.includes("boven van"));
+    assert.ok(lifetime.textContent.includes("−5 h onder de overeenkomst")); assert.ok(!lifetime.textContent.includes("onder van"));
+    assert.match(lifetime.querySelectorAll(".project-hours-tracks")[0].getAttribute("aria-label"), /30 h volgens de overeenkomst/);
+    assert.ok(!lifetime.querySelectorAll(".project-hours-tracks")[0].getAttribute("aria-label").includes("conventionnelles"));
+    const legend = whole.querySelectorAll('[data-employee-kind="legend"]');
+    assert.equal(legend[0].getAttribute("aria-label"), "De uren van Source Alice negeren: 15 h.");
+    assert.equal(legend[1].getAttribute("aria-label"), "De uren van Source Bob opnieuw meetellen: 10 h.");
+    i18n.setLanguage("fr"); render(container, { projects: projects(), selectedId: 2, detail, years: [2026] });
+    assert.equal(container.querySelectorAll('[data-comparison="project"]')[0].querySelectorAll('[data-employee-kind="legend"]')[0].getAttribute("aria-label"), "Ignorer les heures de Source Alice : 15 h.");
+  } finally { i18n.setLanguage("fr"); cleanup(container); }
+});
+
+test("excluded employee badges explicitly retain the full actual reference in both languages and all comparison states", () => {
+  const i18n = require("../i18n"), container = domFixture();
+  try {
+    for (const language of ["fr", "nl"]) {
+      i18n.setLanguage(language);
+      const prefix = language === "fr" ? "Total réalisé, heures ignorées incluses · " : "Totaal gepresteerd, inclusief genegeerde uren · ";
+      for (const [planned, actual, counted] of [[1274.6, 1170.75, 739], [100, 120, 40], [100, 200, 40]]) {
+        const employees = [{ id: "employee:1", name: "Counted source person", actual: counted },
+          { id: "employee:2", name: "Ignored source person", actual: Math.round((actual - counted) * 100) / 100 }];
+        const detail = { personal: { planned, actual: counted }, project: { planned, actual, employees },
+          lifetime: { planned, actual, employees, startDate: "2026-01-01", endDate: "2026-12-31", calendarFraction: 0.7 },
+          calendarFraction: 0.7, ignoredEmployeeIds: new Set() };
+        const draw = () => render(container, { projects: projects(), selectedId: 2, detail, years: [2026] });
+        draw();
+        let whole = container.querySelectorAll('[data-comparison="project"]')[0];
+        const originalBadge = whole.querySelectorAll(".project-hours-badge")[0].textContent;
+        const widths = whole.querySelectorAll("[data-hours-width]").map(fill => fill.style.width);
+        const today = whole.querySelectorAll("[data-calendar-position]")[0].style.left;
+        assert.equal(whole.querySelectorAll("[data-project-full-actual-reference]").length, 0);
+        detail.ignoredEmployeeIds.add("employee:2"); draw();
+        whole = container.querySelectorAll('[data-comparison="project"]')[0];
+        const badge = whole.querySelectorAll("[data-project-full-actual-reference]")[0];
+        assert.equal(badge.textContent, prefix + originalBadge, "The same full-actual amount has an explicit reference, without recalculation");
+        assert.match(badge.getAttribute("title"), language === "fr" ? /heures ignorées incluses/ : /inclusief genegeerde uren/);
+        assert.deepEqual(whole.querySelectorAll("[data-hours-width]").map(fill => fill.style.width), widths);
+        assert.equal(whole.querySelectorAll("[data-calendar-position]")[0].style.left, today);
+        assert.equal(container.querySelectorAll('[data-comparison="personal"]')[0].querySelectorAll("[data-project-full-actual-reference]").length, 0);
+        assert.equal(container.querySelectorAll('[data-comparison="lifetime"]')[0].querySelectorAll("[data-project-full-actual-reference]").length, 0);
+        if (actual === 1170.75) assert.ok(badge.textContent.includes("−103,85 h"), "The preserved reference is the full realized total, not the counted-only balance");
+      }
+    }
+  } finally { i18n.setLanguage("fr"); cleanup(container); }
 });

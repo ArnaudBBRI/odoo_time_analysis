@@ -342,6 +342,7 @@ test("missing models and malformed optional collections produce useful unavailab
 
 test("the standalone browser module exposes only the rendering API without CommonJS", () => {
   const context = vm.createContext({ Intl });
+  for (const file of ["../i18n", "../i18n-core-messages"]) vm.runInContext(fs.readFileSync(require.resolve(file), "utf8"), context);
   vm.runInContext(fs.readFileSync(require.resolve("../personal-capacity"), "utf8"), context);
   assert.equal(typeof context.PersonalCapacity.render, "function");
   assert.deepEqual(Object.keys(context.PersonalCapacity), ["render"]);

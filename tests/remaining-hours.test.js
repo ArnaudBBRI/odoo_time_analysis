@@ -37,7 +37,7 @@ function loadDashboard() {
     return;
     ${bootstrap}`);
   const elements = new Map();
-  const context = {
+  const context = { DashboardI18n: require("./i18n-fixture"),
     document: {
       getElementById(id) {
         if (!elements.has(id)) elements.set(id, {});
@@ -281,8 +281,8 @@ test("rendered project row shows foreseen before actual and preserves drilldown"
     key, name, actual: 160, planned: 200, remaining: 40,
     actualToDate: 80, foreseenToDate: 100
   });
-  assert.ok(html.indexOf(">Foreseen</span>") >= 0);
-  assert.ok(html.indexOf(">Foreseen</span>") < html.indexOf(">Actual</span>"));
+  assert.ok(html.indexOf(">Prévu</span>") >= 0);
+  assert.ok(html.indexOf(">Prévu</span>") < html.indexOf(">Réalisé</span>"));
   assert.match(html, /data-project-drilldown="true"/);
   assert.match(html, /data-project-name="\[10001\] Project &lt;review&gt; &amp; test"/);
   assert.match(html, /remaining-row active/);

@@ -266,7 +266,7 @@ async function fixture(options = {}) {
   mock.listen(0, '127.0.0.1');
   await once(mock, 'listening');
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'bw-auth-test-'));
-  for (const file of ['server.js', 'index.html', 'login.html', 'steering.js', 'steering-service.js', 'project-finance-service.js', 'project-planning-service.js', 'unit-dico-service.js', 'steering-client.js', 'steering-client.css', 'personal-time.js', 'personal-time.css', 'project-card.js', 'project-card.css', 'project-monthly.js', 'project-planning.js', 'project-browser.js', 'project-browser.css', 'project-budget.js', 'project-budget.css', 'unit-dico.js', 'unit-dico.css']) fs.copyFileSync(path.join(__dirname, '..', file), path.join(directory, file));
+  for (const file of ['server.js', 'language-preferences.js', 'language-client.js', 'i18n.js', 'i18n-core-messages.js', 'i18n-shell-messages.js', 'i18n-project-messages.js', 'i18n-timeline-messages.js', 'i18n-steering-messages.js', 'i18n-server-messages.js', 'index.html', 'login.html', 'steering.js', 'steering-service.js', 'project-finance-service.js', 'project-planning-service.js', 'unit-dico-service.js', 'steering-client.js', 'steering-client.css', 'personal-time.js', 'personal-time.css', 'project-card.js', 'project-card.css', 'project-monthly.js', 'project-planning.js', 'project-browser.js', 'project-browser.css', 'project-budget.js', 'project-budget.css', 'unit-dico.js', 'unit-dico.css']) fs.copyFileSync(path.join(__dirname, '..', file), path.join(directory, file));
   fs.mkdirSync(path.join(directory, 'assets'));
   fs.copyFileSync(path.join(__dirname, '..', 'assets', 'buildwise-logo.svg'), path.join(directory, 'assets', 'buildwise-logo.svg'));
   const mockOrigin = `http://127.0.0.1:${mock.address().port}`;
@@ -605,6 +605,61 @@ test('config login local guard checks the actual socket peer and never trusts fo
   }
 });
 
+test('language-only local config preserves manual login defaults and cannot supply configured-token credentials', async () => {
+  const source = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  const defaultConfig = source.match(/const DEFAULT_CONFIG = \{[\s\S]*?\n\};/)?.[0];
+  assert.ok(defaultConfig, 'The actual server defaults must be available to the isolated test');
+  const extract = (startMarker, endMarker) => {
+    const start = source.indexOf(startMarker), end = source.indexOf(endMarker, start);
+    assert.ok(start >= 0 && end > start, `Missing bounded authentication source: ${startMarker}`);
+    return source.slice(start, end);
+  };
+  const configSource = '{"language":"nl"}', root = path.resolve('synthetic-language-only-auth'), configFile = path.join(root, 'config.local.json');
+  const authentications = [], sessions = new Map();
+  const context = { URL, path, ROOT: root, CONFIG_FILE_NAME: 'config.local.json',
+    SESSION_COOKIE: 'bw_session', SECURE_COOKIE: false, SESSION_TTL_MS: 60000,
+    loginAttempts: new Map(), sessions, authContext: { getStore() {} },
+    fs: {
+      existsSync(target) { assert.equal(target, configFile); return true; },
+      readFileSync(target, encoding) { assert.equal(target, configFile); assert.equal(encoding, 'utf8'); return configSource; }
+    },
+    crypto: { randomBytes(length) { assert.equal(length, 32); return { toString(encoding) {
+      assert.equal(encoding, 'hex'); return 'synthetic-language-session';
+    } }; } },
+    readJsonBody: async request => request.body,
+    authenticateOdoo: async (...args) => { authentications.push(args); return 7; },
+    sendJson(response, status, payload) { response.status = status; response.payload = payload; }
+  };
+  vm.runInNewContext([
+    defaultConfig,
+    extract('function sessionCookie(', 'function getSession('),
+    extract('function isLocalConfigLogin(', 'async function handleLogin('),
+    extract('function readDashboardConfigInfo(', 'function isPrivateConfigPath('),
+    extract('function firstNonBlank(', 'function readJsonBody('),
+    extract('function normalizeOdooUrl(', 'function cleanCredential('),
+    extract('async function handleLogin(', '\nserver.listen('),
+    'globalThis.defaultSettings = DEFAULT_CONFIG;'
+  ].join('\n'), context, { filename: 'isolated-language-only-auth.js' });
+  const request = body => ({ method: 'POST', headers: { host: 'localhost:8765' }, socket: { remoteAddress: '127.0.0.1' }, body });
+  const response = () => ({ headers: new Map(), setHeader(name, value) { this.headers.set(name, value); } });
+  const manual = response();
+  await context.handleLogin(request({ email: 'person@example.invalid', password: 'synthetic manual password' }), manual);
+  assert.equal(manual.status, 200); assert.equal(manual.payload.email, 'person@example.invalid');
+  assert.deepEqual(authentications, [[new URL(context.defaultSettings.odooUrl).origin, context.defaultSettings.database,
+    'person@example.invalid', 'synthetic manual password']]);
+  assert.equal(sessions.size, 1);
+  assert.equal([...sessions.values()][0].apiKey, 'synthetic manual password');
+  assert.match(manual.headers.get('Set-Cookie'), /^bw_session=synthetic-language-session;.*HttpOnly; SameSite=Lax/);
+  assert.doesNotMatch(JSON.stringify(manual.payload), /password|apiKey|language|synthetic-language-session/);
+  const configured = response();
+  await context.handleLogin(request({ username: 'forged@example.invalid', apiKey: 'forged token' }), configured, true);
+  assert.equal(configured.status, 400); assert.equal(configured.payload.code, 'CONFIG_INVALID');
+  assert.equal(configured.headers.has('Set-Cookie'), false);
+  assert.equal(authentications.length, 1, 'A preference-only file cannot cause any configured-token authentication call');
+  assert.equal(sessions.size, 1, 'Rejected config login cannot replace the manual session');
+  assert.deepEqual(JSON.parse(JSON.stringify(context.readDashboardConfigInfo().values)), { language: 'nl' });
+});
+
 test('config credentials stay private in read warnings and subsequent malformed-config errors', async t => {
   const token = 'fixture-private-upstream-token';
   const f = await fixture({ acceptedToken: token, readFaultToken: token, TEAM_FIXTURE: 'standard',
@@ -655,7 +710,7 @@ test('welcome config button sends no credentials and presents safe informational
     const elements = new Map();
     const requests = [];
     let location;
-    const context = {
+    const context = { DashboardI18n: require("./i18n-fixture"),
       document: { getElementById(id) {
         if (!elements.has(id)) elements.set(id, { value: 'typed-private-password', textContent: '', disabled: false, dataset: {},
           listeners: {}, addEventListener(name, callback) { this.listeners[name] = callback; }, setAttribute() {} });

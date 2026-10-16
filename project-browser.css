@@ -92,6 +92,11 @@
 .project-hours-overpointing.is-over-plan { border-color: #ecc0c6; color: #ac263b; background: #fff0f1; }
 .project-hours-fill.is-actual.is-stacked { display: flex; background: transparent; overflow: hidden; animation-fill-mode: backwards; }
 .project-hours-fill.is-actual.is-net-actual { background: #829ba7; }
+.project-hours-ignored-segment { display: block; flex: 0 0 auto; height: 100%; min-width: 0; background: repeating-linear-gradient(135deg, #c0c6ca, #c0c6ca 5px, #e5e8ea 5px, #e5e8ea 9px); border-left: 1px solid #fff; box-sizing: border-box; }
+.project-hours-employee-key.is-ignored .project-hours-employee-name { text-decoration: line-through; text-decoration-thickness: 1.5px; }
+.project-hours-employee-key.is-ignored .project-hours-employee-dot { background-color: #9aa4aa !important; }
+.has-ignored-hours .project-hours-labels, .has-ignored-hours .project-hours-tracks { gap: 42px; }
+.project-hours-ignored-badge { position: absolute; top: calc(26px + var(--project-hours-bar-height) + 14px); z-index: 3; transform: translateX(-50%); padding: 3px 8px; border: 1px solid #c5ccd0; border-radius: 9px; color: #58666e; background: #f2f4f5; font-size: 10px; font-weight: 650; line-height: 1.3; white-space: nowrap; pointer-events: none; }
 .project-hours-employee-segment { display: flex; align-items: center; justify-content: center; flex: 0 0 auto; min-width: 0; height: 100%; margin: 0; padding: 0; border: 0; border-left: 1px solid rgb(255 255 255 / 75%); border-radius: 0; background-image: linear-gradient(90deg, rgb(255 255 255 / 18%), rgb(0 0 0 / 8%)); box-sizing: border-box; container-type: inline-size; cursor: pointer; }
 .project-hours-employee-segment:first-child { border-left: 0; }
 .project-hours-employee-segment:hover { filter: brightness(1.12); }

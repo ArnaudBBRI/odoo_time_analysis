@@ -1,5 +1,56 @@
 # Testing
 
+## Latest verification (2026-10-16 French/Dutch and project controls)
+
+The final sequential offline suite passes **936/936 tests** in 55.75 seconds,
+with no failures, cancellations or skips. All Odoo responses are simulated;
+language-only config/manual-login and public language asset cases make no live
+source calls. Partial-write cleanup preserves the original config and removes
+only owned temporary files. Provenance-marker tests keep real names/IDs/hours
+unchanged. Cached repaints retain invalid date inputs without applying them.
+
+Independent source review confirms the RPC allowlist/pre-network guard and
+capacity/hour/date arithmetic are preserved. Fictional desktop and 390px
+browser checks cover FR/NL navigation, saved language after reload/logout,
+recommendations/capacity, budget labels, short calendar names and shared rolling
+axes, multiple ignored employees, hatched bars and zero-free monthly employee
+tooltips. No horizontal page overflow or console warnings/errors were observed.
+Screenshots are saved; temporary tab, viewport, helper and fixture are released.
+Thirty root/inline scripts parse; context/wiki link and whitespace checks pass.
+No separate build, lint or typecheck command is defined.
+
+The restarted standard-user server serves current public assets and valid
+language preferences, with welcome 200, protected anonymous API 401 and empty
+stderr. Config remains private (authenticated 404 verified in fixtures), and
+the user's private file was not modified during verification.
+
+## Language and interactive display regression surfaces (2026-10-16)
+
+The language suites are `i18n`, `language-client`, `language-preferences`,
+`language-preferences-http` and `dashboard-language` under `tests/`. Their
+fixtures cover FR/NL key/placeholder/source-alias parity, locale formatting,
+public preference reads and authenticated/origin-checked writes, language-only
+config/manual login, credential/nested-value preservation, invalid/read-only
+files, external-edit conflicts and no Odoo calls. Browser-client cases exercise
+bootstrap/save races and cached repaints without resetting dashboard state.
+
+`unit-dico.test.js` adds full/default versus rolling Brussels +/-3-year bounds,
+leap-day clamping, inclusive clipping, preserved cards/unknown dates, partial
+month concurrency and known-zero geometry. Both shared calendar entry points
+retain toggle focus and clean observers/synchronized scrolling. A short-name
+case covers personal/Unit/programme views in both modes while full names remain
+in titles/accessible descriptions. The focused suite passes **65/65** locally.
+
+`project-browser.test.js` and `sticky-scope.test.js` cover independent scoped
+actual-contributor exclusions, counted/hatched-ignored reconciliation, unchanged
+planning/today and other graphs, signed/unreconciled fallbacks, focus and cached
+state. Monthly cases distinguish exact zero from unknown, negative, cancelling
+and nonzero-reference cells; they verify monthly/cumulative tooltip/table filters
+without dropping source chart months. `steering.test.js` passes **17/17** locally,
+including all detail-tab translations, escaped original source labels and live
+locale repaint without navigation or refetch. These focused results do not
+replace a final complete-suite or responsive browser verification.
+
 ## Latest verification (2026-10-15 Project Hours planning graphs)
 
 The final sequential offline suite passes **870/870 tests** in 51.60 seconds,
@@ -914,7 +965,10 @@ There is no dedicated lint/typecheck setup or CI workflow. Legacy XLSX parsing a
 
 ## Refresh
 
-- Last refreshed: 2026-10-14
+- Last refreshed: 2026-10-16
+- Additional source basis: tests/i18n.test.js, tests/language-client.test.js,
+  tests/language-preferences.test.js, tests/language-preferences-http.test.js,
+  tests/dashboard-language.test.js, tests/unit-dico.test.js and tests/steering.test.js.
 - Source basis: tests/personal-time.test.js, tests/personal-recommendations.test.js, tests/personal-personnel-budget.test.js, tests/project-planning.test.js, tests/project-planning-service.test.js, tests/project-planning-http.test.js, project-planning.js, project-planning-service.js, tests/project-card.test.js, tests/programme-browser.test.js, tests/programme-service.test.js, tests/programme-http.test.js, tests/unit-dico-service.test.js, tests/unit-dico.test.js, tests/unit-dico-http.test.js, tests/project-monthly.test.js, tests/project-browser.test.js, tests/project-budget.test.js, tests/sticky-scope.test.js, tests/auth.test.js (including local config-login/manager/contributor/assignment/lifetime/finance fixtures), server.js, project-card.js/css, programme-browser.js/css, programme-service.js, unit-dico-service.js, unit-dico.js/css, project-finance-service.js, personal-time.js, project-monthly.js, project-browser.js/css, project-budget.js/css, index.html, login.html and Docker configuration.
 - Limitations: simulated authentication is not proof of compatibility with real Buildwise accounts.
 

@@ -66,6 +66,15 @@ const server = http.createServer((request, response) => {
         sendJson(response, 403, { ok: false, error: "Cross-origin requests are not allowed" });
         return;
       }
+      if (url.pathname === "/api/preferences/language") {
+        await handleLanguagePreference(request, response, session);
+        return;
+      }
+      if (["/i18n.js", "/i18n-core-messages.js", "/i18n-shell-messages.js", "/i18n-project-messages.js", "/i18n-timeline-messages.js", "/i18n-steering-messages.js", "/i18n-server-messages.js", "/language-client.js"].includes(url.pathname)) {
+        if (request.method !== "GET") { sendJson(response, 405, { ok: false, code: "LANGUAGE_METHOD", error: "Use GET for this endpoint" }); return; }
+        await serveStaticFile(url.pathname, response);
+        return;
+      }
       if (url.pathname === "/api/auth/login") {
         await handleLogin(request, response);
         return;
@@ -1288,6 +1297,34 @@ function getMergedConnectorSettings(body = {}) {
     employeeName: firstNonBlank(body.employeeName, config.employeeName),
     projectCode: firstNonBlank(body.projectCode, body.projectName, body.projectQuery, config.projectId, config.projectID, config.projectCode)
   };
+}
+
+async function handleLanguagePreference(request, response, session) {
+  const store = require("./language-preferences").createStore(ROOT);
+  if (request.method === "GET") {
+    sendJson(response, 200, { ok: true, language: store.read() });
+    return;
+  }
+  if (request.method !== "POST") {
+    sendJson(response, 405, { ok: false, code: "LANGUAGE_METHOD", error: "Use GET or POST for this endpoint" });
+    return;
+  }
+  if (!session) {
+    sendJson(response, 401, { ok: false, authenticationRequired: true, code: "LANGUAGE_SESSION", error: "Please sign in to continue" });
+    return;
+  }
+  let body;
+  try { body = await readJsonBody(request); }
+  catch (_) { sendJson(response, 400, { ok: false, code: "LANGUAGE_INVALID", error: "Choose French or Dutch" }); return; }
+  if (!body || typeof body !== "object" || Array.isArray(body) || Object.keys(body).length !== 1 ||
+    !require("./language-preferences").validLanguage(body.language)) {
+    sendJson(response, 400, { ok: false, code: "LANGUAGE_INVALID", error: "Choose French or Dutch" }); return;
+  }
+  try { store.save(body.language); sendJson(response, 200, { ok: true, language: body.language }); }
+  catch (error) {
+    const code = ["LANGUAGE_CONFIG_INVALID", "LANGUAGE_CONFIG_CHANGED"].includes(error.code) ? error.code : "LANGUAGE_SAVE_FAILED";
+    sendJson(response, 503, { ok: false, code, error: "The local language preference could not be saved" });
+  }
 }
 
 function readDashboardConfigInfo() {
@@ -4181,6 +4218,7 @@ function normalizePersonalPlanningSlot(slot) {
     employee: relationalName(slot.employee_id) || relationalName(slot.resource_id),
     employeeId: personalRelationId(slot.employee_id), resourceId: personalRelationId(slot.resource_id),
     projectId, project: projectId ? relationalName(slot.project_id) || `Project ${projectId}` : "",
+    ...(projectId && !relationalName(slot.project_id) ? { projectNameMessageKey: "identity.project" } : {}),
     task: relationalName(slot.task_id), taskId: personalRelationId(slot.task_id),
     description: String(slot.name || "")
   };
@@ -4589,6 +4627,7 @@ async function handleMyTime(request, response) {
       const normalized = normalizeTimesheetLine(line);
       normalized.projectId = personalRelationId(line.project_id);
       normalized.project = normalized.projectId ? relationalName(line.project_id) || `Project ${normalized.projectId}` : "";
+      if (normalized.projectId && !relationalName(line.project_id)) normalized.projectNameMessageKey = "identity.project";
       return normalized;
     });
     const monthly = buildMonthlyTimesheetSummary(lines);
@@ -4603,7 +4642,8 @@ async function handleMyTime(request, response) {
   catch (_) { planningError = "Personal planning is unavailable with your current Odoo access or schema."; }
   const projects = new Map();
   for (const record of [...timesheets.lines, ...(planning?.slots || [])]) {
-    if (record.projectId && !projects.has(record.projectId)) projects.set(record.projectId, { id: record.projectId, name: record.project });
+    if (record.projectId && !projects.has(record.projectId)) projects.set(record.projectId, { id: record.projectId, name: record.project,
+      ...(record.projectNameMessageKey === "identity.project" ? { nameMessageKey: "identity.project" } : {}) });
   }
   const nameCounts = new Map();
   for (const project of projects.values()) nameCounts.set(project.name, (nameCounts.get(project.name) || 0) + 1);
@@ -4760,6 +4800,7 @@ async function buildProjectContributors(args, records) {
   }
   return [...contributors.values()].map(contributor => ({ ...contributor,
     name: contributor.name || (contributor.employeeId ? `Employé ${contributor.employeeId}` : "Employé non identifié"),
+    ...(!contributor.name ? { nameMessageKey: contributor.employeeId ? "identity.employee" : "identity.employeeUnknown" } : {}),
     resourceIds: contributor.resourceIds.sort((a, b) => a - b)
   }));
 }
@@ -4970,7 +5011,8 @@ async function handleProjectHours(request, response) {
   try {
     const projects = await searchReadAll(...args, "project.project", [["id", "=", projectId]], ["id", "name"], { context: { active_test: false } });
     const selected = projects.find(record => record.id === projectId);
-    if (selected) project = { id: projectId, name: typeof selected.name === "string" && selected.name ? selected.name : `Project ${projectId}` };
+    if (selected) project = { id: projectId, name: typeof selected.name === "string" && selected.name ? selected.name : `Project ${projectId}`,
+      ...(typeof selected.name === "string" && selected.name ? {} : { nameMessageKey: "identity.project" }) };
   } catch (_) {
     sendJson(response, 502, { ok: false, error: "The selected project is unavailable with your current Odoo access." });
     return;

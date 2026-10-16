@@ -3,6 +3,12 @@
 .unit-dico-section { min-width: 0; padding: 22px; border: 1px solid #e0eaee; border-radius: 14px; background: #fff; }
 .unit-dico-section + .unit-dico-section { margin-top: 22px; }
 .unit-dico-section-header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.unit-dico-calendar-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; }
+.unit-dico-calendar-views { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; max-width: 100%; min-width: 0; margin: 0; padding: 3px; border: 1px solid #dbe6ec; border-radius: 8px; background: #f5f9fb; }
+.unit-dico-calendar-view { display: flex; align-items: center; gap: 5px; min-width: 0; padding: 5px 7px; border-radius: 5px; color: #486879; font-size: 11px; line-height: 1.5; cursor: pointer; }
+.unit-dico-calendar-view input { margin: 0; accent-color: #008bab; cursor: pointer; }
+.unit-dico-calendar-view:has(input:checked) { color: #14566d; background: #fff; box-shadow: 0 1px 3px rgb(24 51 62 / 10%); }
+.unit-dico-calendar-view:focus-within { outline: 2px solid #21a7b8; outline-offset: 1px; }
 .unit-dico-heading { margin: 0; color: #294b5a; font-size: 16px; font-weight: 650; line-height: 1.5; }
 .unit-dico-count { padding: 3px 8px; border-radius: 6px; color: #557786; background: #edf4f7; font-size: 11px; }
 .unit-dico-caption { margin: 8px 0 18px; color: #6c8390; font-size: 11px; line-height: 1.7; }

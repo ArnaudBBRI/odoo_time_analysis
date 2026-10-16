@@ -341,7 +341,8 @@ function aggregateLifetime(rows, project, today, hourUnitIds, sourceWarnings = [
       const mapped = row.categoryId !== null;
       const key = mapped ? `rubric:${row.categoryId}` : row.kind;
       if (!buckets.has(key)) buckets.set(key, { categoryId: mapped ? row.categoryId : null, category: mapped ? row.category || `Rubrique ${row.categoryId}` : null,
-        label: row.kind === "personnel" ? "Coût des heures · rubrique non renseignée" : "Dépenses · rubrique non renseignée", rows: [] });
+        label: row.kind === "personnel" ? "Coût des heures · rubrique non renseignée" : "Dépenses · rubrique non renseignée",
+        labelMessageKey: row.kind === "personnel" ? "budget.unmappedPersonnel" : "budget.unmappedExpense", rows: [] });
       buckets.get(key).rows.push(row);
     }
     const before = start ? selectedRows.filter(row => row.date < start) : [], after = end ? selectedRows.filter(row => row.date > end) : [];
@@ -351,7 +352,7 @@ function aggregateLifetime(rows, project, today, hourUnitIds, sourceWarnings = [
       currencyId: compatible ? moneyCurrency.currencyId : null, currency: compatible ? moneyCurrency.currency : null,
       consumed: cost(selectedRows), expenseCost: cost(selectedRows.filter(row => row.kind === "expense")), personnelCost: cost(selectedRows.filter(row => row.kind === "personnel")),
       byRubric: compatible ? [...buckets.values()].filter(bucket => bucket.categoryId !== null).map(bucket => ({ categoryId: bucket.categoryId, category: bucket.category, consumed: cost(bucket.rows) })) : [],
-      unmapped: compatible ? [...buckets.values()].filter(bucket => bucket.categoryId === null).map(bucket => ({ label: bucket.label, consumed: cost(bucket.rows) })) : [],
+      unmapped: compatible ? [...buckets.values()].filter(bucket => bucket.categoryId === null).map(bucket => ({ label: bucket.label, labelMessageKey: bucket.labelMessageKey, consumed: cost(bucket.rows) })) : [],
       qualifyingRecordCount: selectedRows.length, zeroValuedHoursCount, outOfPeriod: { beforeStart: { count: before.length, consumed: start ? cost(before) : null }, afterEnd: { count: after.length, consumed: end ? cost(after) : null } }, warnings };
   }
   return { ...projection(qualifying, sourceWarnings), expensesOnly: projection(qualifying.filter(row => row.kind === "expense"), expenseSourceWarnings) };

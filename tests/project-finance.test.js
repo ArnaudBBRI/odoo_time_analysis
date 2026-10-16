@@ -36,7 +36,10 @@ test("lifetime combines posted expenses and recorded Hours money once; credits, 
   assert.equal(lifetime.status, "available"); assert.equal(lifetime.consumed, 530);
   assert.equal(lifetime.expenseCost, 190); assert.equal(lifetime.personnelCost, 340);
   assert.deepEqual(lifetime.byRubric, [{ categoryId: 901, category: "Services", consumed: 180 }]);
-  assert.deepEqual(lifetime.unmapped, [{ label: "Coût des heures · rubrique non renseignée", consumed: 340 }, { label: "Dépenses · rubrique non renseignée", consumed: 10 }]);
+  assert.deepEqual(lifetime.unmapped, [
+    { label: "Coût des heures · rubrique non renseignée", labelMessageKey: "budget.unmappedPersonnel", consumed: 340 },
+    { label: "Dépenses · rubrique non renseignée", labelMessageKey: "budget.unmappedExpense", consumed: 10 }
+  ]);
   assert.equal(lifetime.zeroValuedHoursCount, 1); assert.equal(lifetime.qualifyingRecordCount, 6);
   assert.deepEqual(lifetime.outOfPeriod, { beforeStart: { count: 1, consumed: 10 }, afterEnd: { count: 1, consumed: 40 } });
   assert.equal(result.conventions[0].billedTotal, 200); assert.equal(result.conventions[0].lines[1].consumed, 0);
@@ -54,7 +57,7 @@ test("expense-only lifetime removes Hours costs from mixed exact rubrics without
   assert.equal(expenses.status, "available"); assert.equal(expenses.currencyId, 1); assert.equal(expenses.currency, "EUR");
   assert.equal(expenses.consumed, 190); assert.equal(expenses.expenseCost, 190); assert.equal(expenses.personnelCost, 0);
   assert.deepEqual(expenses.byRubric, [{ categoryId: 901, category: "Services", consumed: 180 }]);
-  assert.deepEqual(expenses.unmapped, [{ label: "Dépenses · rubrique non renseignée", consumed: 10 }]);
+  assert.deepEqual(expenses.unmapped, [{ label: "Dépenses · rubrique non renseignée", labelMessageKey: "budget.unmappedExpense", consumed: 10 }]);
   assert.equal(expenses.qualifyingRecordCount, 3); assert.equal(expenses.zeroValuedHoursCount, 0);
   assert.deepEqual(expenses.outOfPeriod, { beforeStart: { count: 1, consumed: 10 }, afterEnd: { count: 0, consumed: 0 } });
   assert.ok(!expenses.warnings.some(text => /coût enregistré nul/.test(text)));

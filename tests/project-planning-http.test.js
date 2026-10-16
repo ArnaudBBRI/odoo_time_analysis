@@ -57,6 +57,32 @@ async function hours(runtime, extra = {}) {
   return { result: await response.json(), cookie };
 }
 
+test("generated project and contributor name fallbacks carry provenance without marking genuine source labels", async t => {
+  const data = fixtureData();
+  data.records["project.project"][0].name = "";
+  data.records["account.analytic.line"][0].project_id = [11, ""];
+  data.records["account.analytic.line"].push(
+    { id: 4, project_id: [11, ""], employee_id: [99, ""], date: "2026-03-02", unit_amount: 2 },
+    { id: 5, project_id: [11, ""], employee_id: false, date: "2026-03-03", unit_amount: 3 },
+    { id: 6, project_id: [11, ""], employee_id: [100, "Employé 99"], date: "2026-03-04", unit_amount: 4 });
+  const runtime = await startRuntime(data); t.after(() => runtime.close());
+  const { result, cookie } = await hours(runtime);
+  assert.deepEqual(result.project, { id: 11, name: "Project 11", nameMessageKey: "identity.project" });
+  const people = new Map(result.contributors.map(person => [person.employeeId, person]));
+  assert.equal(people.get(99).name, "Employé 99"); assert.equal(people.get(99).nameMessageKey, "identity.employee");
+  const unidentified = result.contributors.find(person => person.employeeId === null && person.resourceIds.length === 0);
+  assert.equal(unidentified.name, "Employé non identifié"); assert.equal(unidentified.nameMessageKey, "identity.employeeUnknown");
+  assert.equal(people.get(100).name, "Employé 99"); assert.equal(Object.hasOwn(people.get(100), "nameMessageKey"), false);
+  assert.equal(people.get(20).name, "Employé fictif"); assert.equal(Object.hasOwn(people.get(20), "nameMessageKey"), false);
+  assert.equal(result.timesheets.totalHours, 19);
+  const ownResponse = await runtime.request("/api/odoo/my-time", { method: "POST", headers: { Cookie: cookie }, body: "{}" });
+  assert.equal(ownResponse.status, 200);
+  const own = await ownResponse.json(), project = own.projects.find(row => row.id === 11);
+  assert.equal(project.name, "Project 11"); assert.equal(project.nameMessageKey, "identity.project");
+  assert.equal(own.timesheets.totalHours, 10);
+  assert.ok(own.timesheets.lines.every(line => line.employeeId === 20));
+});
+
 function linkedPlaceholderFixture() {
   const data = fixtureData();
   Object.assign(data.definitions["project.project"], { date_start: { type: "date" }, date: { type: "date" },

@@ -2,6 +2,8 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const { render, renderTimeline, cleanup, normalizeProjects, buildTimeline, buildConcurrency, isExcludedProjectName, colorFor } = require("../unit-dico");
 const { domFixture } = require("./dom-fixture");
+const I18n = require("../i18n");
+const timelineMessages = require("../i18n-timeline-messages");
 
 const photo = "data:image/png;base64,iVBORw0KGgo=";
 function project(id, name, startDate, endDate) { return { id, name, startDate, endDate, manager: null }; }
@@ -824,4 +826,208 @@ test("catalogue refresh and retry controls retain keyboard focus through loading
   assert.equal(container.querySelectorAll("[data-unit-retry]").length, 0);
   assert.equal(container.ownerDocument.activeElement, find(container, "[data-unit-refresh]"),
     "A successful retry transfers focus to the remaining refresh control");
+});
+
+test("calendar view defaults to the existing full range and rejects unsupported view modes", () => {
+  const input = fixture().projects, now = "2026-10-16";
+  const original = buildTimeline(input, now);
+  assert.equal(original.calendarView, "full");
+  for (const calendarView of ["full", undefined, null, "years", {}, 3]) {
+    assert.deepEqual(buildTimeline(input, now, { calendarView }), original);
+  }
+  assert.equal(original.outsideCount, 0);
+  assert.deepEqual(buildConcurrency(input, now, { calendarView: "full" }), buildConcurrency(input, now));
+});
+
+test("near view uses fixed rolling Brussels dates rather than seven full calendar years or scope dates", () => {
+  const input = [project(1, "Span", "2024-02-01", "2028-01-31")], original = structuredClone(input);
+  const timeline = buildTimeline(input, "2026-10-15T22:30:00Z", { calendarView: "near", years: [2025] });
+  assert.equal(timeline.calendarView, "near");
+  assert.equal(timeline.startDate, "2023-10-16"); assert.equal(timeline.endDate, "2029-10-16");
+  assert.equal(timeline.today.date, "2026-10-16");
+  assert.equal(timeline.ticks[0].date, "2023-10-16"); assert.equal(timeline.ticks.at(-1).date, "2029-10-16");
+  assert.equal(timeline.days, (Date.parse("2029-10-16") - Date.parse("2023-10-16")) / 86400000 + 1);
+  assert.deepEqual(input, original);
+});
+
+test("near view clamps leap anniversaries and source-supported calendar limits", () => {
+  const input = [project(1, "Span", "2020-01-01", "2030-01-01")];
+  const leap = buildTimeline(input, "2024-02-29", { calendarView: "near" });
+  assert.equal(leap.startDate, "2021-02-28"); assert.equal(leap.endDate, "2027-02-28");
+  assert.equal(buildTimeline(input, "0001-01-01", { calendarView: "near" }).startDate, "0001-01-01");
+  assert.equal(buildTimeline(input, "9999-12-31", { calendarView: "near" }).endDate, "9999-12-31");
+  assert.equal(buildTimeline(input, "invalid", { calendarView: "near" }).calendarView, "full");
+});
+
+test("near view clips inclusive bars without mutating original dates or catalogue membership", () => {
+  const input = [project(1, "Spans window", "2020-01-01", "2030-12-31"),
+    project(2, "Left boundary", "2020-01-01", "2023-10-16"),
+    project(3, "Right boundary", "2029-10-16", "2030-01-01"),
+    project(4, "Before", "2023-10-15", "2023-10-15"),
+    project(5, "After", "2029-10-17", "2029-10-17"),
+    project(6, "Missing", null, "2035-01-01"), project(7, "Reversed", "2035-01-01", "2034-01-01"),
+    project(8, "Open-ended", "2026-01-01", "2999-12-31"), project(9, "Interne", "2020-01-01", "2040-01-01")];
+  const original = structuredClone(input), timeline = buildTimeline(input, "2026-10-16", { calendarView: "near" });
+  assert.equal(timeline.projects.length, 8); assert.equal(timeline.outsideCount, 2);
+  assert.deepEqual(timeline.rows.map(row => row.id).sort((a, b) => a - b), [1, 2, 3, 6, 7]);
+  const span = timeline.rows.find(row => row.id === 1);
+  assert.equal(span.start.value, "2020-01-01"); assert.equal(span.end.value, "2030-12-31");
+  assert.equal(span.left, 0); assert.equal(span.width, 100);
+  assert.equal(timeline.rows.find(row => row.id === 2).width, 100 / timeline.days);
+  const right = timeline.rows.find(row => row.id === 3);
+  assert.equal(right.left, (timeline.days - 1) / timeline.days * 100);
+  assert.equal(right.width, 100 / timeline.days);
+  assert.equal(timeline.rows.find(row => row.id === 6).width, null);
+  assert.equal(timeline.rows.find(row => row.id === 7).width, null);
+  assert.ok(timeline.rows.every(row => row.left == null || row.left >= 0 && row.left + row.width <= 100 + 1e-10));
+  assert.deepEqual(input, original);
+});
+
+test("near concurrency clips partial months and carries projects already active at its left edge", () => {
+  const input = [project(1, "Long span", "2020-01-01", "2030-12-31"),
+    project(2, "Ends at start", "2020-01-01", "2023-10-16"),
+    project(3, "Earlier October only", "2023-10-01", "2023-10-15"),
+    project(4, "Starts at end", "2029-10-16", "2030-01-01")];
+  const options = { calendarView: "near" }, timeline = buildTimeline(input, "2026-10-16", options);
+  const result = buildConcurrency(input, "2026-10-16", options);
+  assert.equal(result.available, true); assert.equal(result.months.length, 73);
+  assert.deepEqual(result.ticks, timeline.ticks); assert.deepEqual(result.today, timeline.today);
+  assert.equal(result.startDate, timeline.startDate); assert.equal(result.endDate, timeline.endDate);
+  assert.equal(result.includedCount, 3); assert.equal(result.outsideCount, 1);
+  assert.deepEqual([result.months[0].month, result.months[0].startDate, result.months[0].endDate, result.months[0].count],
+    ["2023-10", "2023-10-16", "2023-10-31", 2]);
+  assert.deepEqual([result.months.at(-1).startDate, result.months.at(-1).endDate, result.months.at(-1).count], ["2029-10-01", "2029-10-16", 2]);
+  assert.equal(result.months.find(month => month.month === "2026-10").count, 1);
+  assert.ok(Math.abs(result.months.reduce((sum, month) => sum + month.width, 0) - 100) < 1e-10);
+});
+
+test("a near window outside all known projects displays known zero counts with finite geometry", () => {
+  const input = [project(1, "Long finished", "2010-01-01", "2011-12-31")], container = domFixture();
+  const result = buildConcurrency(input, "2026-10-16", { calendarView: "near" });
+  assert.equal(result.available, true); assert.equal(result.maxCount, 0); assert.equal(result.months.length, 73);
+  assert.ok(result.months.every(month => month.count === 0)); assert.equal(result.includedCount, 0); assert.equal(result.outsideCount, 1);
+  render(container, { projects: input }, { now: "2026-10-16", calendarView: "near" });
+  assert.equal(container.querySelectorAll("[data-unit-project-choice]").length, 1);
+  assert.equal(container.querySelectorAll("[data-unit-project-select]").length, 0);
+  assert.match(container.textContent, /1 projet hors de cette fenêtre/);
+  assert.match(container.textContent, /Aucun projet aux dates complètes dans cette fenêtre/);
+  for (const path of container.querySelectorAll("path")) assert.doesNotMatch(path.getAttribute("d"), /NaN|Infinity/);
+  assert.ok(find(container, ".unit-dico-concurrency").querySelectorAll("[data-unit-concurrency-month]").length > 0);
+});
+
+test("a fixed near axis does not convert unknown periods or excluded catalogues into known zero concurrency", () => {
+  const unknown = buildConcurrency([project(1, "Unknown", null, null)], "2026-10-16", { calendarView: "near" });
+  assert.equal(unknown.available, false); assert.equal(unknown.maxCount, null); assert.deepEqual(unknown.months, []);
+  for (const input of [[], [project(2, "Open", "2020-01-01", "2999-01-01")], [project(3, "Overhead", "2020-01-01", "2040-01-01")]]) {
+    assert.equal(buildTimeline(input, "2026-10-16", { calendarView: "near" }).available, false);
+    assert.equal(buildConcurrency(input, "2026-10-16", { calendarView: "near" }).available, false);
+  }
+});
+
+test("calendar view controls are native scoped radios that dispatch only a real selected change", () => {
+  const container = domFixture(), calls = [];
+  render(container, fixture(), { now: "2026-10-16", onCalendarViewChange: value => calls.push(value) });
+  const full = find(container, '[data-unit-calendar-view="full"]'), near = find(container, '[data-unit-calendar-view="near"]');
+  assert.equal(full.type, "radio"); assert.equal(near.type, "radio"); assert.equal(full.name, near.name);
+  assert.equal(full.checked, true); assert.equal(near.checked, false);
+  assert.match(find(container, ".unit-dico-calendar-views").textContent, /Période du calendrier.*Vue \+\/-3 ans.*Vue complète/);
+  near.dispatch("change"); full.dispatch("change"); assert.deepEqual(calls, []);
+  near.checked = true; near.dispatch("change"); assert.deepEqual(calls, ["near"]);
+  render(container, fixture(), { now: "2026-10-16", calendarView: "near", onCalendarViewChange: value => calls.push(value) });
+  const next = find(container, '[data-unit-calendar-view="near"]'); assert.equal(next.checked, true);
+  assert.notEqual(next.name, near.name, "Controls have a new chart-scoped radio group after rerender");
+  assert.equal(find(container, "[data-unit-timeline-start]").getAttribute("data-unit-timeline-start"), "2023-10-16");
+  assert.equal(find(container, "[data-unit-concurrency-start]").getAttribute("data-unit-concurrency-start"), "2023-10-16");
+  const back = find(container, '[data-unit-calendar-view="full"]'); back.checked = true; back.dispatch("change"); assert.deepEqual(calls, ["near", "full"]);
+});
+
+test("both timeline entry points preserve calendar-switch focus and explicit focus overrides", () => {
+  for (const personal of [true, false]) {
+    const container = domFixture();
+    const draw = options => personal ? renderTimeline(container, fixture().projects, options) : render(container, fixture(), options);
+    draw({ now: "2026-10-16" });
+    find(container, '[data-unit-calendar-view="near"]').focus();
+    draw({ now: "2026-10-16", calendarView: "near" });
+    assert.equal(container.ownerDocument.activeElement, find(container, '[data-unit-calendar-view="near"]'));
+    draw({ now: "2026-10-16", calendarView: "full", focusCalendarView: "full" });
+    assert.equal(container.ownerDocument.activeElement, find(container, '[data-unit-calendar-view="full"]'));
+  }
+});
+
+test("switching the window releases old reveal observers and synchronized scroll listeners", () => {
+  const { container, observers } = viewportFixture();
+  render(container, fixture(), { now: "2026-10-16" });
+  const oldScrolls = container.querySelectorAll(".unit-dico-timeline-scroll"), removed = [];
+  for (const scroll of oldScrolls) scroll.removeEventListener = (name, callback) => {
+    assert.equal(name, "scroll"); assert.equal(scroll.listeners.get(name), callback); scroll.listeners.delete(name); removed.push(scroll);
+  };
+  const oldBar = find(container, ".unit-dico-timeline-bar");
+  render(container, fixture(), { now: "2026-10-16", calendarView: "near" });
+  assert.equal(observers[0].disconnects, 1); assert.deepEqual(removed, oldScrolls);
+  observers[0].deliver([{ target: oldBar, isIntersecting: true }]);
+  assert.equal(oldBar.getAttribute("data-unit-timeline-reveal"), "pending");
+  const scrolls = container.querySelectorAll(".unit-dico-timeline-scroll"); scrolls[0].scrollLeft = 72; scrolls[1].scrollLeft = 0;
+  scrolls[0].dispatch("scroll"); assert.equal(scrolls[1].scrollLeft, 72);
+  cleanup(container); assert.equal(observers[1].disconnects, 1);
+});
+
+test("timeline catalogue translations have complete FR/NL keys and equal interpolation placeholders", () => {
+  const placeholders = text => [...new Set(Array.from(text.matchAll(/\{([A-Za-z][A-Za-z0-9_]*)\}/g), match => match[1]))].sort();
+  assert.ok(Object.keys(timelineMessages).length >= 50);
+  for (const [key, message] of Object.entries(timelineMessages)) {
+    assert.match(key, /^timeline\./); assert.equal(typeof message.fr, "string"); assert.equal(typeof message.nl, "string");
+    assert.deepEqual(placeholders(message.fr), placeholders(message.nl), key);
+  }
+});
+
+test("live Dutch and French timeline rendering localizes labels, tooltips and dates while preserving source identities", () => {
+  const container = domFixture(), sourceName = "[eXtRAI] Unité pilote", managerName = "Marie Projet";
+  const input = { projects: [{ ...project(1, sourceName, "2026-01-01", "2027-12-31"), manager: { name: managerName } }, project(2, "Sans dates source", null, null)] };
+  const original = structuredClone(input);
+  try {
+    I18n.setLanguage("nl"); render(container, input, { now: "2026-10-16", calendarView: "near" });
+    assert.match(container.textContent, /Eenheid DiCo · 02 \/ Projectkalender/);
+    assert.match(container.textContent, /Weergave \+\/-3 jaar/); assert.match(container.textContent, /Volledige weergave/);
+    assert.match(container.textContent, /Aantal projecten/); assert.match(container.textContent, /Maandwaarden/);
+    assert.match(container.textContent, /Datums niet beschikbaar/); assert.ok(container.textContent.includes("eXtRAI"));
+    assert.equal(find(container, '[data-unit-project-choice="1"]').getAttribute("aria-label"), sourceName);
+    const avatar = container.querySelectorAll(".unit-dico-avatar").find(item => item.title.includes(managerName));
+    assert.equal(avatar.title, `Verantwoordelijke: ${managerName}`);
+    assert.equal(find(container, ".unit-dico-timeline-scroll").getAttribute("aria-label"), "Looptijdkalender van de projecten van Eenheid DiCo, horizontaal scrollen mogelijk");
+    assert.match(find(container, "[data-unit-project-select]").getAttribute("aria-label"), /Projectweergave openen/);
+    const month = find(container, '[data-unit-concurrency-month="2026-10"]'); month.dispatch("pointerenter");
+    assert.match(find(container, ".unit-dico-concurrency-tooltip").textContent, /okt\.? 2026 · maximaal 1 gelijktijdig project/);
+    I18n.setLanguage("fr"); render(container, input, { now: "2026-10-16", calendarView: "near" });
+    assert.match(container.textContent, /Unité DiCo · 02 \/ Calendrier des projets/);
+    assert.match(container.textContent, /Vue \+\/-3 ans/); assert.match(container.textContent, /Valeurs mensuelles/);
+    assert.deepEqual(input, original); assert.equal(find(container, '[data-unit-calendar-view="near"]').checked, true);
+    assert.equal(container.ownerDocument.listeners.size, 0);
+  } finally { I18n.setLanguage("fr"); }
+});
+
+test("personal, unit and programme calendar labels use short project names while full source names remain accessible", () => {
+  const input = [project(1, "[54252043] [eXtRAI] Long construction project name", "2025-12-01", "2028-05-31"),
+    project(2, "56232072 - Renolab", "2026-01-01", "2027-12-31"),
+    project(3, "Project without acronym", "2026-02-01", "2027-12-31")];
+  const original = structuredClone(input);
+  for (const kind of ["personal", "unit", "programme"]) {
+    for (const calendarView of ["full", "near"]) {
+      const container = domFixture(), options = { now: "2026-10-16", calendarView };
+      if (kind === "personal") renderTimeline(container, input, options);
+      else render(container, { projects: input }, { ...options,
+        ...(kind === "programme" ? { heading: "DC3 · 02 / Calendrier des projets", radioName: "programme-project" } : {}) });
+      const names = container.querySelectorAll(".unit-dico-timeline-name").map(element => find(element, "strong").textContent);
+      assert.deepEqual(names, ["eXtRAI", "Renolab", "Project without acronym"], `${kind} / ${calendarView}`);
+      for (const project of input) {
+        const controls = container.querySelectorAll("[data-unit-project-select]").filter(control => control.getAttribute("data-unit-project-select") === String(project.id));
+        assert.equal(controls.length, 2);
+        for (const control of controls) {
+          assert.ok(control.title.startsWith(`${project.name}\n`));
+          assert.ok(control.getAttribute("aria-label").startsWith(`${project.name} · `));
+        }
+        if (kind !== "personal") assert.equal(find(container, `[data-unit-project-choice="${project.id}"]`).getAttribute("aria-label"), project.name);
+      }
+    }
+  }
+  assert.deepEqual(input, original);
 });

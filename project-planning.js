@@ -1,9 +1,10 @@
 (function (root, factory) {
-  const api = factory();
+  const api = factory(typeof module === "object" && module.exports ? require("./i18n-core-messages") : root.DashboardI18n);
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.ProjectPlanning = api;
-})(typeof globalThis !== "undefined" ? globalThis : this, function () {
+})(typeof globalThis !== "undefined" ? globalThis : this, function (I18n) {
   "use strict";
+  const t = I18n.t;
   const DAY = 864e5;
   const brussels = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Brussels", year: "numeric", month: "2-digit", day: "2-digit" });
   const brusselsClock = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Brussels", year: "numeric", month: "2-digit", day: "2-digit",
@@ -119,11 +120,11 @@
         unknownFunctions ||= line.subcontractorClassification === "unknown";
       }
       if (validActual && Number.isFinite(actual)) { output.actualHours = actual; output.actualStatus = "available"; }
-      else warnings.add("Certaines imputations ont des dates ou des heures invalides ; les heures déjà prestées restent indisponibles.");
-      if (unknownFunctions) warnings.add("Certaines fonctions sont inconnues ; l’exclusion des heures d’Ormitters peut être incomplète.");
-    } else warnings.add("Les heures déjà prestées sont indisponibles avec les données accessibles.");
+      else warnings.add(t("planning.invalidActual"));
+      if (unknownFunctions) warnings.add(t("planning.unknownActualFunctions"));
+    } else warnings.add(t("planning.actualUnavailable"));
     if (!projectId || !first || !last || first.time > last.time) {
-      warnings.add("Dates ou identité du projet indisponibles ; les totaux sur sa durée ne peuvent pas être confirmés."); return finish();
+      warnings.add(t("planning.invalidProject")); return finish();
     }
     const future = today ? { start: Math.max(first.time, today.time), end: last.time + DAY } : null;
     const tomorrow = today ? date(key(today.time + DAY)) : null, tomorrowInstant = tomorrow ? midnight(tomorrow) : null;
@@ -145,7 +146,7 @@
       output.coverage = { status: "complete", startDate: null, endDate: last.key, gaps: [], gapDays: 0, shortGaps: [], allGapDays: 0 };
     }
     if (!Array.isArray(result?.planning?.slots) || result.planning.ok === false || result.planningError) {
-      warnings.add("Planning indisponible avec les données accessibles."); return finish();
+      warnings.add(t("planning.unavailable")); return finish();
     }
     const metadata = new Map((Array.isArray(result.planning.resources) ? result.planning.resources : []).filter(resource => id(resource?.id))
       .map(resource => [resource.id, resource]));
@@ -155,7 +156,7 @@
     let remainingTotal = 0, remainingHire = 0, validRemaining = !!remaining, remainingUnknown = 0, remainingKnown = 0, unknownRemainingFunctions = false;
     const resourceRow = (map, resourceId, hours) => {
       if (!map.has(resourceId)) map.set(resourceId, { id: resourceId, name: typeof metadata.get(resourceId)?.name === "string" && metadata.get(resourceId).name.trim()
-        ? metadata.get(resourceId).name.trim() : `Ressource ${resourceId}`, hours: 0 });
+        ? metadata.get(resourceId).name.trim() : t("common.resourceWithId", { p0: resourceId }), hours: 0 });
       const row = map.get(resourceId); row.hours = hours === null || row.hours === null ? null : row.hours + hours;
     };
     for (const slot of result.planning.slots) {
@@ -220,8 +221,8 @@
     if (toDate && toDate.end <= toDate.start) { plannedToDate = 0; validToDate = true; }
     output.plannedToDateHours = validToDate ? plannedToDate : null;
     output.plannedToDateStatus = validToDate ? "available" : "unavailable";
-    if (!validToDate) warnings.add("Les heures planifiées à ce jour sont indisponibles : certaines allocations ou la date du jour ne peuvent pas être confirmées.");
-    if (unknownToDateFunctions) warnings.add("La fonction de certaines ressources planifiées est inconnue ; l’exclusion des heures d’Ormitters à ce jour peut être incomplète.");
+    if (!validToDate) warnings.add(t("planning.toDateUnavailable"));
+    if (unknownToDateFunctions) warnings.add(t("planning.toDateUnknownFunctions"));
     if (!Number.isFinite(remainingTotal) || !Number.isFinite(remainingHire)) validRemaining = false;
     if (remaining && remaining.start >= remaining.end) {
       // Past malformed allocations cannot invent future hours after project end.
@@ -232,12 +233,12 @@
     output.remainingToHireStatus = !validRemaining ? "unavailable" : remainingUnknown ? remainingKnown ? "partial" : "unavailable" : "complete";
     output.remainingToHireHours = output.remainingToHireStatus === "unavailable" ? null : remainingHire;
     output.remainingToHireResources = [...remainingHires.values()].sort((a, b) => a.name.localeCompare(b.name, "fr") || a.id - b.id);
-    if (!validRemaining) warnings.add("Les heures planifiées restantes sont indisponibles : certaines allocations ou la date du jour ne peuvent pas être confirmées.");
-    if (remainingUnknown) warnings.add("La part future des ressources à recruter peut être incomplète : certaines identités ne sont pas confirmées.");
-    if (unknownRemainingFunctions) warnings.add("La fonction de certaines ressources planifiées est inconnue ; l’exclusion des heures futures d’Ormitters peut être incomplète.");
-    if (!validTotal) warnings.add("Certaines allocations ont des dates ou des heures invalides ; les totaux planifiés restent indisponibles.");
-    if (unknownIdentities) warnings.add("L’identité de certaines ressources n’est pas confirmée ; les ressources à recruter ne peuvent pas être toutes identifiées.");
-    if (unlinked.size) warnings.add("Certaines ressources ne sont liées à aucun employé et ne sont pas des ressources à recruter confirmées.");
+    if (!validRemaining) warnings.add(t("planning.futureUnavailable"));
+    if (remainingUnknown) warnings.add(t("planning.futureThUnknown"));
+    if (unknownRemainingFunctions) warnings.add(t("planning.futureUnknownFunctions"));
+    if (!validTotal) warnings.add(t("planning.invalidAllocations"));
+    if (unknownIdentities) warnings.add(t("planning.unknownIdentities"));
+    if (unlinked.size) warnings.add(t("planning.unlinkedResources"));
     if (future && future.start >= future.end) {
       output.coverage = { status: "complete", startDate: null, endDate: last.key, gaps: [], gapDays: 0, shortGaps: [], allGapDays: 0 };
     } else if (future) {
@@ -249,7 +250,7 @@
       if (cursor < future.end) gaps.push({ start: cursor, end: future.end });
       const substantial = gaps.filter(atLeastMonth), short = gaps.filter(gap => !atLeastMonth(gap));
       if (indeterminateFuture || substantial.some(gap => uncertain.some(interval => overlaps(gap, interval)))) {
-        warnings.add("La couverture future par des personnes réelles est indéterminée : certaines allocations peuvent modifier les périodes sans couverture.");
+        warnings.add(t("planning.coverageIndeterminate"));
       } else {
         const rows = intervals => intervals.map(gap => ({ startDate: key(gap.start), endDate: key(gap.end - DAY), days: (gap.end - gap.start) / DAY }));
         output.coverage = { status: substantial.length ? "gaps" : short.length ? "no-substantial-gaps" : "complete", startDate: key(future.start), endDate: last.key,
@@ -257,7 +258,7 @@
           gapDays: substantial.reduce((sum, gap) => sum + (gap.end - gap.start) / DAY, 0),
           allGapDays: gaps.reduce((sum, gap) => sum + (gap.end - gap.start) / DAY, 0) };
       }
-    } else warnings.add("La date du jour à Bruxelles est indisponible ; la couverture future ne peut pas être évaluée.");
+    } else warnings.add(t("planning.todayUnavailable"));
     output.status = output.totalPlanned === null ? "unavailable" : output.toHireStatus === "complete" && output.coverage.status !== "unavailable" ? "available" : "partial";
     return finish();
   }

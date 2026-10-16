@@ -1,5 +1,34 @@
 # Decisions
 
+## 2026-10-16: French/Dutch interface and focused project exploration
+
+- Approved plan: add an FR/NL selector beside logout, translate all existing and
+  future application text, and retain the choice in local `config.local.json`.
+  A missing file may be created with language alone. Preserve all other fields;
+  never require or return a stored token for this preference. French is the
+  fallback, including malformed or unsupported preference values.
+- Language changes repaint cached views while retaining project/programme,
+  period and employee selections. Source names, codes and descriptions keep
+  their identity. Preference writes affect only the local file; Odoo remains
+  strictly read-only.
+- Project calendars default to full duration. The shared alternative spans
+  Brussels today minus/plus three calendar years, with the same date bounds
+  for the simultaneous-project chart. This does not filter project cards or
+  change hour/budget scopes. The user's later refinement shows only each
+  project's short name in the left calendar column; full names remain available
+  on hover and to assistive technologies in personal, unit and programme views.
+- In the scoped whole-project actual-hours bar, allow multiple exact employee
+  exclusions. Strike their legend names and aggregate ignored hours after the
+  counted coloured segments using grey hatching and an explicit callout. Keep
+  planning, today's marker and the original full actual extent as references.
+  Signed corrections and unknown sources must not become invented positive
+  segments. Lifetime bars and monthly employee selection remain independent.
+- Actual monthly tooltips omit known displayed-zero employee contributions;
+  the exact monthly table omits a month only when all its displayed cells,
+  including references, are known zero. Preserve unknowns, negative corrections
+  and nonzero cancellation evidence. Apply these rules in monthly/cumulative
+  mode without changing the underlying data or planned-hours chart.
+
 ## 2026-10-15: Compare actual project hours with dated planning
 
 - Approved plan: move all supplemental notes below the four macro cards into

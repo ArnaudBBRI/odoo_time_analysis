@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Connexion | Buildwise · Tableau des heures</title>
+  <title data-i18n="shell.page.login">Connexion | Buildwise · Tableau des heures</title>
   <style>
     :root { color-scheme: light; font-family: "neue-haas-unica", "Helvetica Neue", Arial, sans-serif; color: #1b1b1b; background: #fff; }
     * { box-sizing: border-box; }
@@ -51,31 +51,38 @@
   </style>
 </head>
 <body>
-  <header><div class="header-inner"><a href="https://www.buildwise.be/fr/" aria-label="Buildwise"><img class="logo" src="/assets/buildwise-logo.svg" alt="Buildwise" width="357" height="41"></a><span class="app-name">Tableau des heures</span></div></header>
+  <header><div class="header-inner"><a href="https://www.buildwise.be/fr/" aria-label="Buildwise"><img class="logo" src="/assets/buildwise-logo.svg" alt="Buildwise" width="357" height="41"></a><span class="app-name"><span data-i18n="shell.tableau_des_heures_554abc">Tableau des heures</span></span></div></header>
   <main>
     <section class="intro" aria-labelledby="welcome-title">
-      <div class="eyebrow">Votre espace projets</div>
-      <h1 id="welcome-title">Une vue claire sur <span>votre temps.</span></h1>
-      <p>Retrouvez vos heures prestées, votre planning et les contributions de votre équipe, au même endroit.</p>
-      <ul class="features"><li>Suivez le temps consacré à vos projets</li><li>Comparez le planning et les heures prestées</li><li>Explorez les contributions de votre équipe</li></ul>
+      <div class="eyebrow"><span data-i18n="shell.votre_espace_projets_5b04e2">Votre espace projets</span></div>
+      <h1 id="welcome-title"><span data-i18n="shell.une_vue_claire_sur_3d9222">Une vue claire sur</span> <span><span data-i18n="shell.votre_temps_796fcb">votre temps.</span></span></h1>
+      <p><span data-i18n="shell.retrouvez_vos_heures_prestees_votre_planning_et_les_contributi_a59c01">Retrouvez vos heures prestées, votre planning et les contributions de votre équipe, au même endroit.</span></p>
+      <ul class="features"><li><span data-i18n="shell.suivez_le_temps_consacre_a_vos_projets_005265">Suivez le temps consacré à vos projets</span></li><li><span data-i18n="shell.comparez_le_planning_et_les_heures_prestees_1cf95d">Comparez le planning et les heures prestées</span></li><li><span data-i18n="shell.explorez_les_contributions_de_votre_equipe_f40b33">Explorez les contributions de votre équipe</span></li></ul>
     </section>
     <section class="card" aria-labelledby="login-title">
-      <h2 id="login-title">Bienvenue</h2><p>Connectez-vous avec votre compte Odoo Buildwise.</p>
+      <h2 id="login-title"><span data-i18n="shell.bienvenue_2da427">Bienvenue</span></h2><p><span data-i18n="shell.connectez_vous_avec_votre_compte_odoo_buildwise_b5b9de">Connectez-vous avec votre compte Odoo Buildwise.</span></p>
       <form id="loginForm">
-        <div class="field"><label for="email">Adresse email</label><input id="email" name="email" type="email" autocomplete="username" placeholder="prenom.nom@buildwise.be" maxlength="254" required></div>
-        <div class="field"><label for="password">Mot de passe</label><div class="password-wrap"><input id="password" name="password" type="password" autocomplete="current-password" maxlength="4096" required><button class="toggle" id="togglePassword" type="button" aria-controls="password" aria-pressed="false">Afficher</button></div></div>
-        <button class="submit" id="submitButton" type="submit">Se connecter <span aria-hidden="true">→</span></button>
+        <div class="field"><label for="email"><span data-i18n="shell.adresse_email_bdf1cc">Adresse email</span></label><input id="email" name="email" type="email" autocomplete="username" placeholder="prenom.nom@buildwise.be" maxlength="254" required data-i18n-placeholder="shell.login.emailPlaceholder"></div>
+        <div class="field"><label for="password"><span data-i18n="shell.mot_de_passe_94e2f3">Mot de passe</span></label><div class="password-wrap"><input id="password" name="password" type="password" autocomplete="current-password" maxlength="4096" required><button class="toggle" id="togglePassword" type="button" aria-controls="password" aria-pressed="false"><span data-i18n="shell.afficher_5e8020">Afficher</span></button></div></div>
+        <button class="submit" id="submitButton" type="submit"><span data-i18n="shell.se_connecter_fedf24">Se connecter</span> <span aria-hidden="true">→</span></button>
         <p id="status" role="alert" aria-live="polite"></p>
       </form>
       <div class="config-login">
-        <button class="config-button" id="configButton" type="button" aria-describedby="configStatus">Utiliser le fichier de configuration</button>
+        <button class="config-button" id="configButton" type="button" aria-describedby="configStatus"><span data-i18n="shell.utiliser_le_fichier_de_configuration_26b1c5">Utiliser le fichier de configuration</span></button>
         <p id="configStatus" role="status" aria-live="polite" aria-atomic="true"></p>
       </div>
-      <div class="help">Utilisez vos identifiants Odoo habituels. Pour toute difficulté de connexion, contactez votre support interne.</div>
+      <div class="help"><span data-i18n="shell.utilisez_vos_identifiants_odoo_habituels_pour_toute_difficulte_a8b4a8">Utilisez vos identifiants Odoo habituels. Pour toute difficulté de connexion, contactez votre support interne.</span></div>
     </section>
   </main>
-  <footer><span>Buildwise · Tableau des heures</span><a href="https://www.buildwise.be/fr/">Découvrir Buildwise ↗</a></footer>
+  <footer><span><span data-i18n="shell.buildwise_tableau_des_heures_c36e80">Buildwise · Tableau des heures</span></span><a href="https://www.buildwise.be/fr/"><span data-i18n="shell.decouvrir_buildwise_75a1cd">Découvrir Buildwise ↗</span></a></footer>
+  <script src="/i18n.js"></script>
+  <script src="/i18n-core-messages.js"></script>
+  <script src="/i18n-shell-messages.js"></script>
+  <script src="/i18n-server-messages.js"></script>
+  <script src="/language-client.js"></script>
   <script>
+    const I18n = globalThis.DashboardI18n;
+    const t = (key, params) => I18n.t(key, params);
     const form = document.getElementById("loginForm");
     const password = document.getElementById("password");
     const toggle = document.getElementById("togglePassword");
@@ -84,16 +91,26 @@
     const configButton = document.getElementById("configButton");
     const configStatus = document.getElementById("configStatus");
     let signingIn = false;
+    let signingInMode = "";
+    function repaintLanguage() {
+      toggle.textContent = password.type === "text" ? t("shell.masquer_adb05f") : t("shell.afficher_5e8020");
+      button.textContent = signingIn && signingInMode === "manual" ? t("shell.connexion_en_cours_9122ea") : t("shell.se_connecter_38a12b");
+      configStatus.textContent = I18n.message(configStatus.textContent);
+      status.textContent = I18n.message(status.textContent);
+    }
+    window.addEventListener?.("dashboard:languagechange", repaintLanguage);
+    window.DashboardLanguage?.ready.then(repaintLanguage);
     function setSigningIn(pending, mode) {
       signingIn = pending;
+      signingInMode = pending ? mode : "";
       button.disabled = pending;
       configButton.disabled = pending;
-      button.textContent = pending && mode === "manual" ? "Connexion en cours…" : "Se connecter →";
+      button.textContent = pending && mode === "manual" ? t("shell.connexion_en_cours_9122ea") : t("shell.se_connecter_38a12b");
     }
     toggle.addEventListener("click", () => {
       const visible = password.type === "password";
       password.type = visible ? "text" : "password";
-      toggle.textContent = visible ? "Masquer" : "Afficher";
+      toggle.textContent = visible ? t("shell.masquer_adb05f") : t("shell.afficher_5e8020");
       toggle.setAttribute("aria-pressed", String(visible));
     });
     form.addEventListener("submit", async (event) => {
@@ -110,18 +127,20 @@
         });
         const result = await response.json();
         if (!response.ok || !result.ok) {
-          const messages = { 400: "Saisissez une adresse email et un mot de passe valides.", 401: "Email ou mot de passe incorrect.", 429: "Trop de tentatives. Réessayez dans quelques minutes." };
-          throw new Error(messages[response.status] || "La connexion à Odoo est indisponible. Réessayez plus tard.");
+          const messages = { 400: t("shell.saisissez_une_adresse_email_et_un_mot_de_passe_valides_26e879"), 401: t("shell.email_ou_mot_de_passe_incorrect_5d3cbc"), 429: t("shell.trop_de_tentatives_reessayez_dans_quelques_minutes_7e817d") };
+          const failure = new Error(messages[response.status] || t("shell.la_connexion_a_odoo_est_indisponible_reessayez_plus_tard_00d3d2"));
+          failure.localized = true;
+          throw failure;
         }
         password.value = "";
         window.location.replace("/dashboard");
-      } catch (error) { status.textContent = error.message || "Connexion impossible. Vérifiez votre connexion réseau."; }
+      } catch (error) { status.textContent = error.localized ? I18n.message(error.message) : t("shell.connexion_impossible_verifiez_votre_connexion_reseau_50b054"); }
       finally { setSigningIn(false); }
     });
     configButton.addEventListener("click", async () => {
       if (signingIn) return;
       status.textContent = "";
-      configStatus.textContent = "Connexion avec le fichier de configuration…";
+      configStatus.textContent = t("shell.connexion_avec_le_fichier_de_configuration_be67bd");
       configStatus.dataset.state = "pending";
       setSigningIn(true, "config");
       try {
@@ -132,20 +151,20 @@
         const result = await response.json().catch(() => ({}));
         if (!response.ok || !result.ok) {
           const messages = new Map([
-            ["CONFIG_MISSING", "Aucun fichier de configuration local n’est disponible. Utilisez vos identifiants Odoo."],
-            ["CONFIG_INVALID", "Le fichier de configuration est invalide ou incomplet. Vérifiez l’utilisateur et le jeton, ou utilisez vos identifiants Odoo."],
-            ["CONFIG_TOKEN_REJECTED", "Le jeton du fichier de configuration est obsolète ou refusé par Odoo. Mettez-le à jour ou utilisez vos identifiants Odoo."],
-            ["CONFIG_LOCAL_ONLY", "La connexion par fichier de configuration est réservée à un accès local. Utilisez vos identifiants Odoo."]
+            ["CONFIG_MISSING", t("shell.aucun_fichier_de_configuration_local_n_est_disponible_utilisez_abef12")],
+            ["CONFIG_INVALID", t("shell.le_fichier_de_configuration_est_invalide_ou_incomplet_verifiez_e8cb95")],
+            ["CONFIG_TOKEN_REJECTED", t("shell.le_jeton_du_fichier_de_configuration_est_obsolete_ou_refuse_pa_0d0273")],
+            ["CONFIG_LOCAL_ONLY", t("shell.la_connexion_par_fichier_de_configuration_est_reservee_a_un_ac_531676")]
           ]);
-          const unavailable = { 429: "Trop de tentatives. Réessayez dans quelques minutes.", 503: "La connexion est temporairement indisponible. Réessayez plus tard." };
-          configStatus.textContent = messages.get(result.code) || unavailable[response.status] || "La connexion à Odoo est indisponible. Réessayez plus tard.";
+          const unavailable = { 429: t("shell.trop_de_tentatives_reessayez_dans_quelques_minutes_7e817d"), 503: t("shell.la_connexion_est_temporairement_indisponible_reessayez_plus_ta_38014f") };
+          configStatus.textContent = messages.get(result.code) || unavailable[response.status] || t("shell.la_connexion_a_odoo_est_indisponible_reessayez_plus_tard_00d3d2");
           configStatus.dataset.state = "error";
           return;
         }
         password.value = "";
         window.location.replace("/dashboard");
       } catch (_) {
-        configStatus.textContent = "Connexion impossible. Vérifiez votre connexion réseau.";
+        configStatus.textContent = t("shell.connexion_impossible_verifiez_votre_connexion_reseau_50b054");
         configStatus.dataset.state = "error";
       } finally { setSigningIn(false); }
     });

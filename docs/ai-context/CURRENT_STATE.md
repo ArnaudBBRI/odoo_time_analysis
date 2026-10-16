@@ -2,6 +2,28 @@
 
 ## Functional State
 
+- Completed on 2026-10-16 (approved plan) on `codex/fr-nl-dashboard`, created
+  from clean `main` at `dad8b58`: complete French/Dutch presentation, header
+  selector and credential-independent local language preference; full versus
+  rolling Brussels today +/-3-year calendars; multiple actual-contributor
+  exclusions with a hatched ignored-hours remainder; and confirmed-zero actual
+  monthly tooltip/table filtering. Calendar left labels show only short names
+  across personal, unit and programme views, retaining full names on hover and
+  for assistive technology. Cached selections, reference planning/total extent,
+  signed corrections, unknown sources and Odoo's read-only guard are preserved.
+  The final offline suite passes **936/936 tests** in 55.75 seconds. Independent
+  review, fictional desktop/390px UI checks, syntax/documentation-link and
+  whitespace checks pass. UI checks confirm language persistence, exclusions,
+  shared calendar/count axes and no page overflow or console warnings/errors.
+  Additional regressions cover config-only language/manual login, partial-write
+  cleanup, live validation repaint and generated-name provenance. The preview
+  tab, viewport, helper and verified temporary fixture are released; screenshots
+  are saved. Hidden standard-user Node PID **33592** now serves the checkout on
+  loopback 8765 (welcome 200, public preferences/current assets verified,
+  anonymous project-hours 401, empty stderr). Sign in again after restart.
+  No live Odoo access, private-config modification, commit, push or PR occurred
+  during this task. Next action: user review; changes remain local/uncommitted.
+
 - Published on 2026-10-15 after the user's explicit commit/push request:
   nine commits on `origin/codex/project-budgets`, from `658a865` through
   `0ca12c5`, separate French login feedback, BW personnel-cost exclusions,
@@ -1356,6 +1378,16 @@ A runnable dashboard, authenticated local connector and authentication integrati
 
 ## Session handoff
 
+- Current objective completed on 2026-10-16 on `codex/fr-nl-dashboard`:
+  FR/NL selector/persistence, calendar full/near mode and short left labels,
+  multiple employee exclusions with explicit ignored hours, and zero monthly
+  details cleanup. Final **936/936** offline tests and independent/static/UI
+  checks pass. Runtime PID **33592** serves loopback 8765; sign in again after
+  restart. Preview resources are released, private config is untouched and
+  Odoo was not contacted. Changes remain uncommitted; no publication requested.
+  Next action is user review. Earlier handoff entries below are historical;
+  their former runtime/uncommitted/next-action notes are superseded here.
+
 - Publication is complete for the nine feature/integration commits ending at
   `0ca12c5` on `origin/codex/project-budgets`; the documentation checkpoint
   records the completed features and this publication. The user's requested
@@ -1673,30 +1705,20 @@ A runnable dashboard, authenticated local connector and authentication integrati
   (`password-login work before pulling main (2026-10-06)`). Private config is
   untouched, and sessions retain main's eight-hour default.
 - Current verified runtime: http://127.0.0.1:8765/ runs this branch as hidden
-  standard-user Node PID 27580 after recovery on 2026-10-15. Output/error logs are
-  `odoo-dashboard-current-20261015-overplanning.out.log` / `.err.log`
+  standard-user Node PID 33592 after restart on 2026-10-16. Output/error logs are
+  `odoo-dashboard-current-20261016-fr-nl.out.log` / `.err.log`
   in the user's Temp directory; no persistent terminal session is attached.
-  Welcome is 200, anonymous project-hours is 401 and stderr is empty.
-  Port 8765 was idle before this launch; the previously recorded listener
-  was already absent, and its stop cause is unknown.
-  Earlier background launches were observed stopped; their stop cause is
-  unknown. Starting a new process requires signing in again.
+  Welcome is 200, public language preferences have the expected schema, served
+  i18n bytes match this checkout, anonymous project-hours is 401 and stderr is
+  empty. The previous listener PID 35540 was identified as the workspace Node
+  server by command and exact served login bytes before replacement. Starting
+  a new process requires signing in again.
   Isolated synthetic preview processes are no longer running.
-- Next action: user review of the exclusive Arrêter column and project-wide BW
-  convention-consumption evidence, French hour titles, compact recommendations and
-  full-life convention/planning/TH information, followed by Programmes and its
-  fixed associated project lists,
-  calendars and monthly counts, plus both lifetime calendars and completed-last ordering,
-  the Unit monthly simultaneous-project chart, stronger gradients and compact
-  animated timeline/today marker,
-  both project grids' equal-size white cards with animated borders/color backs,
-  requested title/manager hierarchy and retained identity, and Unit DiCo including
-  the year-2999 exclusion,
-  the French personnel control, filtered
-  convention reference and local date-range refinements, then explicit
-  PR/merge instructions if desired. Hours, budget and the later refinements
-  are now committed/pushed as recorded above; no budget PR was created.
-  Configured-token authentication
+- Next action: user review of FR/NL, short calendar names and full/near ranges,
+  employee ignored-hours controls and zero monthly details after reconnecting.
+  This task remains local/uncommitted; no publication was requested.
+  Earlier hours/budget features are published as recorded above.
+  Previously targeted configured-token authentication
   and targeted Extrai budget/date/personal planning reads are verified;
   staffing-assignment, profile-photo access, broader personal/project access and
   deployment remain unverified.

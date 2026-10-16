@@ -1,6 +1,9 @@
 # API
 
-The local server returns JSON. All dashboard and Odoo routes require a valid bw_session cookie. Unauthenticated API requests return 401 with authenticationRequired: true; protected page requests redirect to /login.
+The local server returns JSON. Dashboard and Odoo routes require a valid
+`bw_session` cookie. Unauthenticated protected API requests return 401 with
+`authenticationRequired: true`; protected pages redirect to `/login`. The
+language-preference GET below is public and does not contact Odoo.
 
 ## Authentication
 
@@ -26,9 +29,30 @@ returns `{ok: false, code, error}` for these cases:
 | 403 | `CONFIG_LOCAL_ONLY` | Socket peer or Host is not loopback. |
 
 Other failures reuse generic 429/502/503 responses. The welcome page sends no
-credential fields and displays compact French messages; it never receives the
+credential fields and displays localized French/Dutch messages; it never receives the
 configured token. Both login methods retain the fixed eight-hour default and
 share rate limiting, capacity, replacement-login rotation, logout and expiry.
+
+## Local language preference
+
+| Method | Route | Behavior |
+| --- | --- | --- |
+| GET | `/api/preferences/language` | Public. Returns only `{ok: true, language: "fr"\|"nl"}`; absent, invalid or unreadable preferences fall back to French. |
+| POST | `/api/preferences/language` | Authenticated, using the existing POST origin guard. Accepts exactly `{language: "fr"\|"nl"}` and returns the saved language. |
+
+Other methods return 405 (`LANGUAGE_METHOD`); unauthenticated writes return 401
+(`LANGUAGE_SESSION`), and malformed bodies, extra fields or unsupported values
+return 400 (`LANGUAGE_INVALID`). Save failures return a sanitized 503 with
+`LANGUAGE_CONFIG_INVALID`, `LANGUAGE_CONFIG_CHANGED` or `LANGUAGE_SAVE_FAILED`.
+No response exposes credentials, configuration contents or caller-selected paths.
+
+The fixed local store merges only `language` into `config.local.json`, creating
+a language-only object when absent. Existing credential values, aliases and
+nested configuration are preserved. Malformed/non-object/unreadable files are
+not overwritten; nonregular/symbolic-link targets are rejected. A guarded
+temporary-file rename checks for an intervening edit. These operations are
+local preference writes, with no token requirement or Odoo call. See
+[configuration and deployment limits](CONFIGURATION.md#language-preference).
 
 ## Connected person's time
 
@@ -196,6 +220,12 @@ project records or confirmed assignments, using `hr.employee` / `hr.employee.pub
 and a metadata-confirmed `res.users` photo fallback. Photos are bounded,
 validated raster data URLs or `null`; remote URLs and SVG are rejected.
 Denied optional profile reads retain hours and initials/name fallbacks.
+Invented contributor names additionally carry `nameMessageKey` equal to
+`identity.employee` or `identity.employeeUnknown`; invented selected-project
+names use `identity.project`. Own line/slot `projectNameMessageKey` provenance
+reaches the personal catalogue's `projects[].nameMessageKey`. These optional
+presentation markers preserve raw names, exact numeric identities and amounts;
+they do not authorize translating real source names or add source reads.
 
 `hasOrmitters` is true for a classified nonzero actual/planned record anywhere
 in project history, or a classified assignment through metadata-confirmed
@@ -470,13 +500,18 @@ Three authenticated POST routes are available under `/api/odoo/pilotage/`: `meta
 - /, /login and /login.html serve the public welcome page, or redirect signed-in users to /dashboard.
 - /dashboard and /index.html serve the protected dashboard.
 - /assets/buildwise-logo.svg is public; /favicon.ico returns 204.
+- `/i18n.js`, the explicit `/i18n-*-messages.js` catalogues and
+  `/language-client.js` are public application assets used by login and the
+  dashboard; this is a fixed allowlist, not a general source-file route.
 - /personal-time.js, /personal-time.css, /project-card.js, /project-card.css, /project-monthly.js, /project-planning.js, /project-browser.js, /project-browser.css, /project-budget.js, /project-budget.css, /unit-dico.js, /unit-dico.css, /programme-browser.js and /programme-browser.css are authenticated dashboard assets. The server-side /project-planning-service.js, /project-finance-service.js, /unit-dico-service.js and /programme-service.js are not served.
 - Other files/routes return 404 after login. Anonymous non-API requests redirect to /login.
 - Responses use no-store, nosniff, same-origin referrer policy and a CSP blocking framing and off-origin connections. Inline scripts/styles remain allowed for the current single-file pages.
 
 ## Refresh
 
-- Last refreshed: 2026-10-14
+- Last refreshed: 2026-10-16
+- Additional source basis: language-preferences.js, language-client.js, i18n.js,
+  i18n-*-messages.js and tests/language-preferences-http.test.js.
 - Source basis: server.js, project-planning-service.js, project-planning.js, tests/project-planning-service.test.js, tests/project-planning-http.test.js, programme-service.js, programme-browser.js, tests/programme-service.test.js, tests/programme-http.test.js, unit-dico-service.js, unit-dico.js, project-finance-service.js, login.html, index.html/steering-client.js browser callers, personal-time.js, project-browser.js, project-budget.js, tests/personal-personnel-budget.test.js, tests/personal-recommendations.test.js and tests/auth.test.js.
 - Limitations: automated integration tests use simulated Odoo; broad account/schema compatibility is not established.
 

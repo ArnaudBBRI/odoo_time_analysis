@@ -8,13 +8,24 @@
 - Browser XLSX decompression requires DecompressionStream, with deflate-raw and deflate attempts. Other required APIs include DOMParser, Blob, TextDecoder, fetch and canvas.
 - Odoo API workflows require access to an Odoo XML-RPC service and permissions for timesheets, planning and associated lookup models.
 - Docker Compose is optional for container execution.
+- FR/NL presentation uses repository-owned UMD/CommonJS `i18n.js` and explicit
+  message fragments; browser locale formatting uses native `Intl` APIs. No
+  translation service, package installation or external asset request is used.
 
 ## Internal relationships
 
-The login page and dashboard consume JSON from server.js; tests/auth.test.js uses the Node built-in test runner and a local simulated Odoo server. The server reads config.local.json when present and serves only the application pages and logo. Docker copies the build context into /app and starts that same server. See [Configuration](CONFIGURATION.md) for the build-context limitation.
+The login page and dashboard consume JSON from server.js; tests/auth.test.js
+uses the Node built-in test runner and a local simulated Odoo server. The server
+reads config.local.json and can merge its local language preference through
+`language-preferences.js`, independently of Odoo credentials. Only explicitly
+allowed application pages/browser assets are served; the public i18n assets
+support login while dashboard modules remain authenticated. Docker copies the
+build context into /app and starts that same server. See
+[Configuration](CONFIGURATION.md) for preference persistence and mount limits.
 
 ## Refresh
 
-- Last refreshed: 2026-10-05
-- Source basis: index.html, server.js, Dockerfile and root inventory.
+- Last refreshed: 2026-10-16
+- Source basis: index.html, server.js, i18n.js, i18n-*-messages.js,
+  language-client.js, language-preferences.js, Dockerfile and root inventory.
 - Limitations: no browser compatibility matrix or live Odoo compatibility test is present.

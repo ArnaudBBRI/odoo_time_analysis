@@ -461,6 +461,7 @@ test("Ormitter exclusion applies to employee planning and its inclusion changes 
 
 test("the same dependency-free API is exposed as a browser UMD global", () => {
   const context = vm.createContext({ Intl, Date });
+  for (const file of ["i18n.js", "i18n-core-messages.js"]) vm.runInContext(fs.readFileSync(path.join(__dirname, "..", file), "utf8"), context);
   vm.runInContext(fs.readFileSync(path.join(__dirname, "../project-monthly.js"), "utf8"), context);
   assert.equal(typeof context.ProjectMonthly.summarize, "function");
   assert.equal(typeof context.ProjectMonthly.summarizePlanning, "function");

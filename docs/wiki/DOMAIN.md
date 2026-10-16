@@ -11,6 +11,20 @@
 - The All year option uses available dataset months. Loading personal planning defaults the selection to the browser's current year.
 - Existing portfolio/monthly charts use loaded data and selected months. The personal macro additionally limits actuals to inclusive today in Europe/Brussels. Missing planning is unknown, not zero.
 
+## Presentation language
+
+The application presents French (`fr-BE`) or Dutch (`nl-BE`), defaulting to
+French. Explicit keyed catalogues supply application labels, notes, statuses,
+validation, table/graph text and accessible descriptions. Dates/numbers use
+the current display locale; canonical source IDs, ISO dates and Brussels/UTC
+calculation boundaries do not change. Source project/person names, codes and
+bill descriptions remain original. Application-authored backend messages use
+an explicit translation bridge, including registered English source aliases;
+arbitrary source text is not inferred or translated.
+Invented project/contributor names carry explicit `nameMessageKey` provenance.
+The allowlisted `I18n.displayName` formats only those fallbacks from typed IDs;
+genuine source names that happen to resemble a fallback stay literal.
+
 ## Personal planned/actual macro
 
 `personal-time.js` aggregates by stable project ID, retaining signed actual
@@ -464,6 +478,15 @@ Both monthly charts have separate SVG/radio/tooltip IDs, open-table/focus state
 and reveal/lifecycle keys, so rendering or leaving the view cleans each chart's
 observers and document handlers independently.
 
+The actual-history month tooltip omits people whose displayed value is exactly
+known zero. Negative values and unknowns remain. Its exact-values table omits a
+month only when every displayed numeric/reference cell is known zero, including
+the dated-planning and any convention/individual reference. Cumulative mode
+checks displayed prefix sums. Opposing nonzero contributions, unknown cells or
+a nonzero reference preserve the row. These are presentation filters: chart
+months, totals and source series remain intact; the planned-area chart is not
+filtered by this rule.
+
 All areas and lines share a one-second reveal on first display and each mode,
 employee selection or Ormitter inclusion switch. Scope changes, resizing and
 unchanged rerenders do not replay it; reduced-motion preference displays the final chart immediately.
@@ -480,6 +503,19 @@ always exposes all amounts. Optional profiles are joined by exact IDs, with no
 remote photo requests. Any negative contribution uses a neutral net bar plus
 the signed list and an explanation, rather than positive areas for credits.
 An inconsistent supplied breakdown also avoids stacking and is disclosed.
+
+Only the scoped **Heures du projet** actual comparison allows several employee
+legend buttons to exclude/reinclude their actual hours. Excluded names are
+struck through and `aria-pressed` reports inclusion. Counted positive employee
+segments keep their colors/gradients; their excluded sum follows as a grey
+hatched **Heures ignorées** remainder. Counted plus ignored reconciles to the
+original actual total, so the bar's outer width/cap stays unchanged. The planned
+bar and today marker retain the complete project reference. With negative or
+unreconciled contributions, the signed list/counts disclose exclusions without
+inventing positive hatched areas. These per-project choices are independent of
+Ormitter inclusion, personal/lifetime comparisons and monthly employee filters.
+When exclusions are active, the comparison badge explicitly identifies the full
+actual total, including ignored hours, as its unchanged comparison reference.
 
 Visible bar fills animate together from the left over one second on render,
 without changing their final hour-based widths or the date tick. A reduced-motion
@@ -588,8 +624,18 @@ reversed periods remain in the selector and calendar list with an explicit
 notice and no invented duration. If the endpoints cannot define a coherent
 axis, the scale stays unavailable. Ongoing/unknown-end rows precede completed
 rows; within each group, start date sorts first with unknown starts last, then
-French name and exact ID. Compact 25px rows show one-line names; full names and dates
-remain in button tooltips and accessible labels.
+localized name order and exact ID. Compact 25px rows show only
+`ProjectCard.nameParts(...).shortName`, using the existing acronym/prefix fallback;
+full source names and dates remain in button tooltips and accessible labels.
+
+Every shared calendar offers **Vue complète** (default) and **Vue +/-3 ans**.
+The latter fixes the inclusive visible axis to Brussels today minus/plus three
+calendar years, clamping leap-day anniversaries to February 28. Complete bars
+are clipped to that window; wholly outside calendar rows are omitted with a
+count note, while every project card and unknown/reversed-date row remains.
+Original project dates and source membership are unchanged. The page remembers
+one calendar-view choice across personal, Unit and programme overviews,
+independently of year/custom-date scope.
 
 The current Europe/Brussels calendar day determines completion and the dotted
 black today reference. A valid, non-reversed end strictly before today greys
@@ -612,10 +658,14 @@ one; grouped same-day changes prevent artificial intermediate peaks. Only comple
 valid project intervals contribute, using the calendar's existing catalogue,
 Interne/Overhead and year-2999 exclusions, bounds, ticks and today reference.
 Missing/reversed periods disclose partial coverage. Individually readable endpoints
-can still extend the shared scale, but never create a counted project interval.
-Zero-gap months remain present; future months and whole project lives are retained
-independently of personal scope. With no complete interval or coherent scale, the
-count remains unavailable instead of becoming an all-zero series. More than 2,400
+can extend the full-view scale, but never create a counted project interval.
+Zero-gap months remain present; future months use the selected calendar view,
+independently of personal scope. Near-view month maxima use only each visible
+month fragment and include projects already active at the left edge. If all
+known complete projects are outside that window, the visible count is known
+zero with a finite zero-baseline scale; wholly unknown periods cannot prove
+zero. With no complete interval or coherent scale, the count remains unavailable.
+More than 2,400
 calendar months is explicitly unavailable, without substituting a coarser grain.
 
 The monthly step area and line use a zero baseline and integer count ticks,
@@ -626,14 +676,15 @@ linked horizontal scrolling keep the area chart aligned with the lifetime calend
 
 The personal **Projets** overview reuses this calendar below its radio grid.
 Its membership follows the same nonzero planned/actual year/custom-date scope
-as those choices; the displayed durations and axis retain full project dates.
+as those choices; full mode retains complete project dates and near mode clips
+only the displayed calendar.
 Optional exact-ID catalogue metadata supplies those endpoints. Missing dates
 preserve the project and hours, with the same explicit no-duration notice.
 Name/bar selection enters the existing Hours/Budget view, and leaving the
 overview releases its observer. Unit DiCo membership remains scope-independent.
 
-The overview covers whole project lives independently of year chips or the
-custom personal date range. The time axis adapts its month/year tick interval
+The calendar view uses full project lives or its explicit rolling window,
+independently of year chips or the custom personal date range. The time axis adapts its month/year tick interval
 to the span, and dense/mobile timelines scroll inside their container with
 sticky names. Radio tiles, row names and duration bars open the existing
 project detail; project selection is separate from personal grid membership.
@@ -674,7 +725,7 @@ and inferred Odoo programme fields. Exact accessible source matches determine
 displayed projects; absent or ambiguous references are disclosed without
 invented rows. The count badge compares displayed matches with the expected
 reference count. The confirmed **in-beTwin** business code is `56261849`.
-Programme project lives use the same compact cards, complete-date scale,
+Programme project lives use the same compact cards, full/near calendar scale,
 completed-last grey gradients, today marker, half-second reveals and monthly
 maximum overlap as Unit DiCo. Interne/Overhead and chart-only year-2999
 exclusions remain shared. Programme changes replace every lower section and
@@ -689,7 +740,9 @@ The DiCo steering views introduce cumulative project-authoritative actuals, conv
 
 ## Refresh
 
-- Last refreshed: 2026-10-15
+- Last refreshed: 2026-10-16
+- Additional source basis: i18n.js, i18n-*-messages.js, language-client.js,
+  language-preferences.js and the calendar/exclusion/zero-value renderer tests.
 - Source basis: personal-time.js, personal-time.css, tests/personal-recommendations.test.js, tests/personal-personnel-budget.test.js, project-planning-service.js, project-planning.js, tests/project-planning.test.js, project-card.js/css, programme-browser.js/css, programme-service.js, unit-dico-service.js, unit-dico.js/css, project-monthly.js, project-browser.js/css, project-budget.js, project-finance-service.js, index.html personal/lifetime/planning/programme scope/rendering and chart controls, steering-client.js navigation and server.js identity/contributor/assignment/convention/date/programme metadata/month allocation.
 - Limitations: business meanings and completeness of supplied exports were not validated.
 

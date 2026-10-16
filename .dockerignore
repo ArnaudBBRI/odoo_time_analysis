@@ -3,6 +3,7 @@
 .codex
 node_modules
 config.local.json
+.config-language-*.tmp
 tests
 npm-debug.log
 Dockerfile

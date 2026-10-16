@@ -1,15 +1,19 @@
 (function (root, factory) {
-  const api = factory();
+  const api = factory(typeof module === "object" && module.exports ? require("./i18n-core-messages") : root.DashboardI18n);
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.ProjectBudget = api;
-})(typeof globalThis !== "undefined" ? globalThis : this, function () {
+})(typeof globalThis !== "undefined" ? globalThis : this, function (I18n) {
   "use strict";
+  const t = I18n.t;
 
-  const numbers = new Intl.NumberFormat("fr-BE", { maximumFractionDigits: 2 });
-  const percentages = new Intl.NumberFormat("fr-BE", { style: "percent", maximumFractionDigits: 1 });
+  const numbers = { format: value => I18n.formatNumber(value, { maximumFractionDigits: 2 }) };
+  const percentages = { format: value => I18n.formatNumber(value, { style: "percent", maximumFractionDigits: 1 }) };
   let renderId = 0;
   const billDialogs = new WeakMap();
   const annualPlotHeight = 225;
+  const statusKeys = Object.freeze({ draft: "budget.status.draft", under_validation: "budget.status.underValidation",
+    confirmed: "budget.status.confirmed", revised: "budget.status.revised", done: "budget.status.done",
+    canceled: "budget.status.canceled", cancelled: "budget.status.canceled", cancel: "budget.status.canceled" });
 
   function cleanup(container, restoreFocus = true) {
     const current = billDialogs.get(container);
@@ -30,10 +34,10 @@
     return id !== null && Number.isSafeInteger(id) && id > 0 ? `currency:${id}` : `unknown:${String(fallback ?? budget?.id ?? "budget")}`;
   }
 
-  function currencyLabel(budget) { return String(budget?.currency || "Devise inconnue"); }
+  function currencyLabel(budget) { return String(budget?.currency || t("budget.currencyUnknown")); }
   function amount(value, currency) {
     const number = numeric(value);
-    return number === null ? "Indisponible" : `${numbers.format(number)}${currency ? ` ${currency}` : ""}`;
+    return number === null ? t("common.unavailable") : `${numbers.format(number)}${currency ? ` ${currency}` : ""}`;
   }
   function dateLabel(value) {
     if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
@@ -42,7 +46,7 @@
   }
   function period(budget) {
     const start = dateLabel(budget?.startDate), end = dateLabel(budget?.endDate);
-    return start && end ? `Du ${start} au ${end}` : "Période indisponible";
+    return start && end ? t("budget.rangePeriod", { p0: start, p1: end }) : t("common.periodUnavailable");
   }
 
   function niceLimit(value) {
@@ -81,7 +85,13 @@
 
   function warningsOf(items) {
     return [...new Set(items.flatMap(item => Array.isArray(item) ? item : []).filter(Boolean).map(value =>
-      typeof value === "string" ? value : String(value.message || value.label || value.title || "Information de source indisponible")))];
+      typeof value === "string" ? value : String(value.message || value.label || value.title || t("budget.sourceInformationUnavailable"))))];
+  }
+
+  function unmappedLabel(row) {
+    // These markers identify server-authored fallback labels, never Odoo rubrics.
+    if (["budget.unmappedPersonnel", "budget.unmappedExpense"].includes(row?.labelMessageKey)) return t(row.labelMessageKey);
+    return row?.label || t("budget.rubricMissing");
   }
 
   const annualMeasures = ["budgeted", "consumed", "committed", "pending", "balance"];
@@ -102,13 +112,13 @@
     if (showBwPersonnelCosts) return lifetime || {};
     if (lifetime?.expensesOnly && typeof lifetime.expensesOnly === "object") return lifetime.expensesOnly;
     return { status: "unavailable", currencyId: null, currency: null, consumed: null, expenseCost: null, personnelCost: null,
-      byRubric: [], unmapped: [], outOfPeriod: {}, warnings: ["La consommation hors personnel BW est indisponible dans cette lecture. Actualisez les données ou activez Afficher les coûts de personnel BW pour afficher la source complète."] };
+      byRubric: [], unmapped: [], outOfPeriod: {}, warnings: [t("budget.noExpensesOnlySource")] };
   }
 
   function effectiveConventionBudget(benchmark, showBwPersonnelCosts = false, fromMacro = false) {
     const source = numeric(benchmark?.budgetedTotal);
     if (showBwPersonnelCosts || !benchmark) return { budgetedTotal: source, warnings: [] };
-    const unavailable = { budgetedTotal: null, warnings: ["Budget conventionnel hors personnel BW indisponible : les allocations, rubriques ou devises de personnel ne sont pas toutes vérifiables."] };
+    const unavailable = { budgetedTotal: null, warnings: [t("budget.noExpensesOnlyBudget")] };
     if (source === null || currencyKey(benchmark, "benchmark").startsWith("unknown:")) return unavailable;
     if (fromMacro) {
       const personnel = numeric(benchmark.personnelEuros);
@@ -160,7 +170,7 @@
     const groups = new Map();
     for (const line of (Array.isArray(budget?.lines) ? budget.lines : []).filter(line => isExpenseLine(line) && !isBwPersonnelLine(line))) {
       const key = `${line.categoryId == null ? `line:${line.id}` : `category:${line.categoryId}`}:${currencyKey(line, line.id)}`;
-      if (!groups.has(key)) groups.set(key, { key, code: String(line.accountCode || "?"), name: String(line.category || "Catégorie non renseignée"),
+      if (!groups.has(key)) groups.set(key, { key, code: String(line.accountCode || "?"), name: String(line.category || t("budget.categoryMissing")),
         categoryId: line.categoryId, currencyId: line.currencyId, currency: line.currency, lines: [] });
       groups.get(key).lines.push(line);
     }
@@ -209,11 +219,11 @@
     const sourceVisible = sum(all);
     const gap = visibleConsumed === null || targetConsumed === null ? null : Math.round((visibleConsumed - targetConsumed + Number.EPSILON) * 100) / 100;
     const sourceMatches = sourceConsumed !== null && sourceVisible !== null && Math.abs(sourceConsumed - sourceVisible) <= 0.05;
-    if (overlaps) warnings.push("Des écritures se retrouvent dans plusieurs lignes budgétaires de cette catégorie ; elles ne sont comptées qu’une fois dans la liste.");
-    if (conflicts) warnings.push("Des écritures identiques présentent des montants, devises ou statuts contradictoires ; aucun rapprochement complet n’est confirmé.");
-    if (invalidItems) warnings.push("Certaines écritures ont une identité illisible ; le détail accessible est incomplet.");
-    if (uncertainItems.length) warnings.push("Certains fournisseurs ne sont pas vérifiés. Ces écritures restent signalées séparément et ne confirment pas le sous-total filtré.");
-    if (!sourceMatches || gap === null || Math.abs(gap) > 0.05) warnings.push("Le montant de la liste ne peut pas être rapproché entièrement du consommé affiché ; les montants accessibles restent visibles.");
+    if (overlaps) warnings.push(t("budget.duplicateEntries"));
+    if (conflicts) warnings.push(t("budget.conflictingEntries"));
+    if (invalidItems) warnings.push(t("budget.illegibleEntryIdentity"));
+    if (uncertainItems.length) warnings.push(t("budget.unverifiedSuppliers"));
+    if (!sourceMatches || gap === null || Math.abs(gap) > 0.05) warnings.push(t("budget.unreconciledList"));
     const reconciled = !sourcePartial && !overlaps && !conflicts && !invalidItems && !uncertainItems.length && sourceMatches && gap !== null && Math.abs(gap) <= 0.05;
     const status = reconciled ? "reconciled" : sourceUnavailable && !all.length ? "unavailable" : "partial";
     const ordered = rows => rows.slice().sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || b.id - a.id);
@@ -245,13 +255,13 @@
     const unique = `project-budget-${++renderId}`;
     let retry = null, exclusionInput = null, personnelInput = null;
     function status(text, kind = "status") {
-      const message = node("p", `project-budget-status${kind === "alert" ? " is-error" : ""}`, text);
+      const message = node("p", `project-budget-status${kind === "alert" ? " is-error" : ""}`, I18n.message(text));
       message.setAttribute("role", kind); return message;
     }
     function warningList(values, target) {
       if (!values.length) return;
       const list = node("ul", "project-budget-warnings");
-      values.forEach(value => list.append(node("li", "", value)));
+      values.forEach(value => list.append(node("li", "", I18n.message(value))));
       target.append(list);
     }
     function section(title, subtitle, kind) {
@@ -270,7 +280,7 @@
     function badge(budget) {
       const status = budget?.status;
       const code = String(status?.code || "unknown");
-      const label = String(status?.label || "Statut indisponible");
+      const label = Object.hasOwn(statusKeys, code) ? t(statusKeys[code]) : String(status?.label || t("budget.statusUnavailable"));
       const badge = node("span", "project-budget-badge", label);
       badge.setAttribute("data-budget-status", code);
       return badge;
@@ -319,41 +329,41 @@
       const dialog = node("dialog", "project-budget-bills-dialog");
       dialog.setAttribute("role", "dialog"); dialog.setAttribute("aria-modal", "true");
       dialog.setAttribute("data-budget-bills-modal", triggerKey);
-      const title = node("h3", "project-budget-bills-title", `Factures et écritures · ${code.code} · ${year}`);
+      const title = node("h3", "project-budget-bills-title", t("budget.billsTitle", { p0: code.code, p1: year }));
       title.id = `${unique}-bill-title`; title.setAttribute("tabindex", "-1"); dialog.setAttribute("aria-labelledby", title.id);
-      const closeButton = node("button", "project-budget-bills-close", "Fermer"); closeButton.type = "button";
-      closeButton.setAttribute("aria-label", "Fermer les factures et écritures associées"); closeButton.setAttribute("data-budget-bills-close", "");
+      const closeButton = node("button", "project-budget-bills-close", t("common.close")); closeButton.type = "button";
+      closeButton.setAttribute("aria-label", t("budget.closeBills")); closeButton.setAttribute("data-budget-bills-close", "");
       const header = node("header", "project-budget-bills-header"); header.append(title, closeButton);
       const body = node("div", "project-budget-bills-body");
       const intro = node("p", "project-budget-bills-intro", code.name); intro.id = `${unique}-bill-description`;
       dialog.setAttribute("aria-describedby", intro.id); body.append(intro);
       const periods = [...new Set(code.lines.map(period))];
-      body.append(node("p", "project-budget-small-note", `Périmètre des lignes : ${periods.join(" · ")} · montants imputés à cette catégorie, et non totaux des factures.`));
-      const measures = { budgeted: "Budgeté", consumed: "Consommé · facturé", committed: "Engagé" };
+      body.append(node("p", "project-budget-small-note", t("budget.billsPeriodScope", { p0: periods.join(" · ") })));
+      const measures = { budgeted: t("budget.budgeted"), consumed: t("budget.invoicedConsumed"), committed: t("budget.committed") };
       const summary = node("dl", "project-budget-bills-summary");
-      [[`Barre sélectionnée · ${measures[kind]}`, amount(code.values[kind], currencyLabel(code))],
-        [detail.status === "reconciled" ? "Dépenses associées" : "Dépenses accessibles · détail incomplet", amount(detail.visibleConsumed, currencyLabel(code))],
-        ["Écritures associées", numbers.format(detail.items.length)]].forEach(([label, value]) => {
+      [[t("budget.selectedBar", { p0: measures[kind] }), amount(code.values[kind], currencyLabel(code))],
+        [detail.status === "reconciled" ? t("budget.relatedExpenses") : t("budget.incompleteExpenses"), amount(detail.visibleConsumed, currencyLabel(code))],
+        [t("budget.relatedEntries"), numbers.format(detail.items.length)]].forEach(([label, value]) => {
         const item = node("div", ""); item.append(node("dt", "", label), node("dd", "", value)); summary.append(item);
       });
       body.append(summary);
       if (kind !== "consumed") body.append(node("p", "project-budget-bills-scope-note",
-        "Cette liste présente les dépenses facturées associées. Elle ne détaille pas les allocations budgétaires ni les commandes non facturées de la barre sélectionnée."));
+        t("budget.billsScope")));
       if (options.excludeOrmitterCosts === true) {
-        body.append(node("p", "project-budget-bills-scope-note", `Filtre fournisseur Ormit Talent actif · ${numbers.format(detail.excludedCount)} écriture(s) vérifiée(s) retirée(s) (${amount(detail.excludedConsumed, currencyLabel(code))}).`));
+        body.append(node("p", "project-budget-bills-scope-note", t("budget.ormitterBillsFiltered", { p0: numbers.format(detail.excludedCount), p1: amount(detail.excludedConsumed, currencyLabel(code)) })));
       }
-      if (detail.status === "unavailable") body.append(status("Le détail des factures est indisponible dans cette lecture. Aucun montant de facture n’est inventé."));
-      else if (detail.status !== "reconciled") body.append(status("Liste partielle ou non rapprochée du consommé affiché. Les écritures accessibles restent visibles ; leur somme ne confirme pas une liste complète."));
-      else if (!detail.items.length) body.append(status("Aucune dépense facturée associée à cette catégorie sur la période confirmée."));
-      if (detail.gap !== null && Math.abs(detail.gap) > 0.05) body.append(node("p", "project-budget-bills-scope-note", `Écart liste − consommé affiché : ${amount(detail.gap, currencyLabel(code))}.`));
+      if (detail.status === "unavailable") body.append(status(t("budget.billsUnavailable")));
+      else if (detail.status !== "reconciled") body.append(status(t("budget.partialBills")));
+      else if (!detail.items.length) body.append(status(t("budget.noBills")));
+      if (detail.gap !== null && Math.abs(detail.gap) > 0.05) body.append(node("p", "project-budget-bills-scope-note", t("budget.billsGap", { p0: amount(detail.gap, currencyLabel(code)) })));
       const rows = [...detail.items.map(item => ({ ...item, supplierUncertain: false })),
         ...detail.uncertainItems.map(item => ({ ...item, supplierUncertain: true }))];
       let scroll = null;
       if (rows.length) {
         scroll = node("div", "project-budget-bills-scroll"); scroll.setAttribute("tabindex", "0");
-        scroll.setAttribute("role", "region"); scroll.setAttribute("aria-label", "Écritures et descriptions associées"); scroll.setAttribute("data-budget-bill-scroll", "");
+        scroll.setAttribute("role", "region"); scroll.setAttribute("aria-label", t("budget.entriesRegion")); scroll.setAttribute("data-budget-bill-scroll", "");
         const table = node("table", "project-budget-bills-table"), head = node("thead", ""), row = node("tr", "");
-        for (const label of ["Date", "Fournisseur", "Référence / Description Settlements New", "Montant imputé"]) {
+        for (const label of [t("budget.date"), t("budget.supplier"), t("budget.settlementsDescription"), t("budget.postedAmount")]) {
           const cell = node("th", "", label); cell.setAttribute("scope", "col"); row.append(cell);
         }
         head.append(row); table.append(head);
@@ -361,19 +371,19 @@
         for (const item of rows) {
           const row = node("tr", ""); row.setAttribute("data-budget-bill-id", String(item.id));
           if (item.supplierUncertain) row.setAttribute("data-budget-bill-supplier-unknown", "true");
-          const date = node("td", "", dateLabel(item.date) || "Date indisponible"); date.setAttribute("data-bill-label", "Date");
-          const supplier = node("td", "", item.supplierLabel || "Fournisseur indisponible"); supplier.setAttribute("data-bill-label", "Fournisseur");
-          if (item.supplierUncertain) supplier.append(node("span", "project-budget-bill-unknown", "Fournisseur non vérifié · hors sous-total filtré"));
-          const document = node("th", "project-budget-bill-reference"); document.setAttribute("scope", "row"); document.setAttribute("data-bill-label", "Référence / Description");
-          document.append(node("strong", "", item.documentLabel || "Référence indisponible"),
-            node("span", "project-budget-bill-description", typeof item.description === "string" && item.description.trim() ? item.description : "Description non renseignée"));
-          const value = node("td", "project-budget-bill-amount", amount(item.consumed, currencyLabel(item))); value.setAttribute("data-bill-label", "Montant imputé");
+          const date = node("td", "", dateLabel(item.date) || t("common.dateUnavailableCapital")); date.setAttribute("data-bill-label", t("budget.date"));
+          const supplier = node("td", "", item.supplierLabel || t("budget.supplierUnavailable")); supplier.setAttribute("data-bill-label", t("budget.supplier"));
+          if (item.supplierUncertain) supplier.append(node("span", "project-budget-bill-unknown", t("budget.unverifiedSupplier")));
+          const document = node("th", "project-budget-bill-reference"); document.setAttribute("scope", "row"); document.setAttribute("data-bill-label", t("budget.referenceDescription"));
+          document.append(node("strong", "", item.documentLabel || t("budget.referenceUnavailable")),
+            node("span", "project-budget-bill-description", typeof item.description === "string" && item.description.trim() ? item.description : t("budget.descriptionMissing")));
+          const value = node("td", "project-budget-bill-amount", amount(item.consumed, currencyLabel(item))); value.setAttribute("data-bill-label", t("budget.postedAmount"));
           row.append(date, supplier, document, value); tableBody.append(row);
         }
         table.append(tableBody); scroll.append(table); body.append(scroll);
       }
       warningList(detail.warnings, body);
-      const footer = node("footer", "project-budget-bills-footer", "Détail des écritures accessibles avec vos droits Odoo · lecture seule.");
+      const footer = node("footer", "project-budget-bills-footer", t("budget.billsFooter"));
       dialog.append(header, body, footer);
       let closed = false;
       const close = (restore = true) => {
@@ -409,18 +419,18 @@
       return dialog;
     }
 
-    if (!data && options.loading) panel.append(status("Chargement des budgets du projet…"));
+    if (!data && options.loading) panel.append(status(t("budget.loading")));
     if (options.error) {
       const failure = node("div", "project-budget-error"); failure.append(status(options.error, "alert"));
       if (typeof options.onRetry === "function") {
-        retry = node("button", "project-browser-back project-budget-retry", "Réessayer"); retry.type = "button";
+        retry = node("button", "project-browser-back project-budget-retry", t("common.retry")); retry.type = "button";
         retry.disabled = options.loading === true; retry.setAttribute("data-budget-retry", "");
         retry.addEventListener("click", () => options.onRetry()); failure.append(retry);
       }
       panel.append(failure);
     }
     if (!data) {
-      if (!options.loading && !options.error) panel.append(status("Budgets indisponibles."));
+      if (!options.loading && !options.error) panel.append(status(t("budget.unavailable")));
       container.replaceChildren(panel);
       if (oldRetry && retry) retry.focus();
       return panel;
@@ -431,41 +441,41 @@
     const conventions = Array.isArray(data.conventions) ? data.conventions : [];
     const requested = options.selectedConventionId == null ? null : conventions.find(budget => String(budget.id) === String(options.selectedConventionId));
     const selected = requested || (conventions.length === 1 ? conventions[0] : null);
-    const convention = section("Budget · 01 / Convention", "Budget conventionnel et coûts enregistrés sur toute la durée du projet · hors filtre d’années.", "convention");
+    const convention = section(t("budget.conventionHeading"), t("budget.conventionDescription"), "convention");
     const personnelToggle = node("label", "project-budget-exclusion-toggle project-budget-personnel-toggle"); personnelInput = node("input", "");
     personnelInput.type = "checkbox"; personnelInput.checked = showBwPersonnelCosts;
     personnelInput.setAttribute("data-budget-show-bw-personnel-costs", "");
     personnelInput.addEventListener("change", () => options.onShowBwPersonnelCostsChange?.(personnelInput.checked));
-    personnelToggle.append(personnelInput, node("span", "", "Afficher les coûts de personnel BW")); convention.append(personnelToggle);
+    personnelToggle.append(personnelInput, node("span", "", t("budget.showBwPersonnel"))); convention.append(personnelToggle);
     const macroGrid = node("div", "project-budget-macro-grid");
     const macroCurrency = currencyLabel(macro);
-    macroGrid.append(metric("Budget total · fiche projet", amount(macro.conventionTotal, macroCurrency), "Montant conventionnel renseigné dans Odoo"),
-      metric("Budget personnel", amount(macro.personnelEuros, macroCurrency), `${amount(macro.personnelHours, "h")} conventionnelles`),
-      metric("Financement maximum", amount(macro.maxFunding, macroCurrency), String(macro.fundingType || "Type non renseigné")));
+    macroGrid.append(metric(t("budget.projectSheetTotal"), amount(macro.conventionTotal, macroCurrency), t("budget.conventionAmountSource")),
+      metric(t("budget.personnelBudget"), amount(macro.personnelEuros, macroCurrency), t("budget.conventionHoursCaption", { p0: amount(macro.personnelHours, "h") })),
+      metric(t("budget.maximumFunding"), amount(macro.maxFunding, macroCurrency), String(macro.fundingType || t("budget.typeMissing"))));
     convention.append(macroGrid);
     const metadata = node("dl", "project-budget-metadata");
-    const metadataValues = [["Dates du projet", period(data.project)], ["Organisme de financement", macro.fundingOrganism || "Non renseigné"],
-      ["Référence convention", macro.externalReference || "Non renseignée"]];
+    const metadataValues = [[t("budget.projectDates"), period(data.project)], [t("budget.fundingOrganisation"), macro.fundingOrganism || t("budget.notProvided")],
+      [t("budget.conventionReference"), macro.externalReference || t("budget.notProvidedFeminine")]];
     metadataValues.forEach(([label, value]) => { const item = node("div", ""); item.append(node("dt", "", label), node("dd", "", value)); metadata.append(item); });
     convention.append(metadata);
     if (conventions.length > 1) {
-      const choices = node("fieldset", "project-budget-convention-choices"); choices.append(node("legend", "", "Convention à comparer"));
+      const choices = node("fieldset", "project-budget-convention-choices"); choices.append(node("legend", "", t("budget.chooseConvention")));
       conventions.forEach(budget => {
         const label = node("label", "project-budget-convention-choice"), input = node("input", "");
         input.type = "radio"; input.name = `${unique}-convention`; input.value = String(budget.id); input.checked = selected?.id === budget.id;
         input.setAttribute("data-budget-convention-choice", String(budget.id));
         input.addEventListener("change", () => { if (input.checked) options.onConventionChange?.(budget.id); });
-        label.append(input, node("span", "", `${budget.name || `Convention ${budget.id}`} · ${period(budget)}`), badge(budget)); choices.append(label);
+        label.append(input, node("span", "", `${budget.name || t("budget.conventionWithId", { p0: budget.id })} · ${period(budget)}`), badge(budget)); choices.append(label);
       });
       convention.append(choices);
     }
     if (selected) {
       const identity = node("div", "project-budget-selected-convention");
-      identity.append(node("strong", "", selected.name || `Convention ${selected.id}`), badge(selected), node("span", "", `${period(selected)} · ${currencyLabel(selected)}`));
+      identity.append(node("strong", "", selected.name || t("budget.conventionWithId", { p0: selected.id })), badge(selected), node("span", "", `${period(selected)} · ${currencyLabel(selected)}`));
       convention.append(identity);
       if (selected.quality && selected.quality !== "reconciled" && selected.quality !== "available") convention.append(node("p", "project-budget-quality",
-        "Contrôle de la convention incomplet ou non réconcilié · les montants affichés ne constituent pas un budget contrôlé."));
-    } else if (conventions.length > 1) convention.append(status("Choisissez une convention pour comparer son budget aux coûts du projet. Les différentes versions ne sont pas additionnées."));
+        t("budget.conventionCheckIncomplete")));
+    } else if (conventions.length > 1) convention.append(status(t("budget.chooseConventionHelp")));
     const benchmark = selected || (!conventions.length ? { ...macro, budgetedTotal: macro.conventionTotal } : null);
     const budgetBasis = effectiveConventionBudget(benchmark, showBwPersonnelCosts, !selected);
     const sameCurrency = benchmark && currencyKey(benchmark, "benchmark") === currencyKey(lifetime, "lifetime");
@@ -473,25 +483,25 @@
     const validCost = lifetime.status === "available" || lifetime.status === "partial";
     const comparable = Boolean(sameCurrency && validCost && cost !== null && budgeted !== null);
     const totals = node("div", "project-budget-total-grid");
-    totals.append(metric("Budget conventionnel", amount(budgeted, benchmark?.currency), `${selected ? "Convention sélectionnée" : "Fiche projet"}${showBwPersonnelCosts ? "" : " · hors personnel BW"}`, "budgeted"),
-      metric(lifetime.status === "partial" ? "Consommation connue · partielle" : "Consommation enregistrée", amount(validCost ? cost : null, lifetime.currency), showBwPersonnelCosts ? "Dépenses + coût monétaire des heures BW" : "Dépenses hors coût monétaire des heures BW", "consumed"),
-      metric("Solde calculé", amount(comparable ? budgeted - cost : null, benchmark?.currency), "Budget − consommation", "balance"));
+    totals.append(metric(t("budget.conventionBudget"), amount(budgeted, benchmark?.currency), `${selected ? t("budget.selectedConvention") : t("budget.projectSheet")}${showBwPersonnelCosts ? "" : t("budget.excludingBwPersonnelSuffix")}`, "budgeted"),
+      metric(lifetime.status === "partial" ? t("budget.partialConsumed") : t("budget.recordedConsumed"), amount(validCost ? cost : null, lifetime.currency), showBwPersonnelCosts ? t("budget.costWithBw") : t("budget.costWithoutBw"), "consumed"),
+      metric(t("budget.calculatedBalance"), amount(comparable ? budgeted - cost : null, benchmark?.currency), t("budget.budgetMinusConsumed"), "balance"));
     convention.append(totals);
     if (comparable) {
       const headline = node("p", `project-budget-consumption-ratio${cost > budgeted && budgeted > 0 ? " is-overrun" : ""}`,
-        budgeted > 0 ? `${percentages.format(cost / budgeted)} du budget consommé${lifetime.status === "partial" ? " · source partielle" : ""}` : "Ratio indisponible · budget nul ou négatif");
+        budgeted > 0 ? t("budget.consumptionRatio", { p0: percentages.format(cost / budgeted), p1: lifetime.status === "partial" ? t("budget.partialSourceSuffix") : "" }) : t("budget.ratioUnavailable"));
       headline.setAttribute("data-budget-ratio", ""); convention.append(headline);
-      horizontal([budgeted, cost], ["Budget conventionnel", "Consommation enregistrée"], benchmark.currency, convention, "total");
-    } else if (benchmark && validCost && cost !== null && budgeted !== null) convention.append(status("Comparaison indisponible : les devises des coûts et du budget ne sont pas confirmées identiques."));
-    if (lifetime.status === "partial") convention.append(status("Consommation partielle : seuls les coûts accessibles et identifiables sont inclus. Le solde ne constitue pas une disponibilité financière confirmée."));
-    const sourceCost = node("p", "project-budget-cost-basis", `Coûts de dépenses : ${amount(lifetime.expenseCost, lifetime.currency)}${showBwPersonnelCosts ? ` · Coût enregistré des heures BW : ${amount(lifetime.personnelCost, lifetime.currency)}` : " · Coût enregistré des heures BW masqué"}. ${showBwPersonnelCosts ? "Budget conventionnel complet, personnel BW inclus." : "Budget conventionnel comparé hors allocation de personnel BW."}`);
+      horizontal([budgeted, cost], [t("budget.conventionBudget"), t("budget.recordedConsumed")], benchmark.currency, convention, "total");
+    } else if (benchmark && validCost && cost !== null && budgeted !== null) convention.append(status(t("budget.currencyComparisonUnavailable")));
+    if (lifetime.status === "partial") convention.append(status(t("budget.partialConsumptionWarning")));
+    const sourceCost = node("p", "project-budget-cost-basis", t("budget.sourceCost", { p0: amount(lifetime.expenseCost, lifetime.currency), p1: showBwPersonnelCosts ? t("budget.bwRecordedCostSuffix", { p0: amount(lifetime.personnelCost, lifetime.currency) }) : t("budget.bwCostHiddenSuffix"), p2: showBwPersonnelCosts ? t("budget.fullConventionBasis") : t("budget.excludingBwConventionBasis") }));
     convention.append(sourceCost);
     const outOfPeriod = lifetime.outOfPeriod || {};
     const beforeCount = numeric(outOfPeriod.beforeStart?.count), afterCount = numeric(outOfPeriod.afterEnd?.count);
     if (beforeCount > 0 || afterCount > 0) convention.append(node("p", "project-budget-small-note",
-      `Écritures hors dates du projet, incluses dans le total : ${numbers.format(beforeCount || 0)} avant le début (${amount(outOfPeriod.beforeStart?.consumed, lifetime.currency)}), ${numbers.format(afterCount || 0)} après la fin (${amount(outOfPeriod.afterEnd?.consumed, lifetime.currency)}).`));
+      t("budget.outsideProjectDates", { p0: numbers.format(beforeCount || 0), p1: amount(outOfPeriod.beforeStart?.consumed, lifetime.currency), p2: numbers.format(afterCount || 0), p3: amount(outOfPeriod.afterEnd?.consumed, lifetime.currency) })));
     if (numeric(lifetime.zeroValuedHoursCount) > 0) convention.append(node("p", "project-budget-small-note",
-      `${numbers.format(numeric(lifetime.zeroValuedHoursCount))} écriture(s) d’heures sans coût monétaire enregistré · aucun coût n’est estimé à partir des heures.`));
+      t("budget.unvaluedHours", { p0: numbers.format(numeric(lifetime.zeroValuedHoursCount)) })));
     const rubricCosts = Array.isArray(lifetime.byRubric) ? lifetime.byRubric : [];
     const sourceConventionLines = Array.isArray(selected?.lines) ? selected.lines : [];
     const hiddenPersonnelRubrics = new Set(sourceConventionLines.filter(isBwPersonnelLine).map(line => String(line.categoryId)));
@@ -512,7 +522,7 @@
       else entry.budgeted = numeric(entry.budgeted) === null || numeric(line.budgeted) === null ? null : numeric(entry.budgeted) + numeric(line.budgeted);
     });
     if (combinedLines.size || rubricCosts.length) {
-      convention.append(node("h4", "project-budget-subtitle", "Consommation par rubrique conventionnelle"));
+      convention.append(node("h4", "project-budget-subtitle", t("budget.consumptionByRubric")));
       combinedLines.forEach(line => {
         const key = line.categoryId == null ? null : String(line.categoryId), matching = key === null ? null : costs.get(key);
         const lineCurrencyCompatible = currencyKey(line, `line:${line.id}`) === currencyKey(lifetime, "lifetime");
@@ -520,47 +530,47 @@
         const consumed = !validCost || !sameCurrency || !lineCurrencyCompatible ? null : matching ? numeric(matching.consumed) : lifetime.status === "available" && key !== null ? 0 : null;
         if (key !== null) seen.add(key);
         const row = node("div", "project-budget-rubric"); row.setAttribute("data-budget-rubric", key ?? `line:${line.id}`);
-        row.append(node("strong", "project-budget-rubric-name", line.category || "Rubrique non renseignée"));
-        horizontal([line.budgeted, consumed], ["Budgeté", "Consommé"], currencyLabel(line), row, `rubric:${key ?? line.id}`);
+        row.append(node("strong", "project-budget-rubric-name", line.category || t("budget.rubricMissing")));
+        horizontal([line.budgeted, consumed], [t("budget.budgeted"), t("budget.consumed")], currencyLabel(line), row, `rubric:${key ?? line.id}`);
         convention.append(row);
-        rubricRows.push([line.category || "Rubrique non renseignée", amount(line.budgeted, currencyLabel(line)), amount(consumed, lifetime.currency),
+        rubricRows.push([line.category || t("budget.rubricMissing"), amount(line.budgeted, currencyLabel(line)), amount(consumed, lifetime.currency),
           amount(consumed !== null && numeric(line.budgeted) !== null ? line.budgeted - consumed : null, currencyLabel(line))]);
       });
       costs.forEach((row, key) => {
         if (!seen.has(key)) rubricRows.push([!showBwPersonnelCosts && hiddenPersonnelRubrics.has(key)
-          ? `Dépenses · ${row.category || "Rubrique non renseignée"} · rubrique personnel masquée`
-          : `${row.category || "Rubrique non renseignée"} · hors lignes de la convention sélectionnée`,
-        "Indisponible", amount(row.consumed, lifetime.currency), "Indisponible"]);
+          ? t("budget.hiddenPersonnelRubricExpense", { p0: row.category || t("budget.rubricMissing") })
+          : t("budget.outsideConventionLines", { p0: row.category || t("budget.rubricMissing") }),
+        t("common.unavailable"), amount(row.consumed, lifetime.currency), t("common.unavailable")]);
       });
     }
     const unmapped = Array.isArray(lifetime.unmapped) ? lifetime.unmapped : [];
     if (unmapped.length) {
-      const unassigned = node("div", "project-budget-unmapped"); unassigned.append(node("h4", "project-budget-subtitle", "Coûts sans rapprochement de rubrique"));
+      const unassigned = node("div", "project-budget-unmapped"); unassigned.append(node("h4", "project-budget-subtitle", t("budget.unmatchedCosts")));
       unmapped.forEach(row => {
-        const item = node("p", ""); item.append(node("span", "", row.label || "Rubrique non renseignée"), node("strong", "", amount(row.consumed, lifetime.currency))); unassigned.append(item);
-        rubricRows.push([row.label || "Rubrique non renseignée", "Indisponible", amount(row.consumed, lifetime.currency), "Indisponible"]);
+        const item = node("p", ""); item.append(node("span", "", unmappedLabel(row)), node("strong", "", amount(row.consumed, lifetime.currency))); unassigned.append(item);
+        rubricRows.push([unmappedLabel(row), t("common.unavailable"), amount(row.consumed, lifetime.currency), t("common.unavailable")]);
       });
-      unassigned.append(node("p", "project-budget-small-note", "Ces coûts restent dans la consommation totale. Aucune correspondance de rubrique n’est déduite de leur libellé."));
+      unassigned.append(node("p", "project-budget-small-note", t("budget.unmatchedCostHelp")));
       convention.append(unassigned);
     }
-    if (rubricRows.length) details(`convention:${selected?.id || "none"}`, "Détail des rubriques conventionnelles", ["Rubrique", "Budgeté", "Consommé", "Solde calculé"], rubricRows, convention);
-    if (!conventions.length) convention.append(status("Aucune ligne de convention disponible dans cette lecture. Le budget de la fiche projet reste affiché lorsqu’il est renseigné ; consultez les informations de source en cas de lecture incomplète."));
+    if (rubricRows.length) details(`convention:${selected?.id || "none"}`, t("budget.conventionRubricDetails"), [t("budget.rubric"), t("budget.budgeted"), t("budget.consumed"), t("budget.calculatedBalance")], rubricRows, convention);
+    if (!conventions.length) convention.append(status(t("budget.noConventionLines")));
     warningList(warningsOf([selected?.warnings, lifetime.warnings, budgetBasis.warnings]), convention);
 
-    const annualSection = section("Budget · 02 / Budgets annuels", "Tous les budgets annuels accessibles, y compris les années futures · catégories annuelles distinctes de la convention.", "annual");
+    const annualSection = section(t("budget.annualHeading"), t("budget.annualDescription"), "annual");
     const legend = node("ul", "project-budget-legend");
-    [["budgeted", "Budgeté"], ["consumed", "Consommé · facturé"], ["committed", "Engagé"]].forEach(([kind, label]) => {
+    [["budgeted", t("budget.budgeted")], ["consumed", t("budget.invoicedConsumed")], ["committed", t("budget.committed")]].forEach(([kind, label]) => {
       const item = node("li", ""); item.append(node("span", `project-budget-legend-dot is-${kind}`), node("span", "", label)); legend.append(item);
     });
-    annualSection.append(legend, node("p", "project-budget-section-note", "Engagé comprend le facturé et les commandes confirmées selon Odoo. Consommé et engagé se chevauchent : ils ne s’additionnent pas. La consommation annuelle ci-dessous est facturée. Les coûts BW de personnel ne sont jamais inclus dans les budgets annuels affichés, indépendamment de la case ci-dessus."));
+    annualSection.append(legend, node("p", "project-budget-section-note", t("budget.annualAccountingNote")));
     const exclusionToggle = node("label", "project-budget-exclusion-toggle"); exclusionInput = node("input", "");
     exclusionInput.type = "checkbox"; exclusionInput.checked = options.excludeOrmitterCosts === true;
     exclusionInput.setAttribute("data-budget-exclude-ormitter-costs", "");
     exclusionInput.addEventListener("change", () => options.onExcludeOrmitterCostsChange?.(exclusionInput.checked));
-    exclusionToggle.append(exclusionInput, node("span", "", "Exclure les coûts des Ormitters")); annualSection.append(exclusionToggle);
-    annualSection.append(node("p", "project-budget-small-note", "Filtre des dépenses liées au fournisseur Ormit Talent · les coûts monétaires des heures et la convention restent inchangés."));
+    exclusionToggle.append(exclusionInput, node("span", "", t("budget.excludeOrmitters"))); annualSection.append(exclusionToggle);
+    annualSection.append(node("p", "project-budget-small-note", t("budget.ormitterScope")));
     if (options.excludeOrmitterCosts === true) annualSection.append(node("p", "project-budget-section-note",
-      "Les montants consommés et engagés ci-dessous excluent les coûts identifiés des Ormitters. Les allocations budgétaires, l’approbation et le solde Odoo restent inchangés. Un engagement filtré non vérifiable reste indisponible."));
+      t("budget.ormitterFilteredNote")));
     const annual = (Array.isArray(data.annual) ? data.annual : []).map(budget => effectiveAnnual(budget, options.excludeOrmitterCosts === true))
       .sort((a, b) => String(a.startDate || "9999").localeCompare(String(b.startDate || "9999")) || Number(a.id) - Number(b.id));
     const currencyGroups = new Map();
@@ -569,23 +579,23 @@
       if (!currencyGroups.has(key)) currencyGroups.set(key, []);
       currencyGroups.get(key).push(budget);
     });
-    if (!annual.length) annualSection.append(status("Aucun budget annuel accessible pour ce projet."));
+    if (!annual.length) annualSection.append(status(t("budget.noAnnualBudgets")));
     currencyGroups.forEach((budgets, key) => {
       const currency = currencyLabel(budgets[0]);
       const group = node("div", "project-budget-currency-group"); group.setAttribute("data-budget-currency-group", key);
-      group.append(node("p", "project-budget-currency-note", `${currency} · même échelle pour les budgets de ce groupe${key.startsWith("unknown:") ? " · devise à confirmer" : ""}`));
+      group.append(node("p", "project-budget-currency-note", t("budget.currencyGroupScale", { p0: currency, p1: key.startsWith("unknown:") ? t("budget.confirmCurrencySuffix") : "" })));
       const codesByBudget = new Map(budgets.map(budget => [budget, annualCodes(budget)]));
       const scale = budgets.flatMap(budget => [budget.totals?.budgeted, budget.totals?.consumed, budget.totals?.committed,
         ...codesByBudget.get(budget).filter(code => code.compatible).flatMap(code => Object.values(code.values))]);
       const grid = node("div", "project-budget-annual-grid");
       budgets.forEach(budget => {
-        const year = dateLabel(budget.startDate) ? budget.startDate.slice(0, 4) : "Année inconnue";
+        const year = dateLabel(budget.startDate) ? budget.startDate.slice(0, 4) : t("common.unknownYear");
         const card = node("article", "project-budget-annual-card"); card.setAttribute("data-budget-annual", String(budget.id)); card.setAttribute("data-budget-year", year);
         const top = node("div", "project-budget-annual-header"); top.append(node("h4", "project-budget-annual-year", year), badge(budget));
         card.append(top, node("p", "project-budget-annual-name", budget.name || `Budget ${budget.id}`), node("p", "project-budget-annual-period", period(budget)));
         const values = [budget.totals?.budgeted, budget.totals?.consumed, budget.totals?.committed], geometry = chartGeometry(values, scale), codes = codesByBudget.get(budget);
         const chart = node("div", "project-budget-annual-chart"); chart.setAttribute("role", "group");
-        chart.setAttribute("aria-label", `${year}, ${budget.name || `budget ${budget.id}`} : budgeté ${amount(values[0], currency)}, consommé facturé ${amount(values[1], currency)}, engagé ${amount(values[2], currency)}. Échelle ${amount(geometry.min, currency)} à ${amount(geometry.max, currency)}.`);
+        chart.setAttribute("aria-label", t("budget.annualChartAria", { p0: year, p1: budget.name || `budget ${budget.id}`, p2: amount(values[0], currency), p3: amount(values[1], currency), p4: amount(values[2], currency), p5: amount(geometry.min, currency), p6: amount(geometry.max, currency) }));
         const axis = node("div", "project-budget-annual-axis"); axis.setAttribute("aria-hidden", "true");
         axisLabels(geometry, annualPlotHeight).forEach(value => { const tick = node("span", "", numbers.format(value)); tick.style.top = `${(geometry.max - value) / (geometry.max - geometry.min) * 100}%`; axis.append(tick); });
         const scroll = node("div", "project-budget-annual-scroll"), plot = node("div", "project-budget-annual-plot");
@@ -594,7 +604,7 @@
         geometry.ticks.forEach(value => { const gridline = node("span", `project-budget-annual-gridline${value === 0 ? " is-zero" : ""}`); gridline.style.top = `${(geometry.max - value) / (geometry.max - geometry.min) * 100}%`; gridline.setAttribute("aria-hidden", "true"); plot.append(gridline); });
         const tooltip = node("div", "project-budget-code-tooltip"); tooltip.hidden = true; tooltip.setAttribute("role", "tooltip"); tooltip.id = `${unique}-codes-${budget.id}`;
         let pinnedCode = null;
-        const measureLabels = { budgeted: "Budgeté", consumed: "Consommé · facturé", committed: "Engagé" };
+        const measureLabels = { budgeted: t("budget.budgeted"), consumed: t("budget.invoicedConsumed"), committed: t("budget.committed") };
         const hideCode = force => { if (force || pinnedCode === null) { pinnedCode = null; tooltip.hidden = true; } };
         const attachCode = (button, code, kind) => {
           const targetKey = `${budget.id}:${kind}:${code.key}`;
@@ -602,7 +612,7 @@
           const show = () => {
             tooltip.replaceChildren(node("strong", "", code.name));
             for (const field of kind === "all" ? ["budgeted", "consumed", "committed"] : [kind]) tooltip.append(node("span", "", `${measureLabels[field]} : ${amount(code.values[field], currencyLabel(code))}`));
-            if (!code.compatible) tooltip.append(node("span", "", "Devise différente ou inconnue · échelle de la barre indisponible."));
+            if (!code.compatible) tooltip.append(node("span", "", t("budget.currencyScaleUnavailable")));
             tooltip.hidden = false;
           };
           button.addEventListener("pointerenter", show); button.addEventListener("pointerleave", () => hideCode(false));
@@ -615,12 +625,12 @@
         };
         const bars = node("div", "project-budget-annual-bars");
         const codeTargets = [];
-        [["budgeted", "Budgeté"], ["consumed", "Consommé"], ["committed", "Engagé"]].forEach(([kind, label], index) => {
+        [["budgeted", t("budget.budgeted")], ["consumed", t("budget.consumed")], ["committed", t("budget.committed")]].forEach(([kind, label], index) => {
           const cluster = node("div", "project-budget-annual-cluster"); cluster.setAttribute("data-budget-measure", kind);
           const clusterBars = node("div", "project-budget-cluster-bars");
           const column = node("div", "project-budget-annual-column"), rect = geometry.bars[index];
           column.setAttribute("data-budget-bar", kind); column.setAttribute("data-budget-value", rect.value === null ? "unavailable" : String(rect.value));
-          column.setAttribute("aria-label", `Total ${label} : ${amount(rect.value, currency)}`);
+          column.setAttribute("aria-label", t("budget.totalMeasure", { p0: label, p1: amount(rect.value, currency) }));
           if (rect.available) {
             const fill = node("span", `project-budget-annual-fill is-${kind}${rect.negative ? " is-negative" : ""}`);
             fill.style.top = `${rect.top}%`; fill.style.height = `${rect.height}%`; fill.setAttribute("data-budget-height", String(rect.height)); column.append(fill);
@@ -631,7 +641,7 @@
             const companion = node("button", "project-budget-code-column"); companion.type = "button";
             companion.setAttribute("data-budget-code", code.code); companion.setAttribute("data-budget-code-key", code.key);
             companion.setAttribute("data-budget-code-measure", kind); companion.setAttribute("data-budget-value", shape.value === null ? "unavailable" : String(shape.value));
-            companion.setAttribute("aria-label", `${code.name}, ${label} : ${amount(code.values[kind], currencyLabel(code))}${code.compatible ? "" : "; échelle indisponible"}`);
+            companion.setAttribute("aria-label", `${code.name}, ${label} : ${amount(code.values[kind], currencyLabel(code))}${code.compatible ? "" : t("budget.scaleUnavailableSuffix")}`);
             companion.setAttribute("tabindex", codeTargets.length ? "-1" : "0");
             attachCode(companion, code, kind); codeTargets.push(companion);
             if (shape.available) {
@@ -657,38 +667,38 @@
           const codeLegend = node("ul", "project-budget-code-legend");
           codes.forEach(code => {
             const item = node("li", ""), button = node("button", "project-budget-code-key"); button.type = "button";
-            button.setAttribute("aria-label", `${code.name} : détail des trois montants`); attachCode(button, code, "all");
+            button.setAttribute("aria-label", t("budget.codeThreeAmounts", { p0: code.name })); attachCode(button, code, "all");
             const swatch = node("span", "project-budget-code-dot"); swatch.style.backgroundColor = code.color; swatch.setAttribute("aria-hidden", "true");
             button.append(swatch, node("span", "", code.name)); item.append(button); codeLegend.append(item);
           });
           card.append(codeLegend, tooltip);
         }
         const exact = node("dl", "project-budget-annual-values");
-        [["Budgeté", "budgeted"], ["Consommé · facturé", "consumed"], ["Engagé", "committed"]].forEach(([label, kind]) => {
+        [[t("budget.budgeted"), "budgeted"], [t("budget.invoicedConsumed"), "consumed"], [t("budget.committed"), "committed"]].forEach(([label, kind]) => {
           const item = node("div", `is-${kind}`); item.append(node("dt", "", label), node("dd", "", amount(budget.totals?.[kind], currency))); exact.append(item);
         });
         card.append(exact);
         const sourceLines = Array.isArray(budget.lines) ? budget.lines : [];
         const annualLines = sourceLines.filter(isExpenseLine).filter(retainAnnualLine);
-        if (annualLines.length) details(`annual:${budget.id}`, "Détail des dépenses annuelles", ["Catégorie annuelle", "Budgeté", "Consommé · facturé", "Engagé", "En approbation", "Solde Odoo"],
-          annualLines.map(line => [line.category || "Catégorie non renseignée", amount(line.budgeted, currencyLabel(line)), amount(line.consumed, currencyLabel(line)),
+        if (annualLines.length) details(`annual:${budget.id}`, t("budget.annualExpenseDetails"), [t("budget.annualCategory"), t("budget.budgeted"), t("budget.invoicedConsumed"), t("budget.committed"), t("budget.pendingApproval"), t("budget.odooBalance")],
+          annualLines.map(line => [line.category || t("budget.categoryMissing"), amount(line.budgeted, currencyLabel(line)), amount(line.consumed, currencyLabel(line)),
             amount(line.committed, currencyLabel(line)), amount(line.pending, currencyLabel(line)), amount(line.balance, currencyLabel(line))]), card);
         const otherLines = sourceLines.filter(line => !isExpenseLine(line)).filter(retainAnnualLine);
-        if (otherLines.length) details(`annual-other:${budget.id}`, "Recettes, ajustements et lignes non classées", ["Catégorie annuelle", "Budgeté", "Consommé · facturé", "Engagé", "En approbation", "Solde Odoo"],
-          otherLines.map(line => [line.category || "Catégorie non renseignée", amount(line.budgeted, currencyLabel(line)), amount(line.consumed, currencyLabel(line)),
+        if (otherLines.length) details(`annual-other:${budget.id}`, t("budget.otherAnnualLines"), [t("budget.annualCategory"), t("budget.budgeted"), t("budget.invoicedConsumed"), t("budget.committed"), t("budget.pendingApproval"), t("budget.odooBalance")],
+          otherLines.map(line => [line.category || t("budget.categoryMissing"), amount(line.budgeted, currencyLabel(line)), amount(line.consumed, currencyLabel(line)),
             amount(line.committed, currencyLabel(line)), amount(line.pending, currencyLabel(line)), amount(line.balance, currencyLabel(line))]), card);
         const income = budget.income;
-        if (income) card.append(node("p", "project-budget-annual-income", `Recettes séparées · budgetées : ${amount(income.budgeted, currency)} · facturées : ${amount(income.consumed, currency)}.`));
-        if (numeric(budget.parentTotal) !== null) card.append(node("p", "project-budget-small-note", `Total net Odoo : ${amount(budget.parentTotal, currency)} · ne représente pas l’enveloppe des dépenses.`));
-        if (budget.quality && budget.quality !== "reconciled" && budget.quality !== "available") card.append(node("p", "project-budget-quality", "Contrôle des lignes incomplet ou non réconcilié · consultez les informations de source."));
+        if (income) card.append(node("p", "project-budget-annual-income", t("budget.incomeSeparate", { p0: amount(income.budgeted, currency), p1: amount(income.consumed, currency) })));
+        if (numeric(budget.parentTotal) !== null) card.append(node("p", "project-budget-small-note", t("budget.odooNetTotal", { p0: amount(budget.parentTotal, currency) })));
+        if (budget.quality && budget.quality !== "reconciled" && budget.quality !== "available") card.append(node("p", "project-budget-quality", t("budget.lineCheckIncomplete")));
         warningList(warningsOf([budget.warnings]), card); grid.append(card);
         if (options.excludeOrmitterCosts === true) warningList(warningsOf([budget.ormitterExclusion?.warnings]), card);
-        if (options.excludeOrmitterCosts === true && !budget.ormitterExclusion) card.append(node("p", "project-budget-quality", "Exclusion Ormit Talent indisponible dans cette lecture · montants consommés et engagés indisponibles."));
+        if (options.excludeOrmitterCosts === true && !budget.ormitterExclusion) card.append(node("p", "project-budget-quality", t("budget.ormitterExclusionUnavailable")));
       });
       group.append(grid); annualSection.append(group);
     });
     warningList(warningsOf([data.warnings]), panel);
-    if (data.asOf) panel.append(node("p", "project-budget-asof", `Lecture Odoo : ${String(data.asOf)} · données accessibles avec vos droits Odoo · lecture seule.`));
+    if (data.asOf) panel.append(node("p", "project-budget-asof", t("budget.readAsOf", { p0: String(data.asOf) })));
     container.replaceChildren(panel);
     if (oldChoice !== null) Array.from(panel.querySelectorAll("[data-budget-convention-choice]")).find(input => input.value === oldChoice)?.focus();
     else if (oldPersonnelChoice && personnelInput) personnelInput.focus();

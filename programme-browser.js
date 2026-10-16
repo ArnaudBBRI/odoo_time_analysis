@@ -1,9 +1,10 @@
 (function (root, factory) {
-  const api = factory(typeof module === "object" && module.exports ? require("./project-card") : root.ProjectCard);
+  const api = factory(typeof module === "object" && module.exports ? require("./project-card") : root.ProjectCard, typeof module === "object" && module.exports ? require("./i18n-core-messages") : root.DashboardI18n);
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.ProgrammeBrowser = api;
-})(typeof globalThis !== "undefined" ? globalThis : this, function (ProjectCard) {
+})(typeof globalThis !== "undefined" ? globalThis : this, function (ProjectCard, I18n) {
   "use strict";
+  const t = I18n.t;
 
   const PROGRAMMES = Object.freeze([
     ["DC1", "Backbone", "To Structure", "Pauline Dewez"],
@@ -11,7 +12,7 @@
     ["DC3", "Manufacturing", "To Make", "François Denis"]
   ].map(([code, subtitle, catchphrase, name]) => Object.freeze({ id: code, code, name: code,
     subtitle, catchphrase, manager: Object.freeze({ id: null, name, photoDataUrl: null }) })));
-  const CATCHPHRASES = Object.freeze({ DC1: "Structurer", DC2: "Agir", DC3: "Fabriquer" });
+  const CATCHPHRASES = Object.freeze({ DC1: "programme.structure", DC2: "programme.act", DC3: "programme.make" });
 
   function safePhoto(value) {
     return typeof value === "string" && value.length <= 400000 &&
@@ -23,7 +24,7 @@
     if (!Array.isArray(rows) || rows.length !== PROGRAMMES.length ||
       new Set(rows.map(row => row?.id)).size !== PROGRAMMES.length ||
       rows.some(row => !PROGRAMMES.some(programme => programme.id === row?.id))) {
-      throw new Error("Le catalogue reçu ne correspond pas aux trois programmes attendus.");
+      throw new Error(t("programme.catalogueMismatch"));
     }
     return PROGRAMMES.map(programme => {
       const source = rows.find(row => row.id === programme.id)?.manager;
@@ -46,13 +47,13 @@
     const keepRetry = options.loading && container.querySelectorAll("[data-programme-retry]").length > 0;
     let retry;
     const section = node("section", "programme-browser");
-    section.append(node("h2", "programme-browser-heading", "Programmes · 01 / Choisir un programme"));
+    section.append(node("h2", "programme-browser-heading", t("programme.heading")));
     if (options.loading || options.error) {
       const status = node("div", "programme-browser-status"); status.setAttribute("data-programme-status", "");
       status.setAttribute("role", "status"); status.setAttribute("aria-live", "polite");
-      status.append(node("span", "programme-browser-message", options.error || "Chargement des portraits…"));
+      status.append(node("span", "programme-browser-message", options.error ? I18n.message(options.error) : t("programme.loadingPortraits")));
       if (options.error || keepRetry) {
-        retry = node("button", "programme-browser-retry", "Réessayer"); retry.type = "button";
+        retry = node("button", "programme-browser-retry", t("common.retry")); retry.type = "button";
         retry.setAttribute("data-programme-retry", "");
         retry.setAttribute("aria-disabled", options.loading ? "true" : "false");
         retry.addEventListener("click", () => { if (!options.loading) options.onRetry?.(); }); status.append(retry);
@@ -60,17 +61,17 @@
       section.append(status);
     }
     const grid = node("fieldset", "programme-browser-grid");
-    grid.append(node("legend", "project-card-sr-only", "Choisir un programme"));
+    grid.append(node("legend", "project-card-sr-only", t("programme.choose")));
     const choices = new Map();
     for (const programme of programmes) {
-      const catchphrase = CATCHPHRASES[programme.code];
+      const catchphrase = t(CATCHPHRASES[programme.code]);
       const label = node("label", "programme-browser-tile");
       const radio = node("input", "programme-browser-radio"); radio.type = "radio"; radio.name = "programme-choice";
       radio.value = programme.id; radio.checked = options.selectedId === programme.id;
       radio.setAttribute("data-programme-choice", programme.id);
       radio.setAttribute("aria-label", `${programme.code} · ${programme.subtitle} · ${catchphrase} · ${programme.manager.name}`);
       radio.addEventListener("change", () => { if (radio.checked) options.onSelect?.(programme.id); });
-      const avatar = node("span", "programme-browser-avatar"); avatar.title = `Responsable : ${programme.manager.name}`;
+      const avatar = node("span", "programme-browser-avatar"); avatar.title = t("common.managerName", { p0: programme.manager.name });
       const initials = programme.manager.name.split(/\s+/).slice(0, 2).map(part => Array.from(part)[0]).join("").toLocaleUpperCase("fr");
       avatar.append(node("span", "programme-browser-initials", initials));
       const photoSource = safePhoto(programme.manager.photoDataUrl);
@@ -80,8 +81,8 @@
       }
       ProjectCard.mount(label, radio, programme, [avatar, ProjectCard.createTitle(doc, programme, "programme-browser-name")], {
         badge: catchphrase, fullName: programme.subtitle,
-        tooltip: `${programme.code} · ${programme.subtitle}\n${catchphrase}\nResponsable : ${programme.manager.name}`,
-        description: `${programme.subtitle}. ${catchphrase}. Responsable : ${programme.manager.name}.`
+        tooltip: t("programme.tooltip", { p0: programme.code, p1: programme.subtitle, p2: catchphrase, p3: programme.manager.name }),
+        description: t("programme.description", { p0: programme.subtitle, p1: catchphrase, p2: programme.manager.name })
       });
       grid.append(label); choices.set(programme.id, radio);
     }

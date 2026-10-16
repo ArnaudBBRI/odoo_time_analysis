@@ -1,21 +1,22 @@
 (function (root, factory) {
-  const api = factory();
+  const api = factory(typeof module === "object" && module.exports ? require("./i18n-core-messages") : root.DashboardI18n);
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.PersonalCapacity = api;
-})(typeof globalThis !== "undefined" ? globalThis : this, function () {
+})(typeof globalThis !== "undefined" ? globalThis : this, function (I18n) {
   "use strict";
+  const t = I18n.t;
 
   const views = new WeakMap();
-  const numberFormat = new Intl.NumberFormat("fr-BE", { maximumFractionDigits: 2 });
+  const numberFormat = { format: value => I18n.formatNumber(value, { maximumFractionDigits: 2 }) };
   const warningLabels = {
-    CALENDRIER_ACTUEL_APPLIQUE_AUX_ANNEES: "Les horaires actuels sont appliqués aux années sélectionnées ; leurs changements passés ou futurs ne peuvent pas être confirmés.",
-    CALENDRIER_PERSONNEL_INDISPONIBLE: "Le calendrier personnel de travail est indisponible.",
-    CALENDRIER_COLLECTIF_INDISPONIBLE: "Les jours fériés et fermetures collectives ne sont pas accessibles.",
-    DROITS_ANNUELS_INDISPONIBLES: "Les droits annuels de congés ne sont pas accessibles.",
-    IDENTITE_CAPACITE_AMBIGUE: "Plusieurs fiches employé sont liées au compte ; la capacité annuelle ne peut pas être déterminée sans identifier la fiche active.",
-    DROITS_ANNUELS_ACQUISITION_NON_PROJETEE: "Les droits de congés acquis progressivement ne peuvent pas être projetés pour l’année avec les données disponibles.",
-    TYPE_ATTRIBUTION_INCONNU: "Le type d’attribution des droits de congés n’est pas confirmé ; la capacité annuelle ne peut pas être calculée.",
-    CATEGORIES_NON_ANNUELLES_EXCLUES: "Les autres catégories de congé sont exclues des droits annuels payés.",
+    CALENDRIER_ACTUEL_APPLIQUE_AUX_ANNEES: t("capacity.currentScheduleWarning"),
+    CALENDRIER_PERSONNEL_INDISPONIBLE: t("capacity.personalCalendarUnavailable"),
+    CALENDRIER_COLLECTIF_INDISPONIBLE: t("capacity.collectiveCalendarUnavailable"),
+    DROITS_ANNUELS_INDISPONIBLES: t("capacity.annualRightsUnavailable"),
+    IDENTITE_CAPACITE_AMBIGUE: t("capacity.ambiguousIdentity"),
+    DROITS_ANNUELS_ACQUISITION_NON_PROJETEE: t("capacity.accrualUnavailable"),
+    TYPE_ATTRIBUTION_INCONNU: t("capacity.allocationTypeUnknown"),
+    CATEGORIES_NON_ANNUELLES_EXCLUES: t("capacity.otherLeaveExcluded"),
     CONGES_SANS_SOLDE_EXCLUS: null
   };
   let renderId = 0;
@@ -26,11 +27,11 @@
 
   function formatted(value, unit, nonnegative = true) {
     const amount = known(value, nonnegative);
-    return amount === null ? "Indisponible" : `${numberFormat.format(amount)} ${unit}`;
+    return amount === null ? t("common.unavailable") : `${numberFormat.format(amount)} ${unit}`;
   }
 
   function yearValue(value) {
-    return Number.isInteger(value) && value > 0 && value <= 9999 ? String(value) : "Année non précisée";
+    return Number.isInteger(value) && value > 0 && value <= 9999 ? String(value) : t("common.unspecifiedYear");
   }
 
   function makeView(container) {
@@ -44,15 +45,15 @@
     const id = `personal-capacity-${++renderId}`;
     const section = node("section", "personal-capacity");
     const header = node("div", "personal-capacity-header");
-    const heading = node("h2", "personal-capacity-heading", "Capacité de travail et planning");
+    const heading = node("h2", "personal-capacity-heading", t("capacity.heading"));
     heading.id = `${id}-heading`;
     section.setAttribute("aria-labelledby", heading.id);
     const period = node("p", "personal-capacity-period");
     header.append(heading, period);
     const cards = node("div", "personal-capacity-cards");
     const metrics = {};
-    for (const [key, label] of [["available", "Heures de travail disponibles"], ["planned", "Heures totales planifiées"],
-      ["coverage", "Pourcentage des heures planifiées"]]) {
+    for (const [key, label] of [["available", t("capacity.availableHours")], ["planned", t("capacity.plannedHours")],
+      ["coverage", t("capacity.coverage")]]) {
       const card = node("article", `personal-capacity-metric is-${key}`);
       const title = node("h3", "personal-capacity-metric-label", label);
       title.id = `${id}-${key}-label`;
@@ -62,7 +63,7 @@
       const note = node("p", "personal-capacity-metric-note");
       card.append(title, value, note);
       cards.append(card);
-      metrics[key] = { card, value, note };
+      metrics[key] = { card, title, value, note };
     }
     const status = node("p", "personal-capacity-status");
     status.setAttribute("role", "status");
@@ -70,14 +71,14 @@
     status.setAttribute("aria-atomic", "true");
     const warnings = node("ul", "personal-capacity-warnings");
     const details = node("details", "personal-capacity-details");
-    const summary = node("summary", "personal-capacity-summary", "Voir le calcul par année");
+    const summary = node("summary", "personal-capacity-summary", t("capacity.details"));
     const years = node("div", "personal-capacity-years");
     details.append(summary, years);
     const policy = node("p", "personal-capacity-policy",
-      "Calendrier personnel, jours fériés et fermetures collectives, moins les droits annuels de congés payés. Congés sans solde et reports d’années précédentes exclus ; demandes de congé non utilisées.");
+      t("capacity.policy"));
     section.append(header, cards, status, warnings, details, policy);
     container.replaceChildren(section);
-    return { node, section, period, metrics, status, warnings, details, years };
+    return { node, section, heading, summary, policy, period, metrics, status, warnings, details, years };
   }
 
   function annualDetails(view, rows, loading) {
@@ -88,16 +89,16 @@
       section.setAttribute("data-capacity-year", yearValue(row.year));
       const heading = view.node("h4", "personal-capacity-year-heading", yearValue(row.year));
       const estimated = row.status === "estimated";
-      if (estimated) heading.append(view.node("span", "personal-capacity-estimate-badge", "Estimation"));
+      if (estimated) heading.append(view.node("span", "personal-capacity-estimate-badge", t("common.estimate")));
       const amounts = row.scope && typeof row.scope === "object" ? row.scope : row;
       const partial = known(amounts.fraction) !== null && amounts.fraction < 1;
       const list = view.node("dl", "personal-capacity-year-values");
       for (const [label, field, unit] of [
-        ["Calendrier de travail", "scheduledHours", "h"],
-        ["Jours fériés et fermetures collectives", "publicHolidayHours", "h"],
-        [partial ? "Droits de congés payés (prorata)" : "Droits annuels de congés payés", "entitlementHours", "h"],
-        ["Heures de travail disponibles", "availableHours", "h"],
-        ["Jours de travail disponibles", "availableDays", "jours"]
+        [t("capacity.workCalendar"), "scheduledHours", "h"],
+        [t("capacity.holidays"), "publicHolidayHours", "h"],
+        [partial ? t("capacity.prorataRights") : t("capacity.annualRights"), "entitlementHours", "h"],
+        [t("capacity.availableHours"), "availableHours", "h"],
+        [t("capacity.availableDays"), "availableDays", t("common.dayUnit")]
       ]) {
         const term = view.node("dt", "", label);
         const capacityUnavailable = row.status === "unavailable" && ["availableHours", "availableDays"].includes(field);
@@ -107,27 +108,27 @@
       section.append(heading, list);
       if (partial) {
         section.append(view.node("p", "personal-capacity-year-note",
-          `${numberFormat.format(amounts.fraction * 100)} % des heures du calendrier annuel sélectionnées. Année complète : ${formatted(row.availableHours, "h")} disponibles et ${formatted(row.entitlementHours, "h")} de droits de congés payés.`));
+          t("capacity.partialYearDetails", { p0: numberFormat.format(amounts.fraction * 100), p1: formatted(row.availableHours, "h"), p2: formatted(row.entitlementHours, "h") })));
       }
       if (estimated) {
         const reason = row.estimateReason === "reference-year-calendar"
-          ? `Calendrier non publié : capacité annuelle reprise de ${yearValue(row.calendarBasisYear)}.`
+          ? t("capacity.unpublishedCalendarBasis", { p0: yearValue(row.calendarBasisYear) })
           : row.estimateReason === "reference-year-entitlement"
-            ? `Droits de congés non attribués : droits annuels repris de ${yearValue(row.entitlementBasisYear)}.`
+            ? t("capacity.unallocatedRightsBasis", { p0: yearValue(row.entitlementBasisYear) })
             : row.estimateReason === "partial-period-entitlement"
-              ? "Estimation des congés sur la période sélectionnée par prorata des droits annuels ; demandes de congé non utilisées."
+              ? t("capacity.partialRightsEstimate")
               : row.estimateReason === "current-work-schedule"
-                ? "Horaires actuels appliqués à cette année ; les changements de régime de travail ne peuvent pas être confirmés."
-              : "Estimation établie à partir des données annuelles disponibles.";
+                ? t("capacity.currentScheduleEstimate")
+              : t("capacity.annualEstimate");
         section.append(view.node("p", "personal-capacity-year-note is-estimated", reason));
       } else if (row.status === "unavailable") {
-        section.append(view.node("p", "personal-capacity-year-note", "Calendrier ou droits annuels insuffisants pour calculer la capacité de cette année."));
+        section.append(view.node("p", "personal-capacity-year-note", t("capacity.insufficientAnnualSources")));
       }
       nodes.push(section);
     }
     const retainDisclosure = view.details.open === true || view.details.contains(view.section.ownerDocument.activeElement);
     if (nodes.length === 0 && retainDisclosure) nodes.push(view.node("p", "personal-capacity-year-note",
-      loading ? "Détail du calcul en cours de chargement." : "Détail annuel indisponible avec les sources accessibles."));
+      loading ? t("capacity.detailsLoading") : t("capacity.detailsUnavailable")));
     view.years.replaceChildren(...nodes);
     view.details.hidden = nodes.length === 0;
   }
@@ -139,6 +140,13 @@
       view = makeView(container);
       views.set(container, view);
     }
+    // Keep the native disclosure/focus while changing every persistent label.
+    view.heading.textContent = t("capacity.heading");
+    view.summary.textContent = t("capacity.details");
+    view.policy.textContent = t("capacity.policy");
+    for (const [key, messageKey] of [["available", "capacity.availableHours"], ["planned", "capacity.plannedHours"], ["coverage", "capacity.coverage"]]) {
+      view.metrics[key].title.textContent = t(messageKey);
+    }
     const data = model && typeof model === "object" ? model : {};
     const loading = options.loading === true;
     const failed = Boolean(options.error);
@@ -149,19 +157,19 @@
     const planned = known(data.plannedHours, false);
     view.section.setAttribute("aria-busy", loading ? "true" : "false");
     view.period.textContent = typeof data.scopeLabel === "string" && data.scopeLabel.trim()
-      ? data.scopeLabel : "Période sélectionnée";
-    view.metrics.available.value.textContent = loading ? "Chargement…" : formatted(available, "h");
+      ? data.scopeLabel : t("common.selectedPeriod");
+    view.metrics.available.value.textContent = loading ? t("common.loading") : formatted(available, "h");
     view.metrics.planned.value.textContent = formatted(planned, "h", false);
     view.metrics.available.card.className = `personal-capacity-metric is-available${status === "estimated" && available !== null ? " is-estimated" : ""}`;
     const notes = [];
-    if (available !== null && known(data.availableDays) !== null) notes.push(formatted(data.availableDays, "jours de travail"));
+    if (available !== null && known(data.availableDays) !== null) notes.push(formatted(data.availableDays, t("common.workingDayUnit")));
     if (available !== null && known(data.workTimeRate) !== null && data.workTimeRate < 100) {
-      notes.push(`Temps de travail : ${numberFormat.format(data.workTimeRate)} % (déjà intégré au calendrier)`);
+      notes.push(t("capacity.workTimeRate", { p0: numberFormat.format(data.workTimeRate) }));
     }
-    view.metrics.available.note.textContent = loading ? "Lecture du calendrier personnel et des droits annuels…"
-      : available === null ? "La capacité ne peut pas être établie avec les sources disponibles." : notes.join(" · ");
-    view.metrics.planned.note.textContent = planned === null ? "Planning personnel indisponible."
-      : "Toute la période sélectionnée, y compris le planning futur et les projets masqués.";
+    view.metrics.available.note.textContent = loading ? t("capacity.reading")
+      : available === null ? t("capacity.cannotEstablish") : notes.join(" · ");
+    view.metrics.planned.note.textContent = planned === null ? t("capacity.personalPlanningUnavailable")
+      : t("capacity.fullPlanningScope");
     const coverage = available !== null && available > 0 && planned !== null
       ? known(planned / available * 100, false) : null;
     // Allow only floating-point roundoff near the threshold, not rounded display precision.
@@ -174,27 +182,27 @@
       ? "< 85" : highCoverage && Number(coverage.toFixed(2)) <= 100
         ? "> 100" : coverage === null ? null : numberFormat.format(coverage);
     view.metrics.coverage.card.className = `personal-capacity-metric is-coverage personal-capacity-coverage${lowCoverage ? " is-low" : highCoverage ? " is-high" : ""}`;
-    view.metrics.coverage.value.textContent = coverageLabel === null ? "Indisponible"
+    view.metrics.coverage.value.textContent = coverageLabel === null ? t("common.unavailable")
       : `${coverageLabel} %`;
     view.metrics.coverage.note.textContent = coverageLabel === null
-      ? "Le taux nécessite des heures disponibles supérieures à zéro et un planning connu."
+      ? t("capacity.coverageUnavailable")
       : lowCoverage
-        ? "Il est normal de ne pas être planifié à 100% mais dans le cas présent le ratio semble faible. A vérifier avec votre Unit Manager."
+        ? t("capacity.lowCoverage")
         : highCoverage
-          ? "Vous êtes planifié au-delà de 100%. A clarifier avec votre Unit Manager"
-          : "Il est normal de ne pas être planifié à 100%. Cela tient compte des absences maladies notamment.";
+          ? t("capacity.highCoverage")
+          : t("capacity.normalCoverage");
     let description = "";
-    if (loading) description = "Calcul de la capacité de travail en cours.";
-    else if (failed || available === null) description = "Capacité de travail indisponible. Les heures planifiées restent affichées lorsqu’elles sont connues.";
+    if (loading) description = t("capacity.calculating");
+    else if (failed || available === null) description = t("capacity.unavailableKeepPlanning");
     else if (status === "estimated") {
       const calendarYears = years.filter(row => row?.estimateReason === "reference-year-calendar").map(row => yearValue(row.year));
       const entitlementYears = years.filter(row => row?.estimateReason === "reference-year-entitlement").map(row => yearValue(row.year));
-      if (calendarYears.length) description = `Calendrier non publié en ${calendarYears.join(", ")} : capacité annuelle estimée d’après ${yearValue(data.referenceYear)}.`;
-      if (entitlementYears.length) description += `${description ? " " : ""}Droits de congés non attribués en ${entitlementYears.join(", ")} : estimation d’après les droits annuels de ${yearValue(data.referenceYear)}.`;
-      if (!description && data.partialPeriod !== true) description = "Capacité estimée à partir des données annuelles disponibles.";
+      if (calendarYears.length) description = t("capacity.unpublishedCalendarYears", { p0: calendarYears.join(", "), p1: yearValue(data.referenceYear) });
+      if (entitlementYears.length) description += t("capacity.unallocatedRightsYears", { p0: description ? " " : "", p1: entitlementYears.join(", "), p2: yearValue(data.referenceYear) });
+      if (!description && data.partialPeriod !== true) description = t("capacity.estimated");
     }
     if (!loading && !failed && data.partialPeriod === true) {
-      description += `${description ? " " : ""}Période partielle : droits annuels répartis au prorata des heures de calendrier sélectionnées.`;
+      description += t("capacity.partialPeriodNote", { p0: description ? " " : "" });
     }
     view.status.textContent = description;
     view.status.hidden = !description;
@@ -202,7 +210,7 @@
       ? [...new Set(data.warnings.map(message => Object.hasOwn(warningLabels, message) ? warningLabels[message]
         : typeof message === "string" && !/^[A-Z_0-9]+$/.test(message) ? message : null)
         .filter(message => typeof message === "string" && message.trim()))] : [];
-    view.warnings.replaceChildren(...warnings.map(message => view.node("li", "", message)));
+    view.warnings.replaceChildren(...warnings.map(message => view.node("li", "", I18n.message(message))));
     view.warnings.hidden = warnings.length === 0;
     annualDetails(view, years, loading);
     return view.section;

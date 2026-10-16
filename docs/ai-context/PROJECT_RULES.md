@@ -51,6 +51,15 @@ existing runtimes, and per-user tools. Do not assume an elevated terminal,
 Windows service changes, or machine-wide installations are available. State
 explicitly when a proposed step requires help from their IT administrator.
 
+## Interface Languages
+
+The interface supports French and Dutch. Every new or changed application-owned
+text, including tooltips, accessibility labels and error messages, must have both
+translations in the shared catalogue. Keep source project/person names, budget
+codes and imported descriptions intact; translate their surrounding interface.
+The local language preference must work without stored Odoo credentials and must
+not replace or expose other fields in the private configuration.
+
 ## Framework Updates
 
 The upstream framework creates project memory only when missing. This policy

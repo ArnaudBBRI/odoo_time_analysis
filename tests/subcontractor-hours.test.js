@@ -37,7 +37,7 @@ function loadDashboard() {
     return;
     ${bootstrap}`);
   const elements = new Map();
-  const context = {
+  const context = { DashboardI18n: require("./i18n-fixture"),
     document: {
       getElementById(id) {
         if (!elements.has(id)) elements.set(id, { classList: { toggle() {} } });
@@ -355,27 +355,27 @@ test("unknown employee functions remain included instead of being guessed from e
   assert.equal(actual.lines[0].employeeId, 33);
   assert.equal(entries(dashboard, actual)[0].value, 5);
   dashboard.state.projects = [actual];
-  assert.match(dashboard.buildSubcontractorHoursNote(), /unclassified hours remain included/);
+  assert.match(dashboard.buildSubcontractorHoursNote(), /les heures non classées restent incluses/);
 });
 
 test("scope notices distinguish classified, unknown, planning-role and workbook inputs", () => {
   const dashboard = loadDashboard();
   installDatasets(dashboard);
-  assert.match(dashboard.buildSubcontractorHoursNote(), /actual and planned hours are excluded/);
-  assert.doesNotMatch(dashboard.buildSubcontractorHoursNote(), /unclassified|workbook|restart/);
+  assert.match(dashboard.buildSubcontractorHoursNote(), /Les heures réalisées et prévues .* sont exclues/);
+  assert.doesNotMatch(dashboard.buildSubcontractorHoursNote(), /non classées|exports|Redémarrez/);
   const unknown = makeLine(4, 33, 5, false, "2025-10");
   unknown.subcontractorClassification = "unknown";
   dashboard.state.projects[0].sourceResult.lines.push(unknown);
-  assert.doesNotMatch(dashboard.buildSubcontractorHoursNote(), /unclassified/,
+  assert.doesNotMatch(dashboard.buildSubcontractorHoursNote(), /non classées/,
     "Records outside selected years must not create an unknown-function warning");
   unknown.date = "2026-10-05";
-  assert.match(dashboard.buildSubcontractorHoursNote(), /unclassified hours remain included/);
+  assert.match(dashboard.buildSubcontractorHoursNote(), /les heures non classées restent incluses/);
   dashboard.state.plans[0].sourceResult.slots[0].subcontractorClassification = "planning-role";
-  assert.match(dashboard.buildSubcontractorHoursNote(), /Planning roles are used/);
+  assert.match(dashboard.buildSubcontractorHoursNote(), /Les rôles du planning sont utilisés/);
   dashboard.state.projects.push({ source: "file", rows: [], months: [] });
-  assert.match(dashboard.buildSubcontractorHoursNote(), /functions are unavailable in workbook exports; their hours remain included/);
+  assert.match(dashboard.buildSubcontractorHoursNote(), /Les fonctions sont indisponibles dans les exports ; leurs heures restent incluses/);
   dashboard.setIncludeOrmittersHours(true);
-  assert.match(dashboard.buildSubcontractorHoursNote(), /actual and planned hours are included/);
+  assert.match(dashboard.buildSubcontractorHoursNote(), /Les heures réalisées et prévues .* sont incluses/);
 });
 
 test("legacy API summaries stay visible with an explicit refresh notice when role fields are unavailable", () => {
@@ -389,8 +389,8 @@ test("legacy API summaries stay visible with an explicit refresh notice when rol
   });
   dashboard.state.projects = [dashboard.buildProjectDatasetFromApi(data)];
   assert.equal(entries(dashboard, dashboard.state.projects[0])[0].value, 44);
-  assert.match(dashboard.buildSubcontractorHoursNote(), /restart (?:the )?server/i);
-  assert.match(dashboard.buildSubcontractorHoursNote(), /unclassified hours remain included/);
+  assert.match(dashboard.buildSubcontractorHoursNote(), /Redémarrez le serveur/i);
+  assert.match(dashboard.buildSubcontractorHoursNote(), /les heures non classées restent incluses/);
 });
 
 test("a stale API keeps unchanged totals for both checkbox states and leads with an honest unavailable notice", () => {
@@ -413,10 +413,10 @@ test("a stale API keeps unchanged totals for both checkbox states and leads with
     assert.equal(entries(dashboard, dashboard.state.personalPlan)[0].value, 90);
     assert.equal(entries(dashboard, dashboard.state.projects[0])[0].value, 44);
     const notice = dashboard.buildSubcontractorHoursNote();
-    assert.match(notice, /^Filter unavailable/i);
-    assert.match(notice, /all hours(?: in those datasets)? remain included/i);
-    assert.match(notice, /restart (?:the )?server/i);
-    assert.doesNotMatch(notice, /actual and planned hours are excluded/,
+    assert.match(notice, /^Filtre indisponible/i);
+    assert.match(notice, /leurs heures restent incluses/i);
+    assert.match(notice, /Redémarrez le serveur/i);
+    assert.doesNotMatch(notice, /Les heures réalisées et prévues .* sont exclues/,
       "A stale backend must never claim the filter was applied");
     assert.equal(dashboard.buildRemainingHoursScopeInfo().filteringAvailable, false);
   }
@@ -427,7 +427,7 @@ test("personal Remaining scope has no consultant delta while project and all-Dic
   const data = installDatasets(dashboard, syntheticExtraiFixtures());
   dashboard.state.dicoProjects = null;
   const personal = dashboard.buildRemainingHoursScopeInfo();
-  assert.match(personal.label, /Me/);
+  assert.match(personal.label, /^Moi · employé sélectionné$/);
   assert.equal(personal.filteringAvailable, true);
   assert.equal(personal.actualSubcontractorHours, 0);
   assert.equal(personal.plannedSubcontractorHours, 0);
@@ -440,7 +440,7 @@ test("personal Remaining scope has no consultant delta while project and all-Dic
   dashboard.state.dicoProjects = dashboard.buildDicoProjectListFromApi(data.dico);
   dashboard.state.hoursScope = "whole";
   const allDico = dashboard.buildRemainingHoursScopeInfo();
-  assert.match(allDico.label, /Whole Project.*all employees/i);
+  assert.match(allDico.label, /Tout le projet.*tous les employés/i);
   assert.equal(allDico.filteringAvailable, true);
   assert.equal(allDico.actualSubcontractorHours, 449);
   assert.equal(allDico.plannedSubcontractorHours, 100);
@@ -499,7 +499,7 @@ test("loaded empty employee summaries report zero consultant hours rather than a
     dashboard.renderRemainingHoursScope();
     assert.match(dashboard.els.remainingDataScope.textContent, /Regular employee/);
     assert.match(dashboard.els.remainingDataScope.textContent, /0/);
-    assert.doesNotMatch(dashboard.buildSubcontractorHoursNote(), /^Filter unavailable/i);
+    assert.doesNotMatch(dashboard.buildSubcontractorHoursNote(), /^Filtre indisponible/i);
   }
 });
 
@@ -556,8 +556,8 @@ test("Dico-only data renders the Remaining panel and its scope without personal 
   assert.equal(dashboard.els.employeeRemainingBlock.hidden, false);
   assert.equal(dashboard.els.employeeRemainingTableWrap.hidden, false);
   assert.match(dashboard.els.employeeRemainingTable.innerHTML, /Extrai mock/);
-  assert.match(dashboard.els.employeeRemainingMeta.textContent, /1 project/);
-  assert.match(dashboard.els.remainingDataScope.textContent, /Dico.*baseline.*all employees/i);
+  assert.match(dashboard.els.employeeRemainingMeta.textContent, /1 projet/);
+  assert.match(dashboard.els.remainingDataScope.textContent, /DiCo.*référence.*tous les employés/i);
   assert.match(dashboard.els.remainingDataScope.textContent, /449/);
 });
 

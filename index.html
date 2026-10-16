@@ -1513,6 +1513,11 @@
     .portfolio-label { font-size: 12px; color: var(--muted); }
     .portfolio-message { padding: 12px 16px; margin-bottom: 16px; background: var(--panel-soft); border-radius: 4px; line-height: 1.5; }
     select { font: inherit; padding: 12px; border: 1px solid var(--line); border-radius: 4px; background: white; max-width: 100%; }
+    .language-control { display: flex; align-items: center; gap: 7px; font-size: .8rem; }
+    .language-control select { padding: 7px 9px; min-height: 36px; }
+    .language-status { flex-basis: 100%; font-size: .72rem; color: var(--muted); text-align: right; }
+    .language-status:empty { display: none; }
+    .language-status[data-state="warning"] { color: #b45309; }
     [hidden] { display: none !important; }
   </style>
 </head>
@@ -1521,10 +1526,10 @@
     <div class="header-inner">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap">
         <a href="https://www.buildwise.be/fr/"><img src="/assets/buildwise-logo.svg" alt="Buildwise" width="235" height="27"></a>
-        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap"><span id="signedInEmail"></span><button id="logoutButton" class="secondary-button" type="button">Se déconnecter</button></div>
+        <div class="account-controls" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap"><span id="signedInEmail"></span><label class="language-control"><span data-i18n="shell.language.label">Langue</span><select id="languageSelect" aria-label="Langue" data-i18n-aria-label="shell.language.label"><option value="fr">FR</option><option value="nl">NL</option></select></label><button id="logoutButton" class="secondary-button" type="button"><span data-i18n="shell.se_deconnecter_ea36fa">Se déconnecter</span></button><span id="languageStatus" class="language-status" role="status" aria-live="polite"></span></div>
       </div>
       <div>
-        <h1>Mon temps</h1>
+        <h1><span data-i18n="shell.mon_temps_d78df9">Mon temps</span></h1>
       </div>
       <!--
       <div class="file-grid" aria-label="Workbook uploads">
@@ -1550,89 +1555,89 @@
   </header>
 
   <main>
-    <section class="dashboard-menu" aria-label="Navigation et période">
-    <nav id="pilotage-nav" class="pilotage-nav" aria-label="Navigation du dashboard">
-      <button type="button" data-view="time" aria-current="page">Mon temps</button>
-      <button type="button" data-view="projects">Projets</button>
-      <button type="button" data-view="unit-dico">Unité DiCo</button>
-      <button type="button" data-view="programmes">Programmes</button>
-      <button type="button" data-view="unit" disabled>Pilotage DiCo</button>
-      <button type="button" id="pilotage-my-projects" disabled>Mes projets comme responsable de projet</button>
+    <section class="dashboard-menu" aria-label="Navigation et période" data-i18n-aria-label="shell.aria.navigationPeriod">
+    <nav id="pilotage-nav" class="pilotage-nav" aria-label="Navigation du dashboard" data-i18n-aria-label="shell.aria.navigation">
+      <button type="button" data-view="time" aria-current="page"><span data-i18n="shell.mon_temps_d78df9">Mon temps</span></button>
+      <button type="button" data-view="projects"><span data-i18n="shell.projets_b1e8cd">Projets</span></button>
+      <button type="button" data-view="unit-dico"><span data-i18n="shell.unite_dico_8d3ce6">Unité DiCo</span></button>
+      <button type="button" data-view="programmes"><span data-i18n="shell.programmes_e3cbcd">Programmes</span></button>
+      <button type="button" data-view="unit" disabled><span data-i18n="shell.pilotage_dico_72f092">Pilotage DiCo</span></button>
+      <button type="button" id="pilotage-my-projects" disabled><span data-i18n="shell.mes_projets_comme_responsable_de_projet_db3681">Mes projets comme responsable de projet</span></button>
     </nav>
       <label id="hoursInclusionControl" class="hours-inclusion-control" hidden>
         <input id="includeOrmittersHours" type="checkbox" aria-describedby="subcontractorHoursNote">
-        <strong>Inclure les heures des Ormitters</strong>
+        <strong><span data-i18n="shell.inclure_les_heures_des_ormitters_d59db4">Inclure les heures des Ormitters</span></strong>
       </label>
-      <div id="hoursScopeControl" class="hours-scope-toggle" role="group" aria-label="Périmètre des heures" hidden>
-        <button id="hoursScopeMe" class="hours-scope-button" type="button" aria-pressed="true">Moi</button>
-        <button id="hoursScopeWhole" class="hours-scope-button" type="button" aria-pressed="false">Tout le projet</button>
+      <div id="hoursScopeControl" class="hours-scope-toggle" role="group" aria-label="Périmètre des heures" hidden data-i18n-aria-label="shell.aria.hoursScope">
+        <button id="hoursScopeMe" class="hours-scope-button" type="button" aria-pressed="true"><span data-i18n="shell.moi_3eb53a">Moi</span></button>
+        <button id="hoursScopeWhole" class="hours-scope-button" type="button" aria-pressed="false"><span data-i18n="shell.tout_le_projet_7fcda8">Tout le projet</span></button>
       </div>
-      <div id="filterBar" class="filter-bar" aria-label="Période sélectionnée">
+      <div id="filterBar" class="filter-bar" aria-label="Période sélectionnée" data-i18n-aria-label="common.selectedPeriod">
         <div class="filter-title">
-          <strong>Période</strong>
-          <span id="scopeText">Années disponibles</span>
+          <strong><span data-i18n="shell.periode_de2110">Période</span></strong>
+          <span id="scopeText"><span data-i18n="shell.annees_disponibles_c23cbd">Années disponibles</span></span>
         </div>
         <div id="yearChips" class="year-chips"></div>
         <div id="customDateControl" class="custom-date-control" hidden>
           <button id="customDateToggle" class="year-chip custom-date-toggle" type="button" aria-expanded="false" aria-pressed="false" aria-controls="customDatePanel">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4M17 3v4M3 11h18M7 15h3M14 15h3"/></svg>
-            Période personnalisée
+            <span data-i18n="shell.periode_personnalisee_46f80c">Période personnalisée</span>
           </button>
-          <div id="customDatePanel" class="custom-date-panel" role="group" aria-label="Période personnalisée" hidden>
+          <div id="customDatePanel" class="custom-date-panel" role="group" aria-label="Période personnalisée" hidden data-i18n-aria-label="shell.periode_personnalisee_46f80c">
             <div class="custom-date-fields">
-              <label>Du<input id="customDateStart" type="date" min="0001-01-01" max="9998-12-31" aria-describedby="customDateHelp customDateError"></label>
-              <label>Au<input id="customDateEnd" type="date" min="0001-01-01" max="9998-12-31" aria-describedby="customDateHelp customDateError"></label>
+              <label><span data-i18n="shell.du_848149">Du</span><input id="customDateStart" type="date" min="0001-01-01" max="9998-12-31" aria-describedby="customDateHelp customDateError"></label>
+              <label><span data-i18n="shell.au_7a1732">Au</span><input id="customDateEnd" type="date" min="0001-01-01" max="9998-12-31" aria-describedby="customDateHelp customDateError"></label>
             </div>
-            <p id="customDateHelp" class="custom-date-help">Les deux dates sont incluses. La période s’applique automatiquement.</p>
+            <p id="customDateHelp" class="custom-date-help"><span data-i18n="shell.les_deux_dates_sont_incluses_la_periode_s_applique_automatique_dd63eb">Les deux dates sont incluses. La période s’applique automatiquement.</span></p>
             <p id="customDateError" class="custom-date-error" role="status" aria-live="polite"></p>
-            <button id="customDateReset" class="year-chip custom-date-reset" type="button" hidden>Revenir aux années</button>
+            <button id="customDateReset" class="year-chip custom-date-reset" type="button" hidden><span data-i18n="shell.revenir_aux_annees_6e80ca">Revenir aux années</span></button>
           </div>
         </div>
       </div>
       <p id="hoursScopeStatus" class="hours-scope-status" aria-live="polite" hidden></p>
     </section>
-    <section id="personal-projects-view" hidden aria-label="Mes projets">
+    <section id="personal-projects-view" hidden aria-label="Mes projets" data-i18n-aria-label="shell.mes_projets_d3d45a">
       <div id="personalProjectsContent"></div>
     </section>
-    <section id="unit-dico-view" hidden aria-label="Unité DiCo">
+    <section id="unit-dico-view" hidden aria-label="Unité DiCo" data-i18n-aria-label="shell.unite_dico_8d3ce6">
       <div id="unitDicoContent"></div>
     </section>
-    <section id="programmes-view" hidden aria-label="Programmes">
+    <section id="programmes-view" hidden aria-label="Programmes" data-i18n-aria-label="shell.programmes_e3cbcd">
       <div id="programmesContent"></div>
       <div id="programmeProjectsContent"></div>
     </section>
     <p id="pilotage-activation" class="pilotage-note" role="status" hidden></p>
-    <section id="pilotage-view" hidden aria-label="Pilotage DiCo">
+    <section id="pilotage-view" hidden aria-label="Pilotage DiCo" data-i18n-aria-label="shell.pilotage_dico_72f092">
       <div class="panel pilotage-toolbar">
-        <div><h2 id="pilotage-title">Pilotage DiCo</h2><p id="pilotage-date"></p></div>
-        <button type="button" id="pilotage-refresh">Actualiser</button>
+        <div><h2 id="pilotage-title"><span data-i18n="shell.pilotage_dico_72f092">Pilotage DiCo</span></h2><p id="pilotage-date"></p></div>
+        <button type="button" id="pilotage-refresh"><span data-i18n="shell.actualiser_9d3b2a">Actualiser</span></button>
         <div class="pilotage-filters">
-          <label>Programme<select id="pilotage-programme"><option value="">Tous</option></select></label>
-          <label>Responsable<select id="pilotage-owner"><option value="">Tous</option></select></label>
-          <label>Statut<select id="pilotage-stage"><option value="">Tous</option></select></label>
-          <label>Période<select id="pilotage-period"><option value="">Toutes les périodes</option></select></label>
-          <label class="pilotage-checkbox"><input type="checkbox" id="pilotage-leader">Responsable de projet : moi</label>
+          <label><span data-i18n="shell.programme_8682d7">Programme</span><select id="pilotage-programme"><option value="" data-i18n="shell.tous_b97ae3">Tous</option></select></label>
+          <label><span data-i18n="shell.responsable_44b588">Responsable</span><select id="pilotage-owner"><option value="" data-i18n="shell.tous_b97ae3">Tous</option></select></label>
+          <label><span data-i18n="shell.statut_659499">Statut</span><select id="pilotage-stage"><option value="" data-i18n="shell.tous_b97ae3">Tous</option></select></label>
+          <label><span data-i18n="shell.periode_de2110">Période</span><select id="pilotage-period"><option value="" data-i18n="shell.toutes_les_periodes_a089c0">Toutes les périodes</option></select></label>
+          <label class="pilotage-checkbox"><input type="checkbox" id="pilotage-leader"><span data-i18n="shell.responsable_de_projet_moi_0e1c04">Responsable de projet : moi</span></label>
         </div>
-        <p class="pilotage-note">La période sélectionne les projets dont les dates recouvrent l’année. Les heures restent des cumuls projet / horizon disponible ; aucun historique des chargements n’est conservé.</p>
+        <p class="pilotage-note"><span data-i18n="shell.la_periode_selectionne_les_projets_dont_les_dates_recouvrent_l_bca8a8">La période sélectionne les projets dont les dates recouvrent l’année. Les heures restent des cumuls projet / horizon disponible ; aucun historique des chargements n’est conservé.</span></p>
       </div>
       <p id="pilotage-status" role="status" aria-live="polite"></p>
       <div id="pilotage-content"></div>
-      <section id="pilotage-detail" class="panel" hidden aria-label="Fiche projet"></section>
+      <section id="pilotage-detail" class="panel" hidden aria-label="Fiche projet" data-i18n-aria-label="shell.fiche_projet_83fd18"></section>
     </section>
     <div id="time-view" data-personal="true">
     <section id="personalTimeMacro" class="panel" aria-labelledby="personalTimeTitle">
       <div class="personal-macro-heading">
         <div>
-          <span class="personal-section-label">Mon temps · 01</span>
-          <h2 id="personalTimeTitle">Vue macro</h2>
-          <p class="personal-macro-description">Mes projets sur la période sélectionnée. Chaque part représente les heures prévues ; sa zone colorée montre les heures réalisées à ce jour.</p>
+          <span class="personal-section-label"><span data-i18n="shell.mon_temps_01_0579d2">Mon temps · 01</span></span>
+          <h2 id="personalTimeTitle"><span data-i18n="shell.vue_macro_cf2c0d">Vue macro</span></h2>
+          <p class="personal-macro-description"><span data-i18n="shell.mes_projets_sur_la_periode_selectionnee_chaque_part_represente_274b3a">Mes projets sur la période sélectionnée. Chaque part représente les heures prévues ; sa zone colorée montre les heures réalisées à ce jour.</span></p>
         </div>
         <form id="timesheetDebugForm" class="personal-macro-actions">
           <span id="leadUnitName" hidden></span>
-          <button id="fetchTeamProjects" class="secondary-button" type="submit">Actualiser</button>
+          <button id="fetchTeamProjects" class="secondary-button" type="submit"><span data-i18n="shell.actualiser_9d3b2a">Actualiser</span></button>
         </form>
       </div>
-      <p id="personalTimeStatus" role="status" aria-live="polite">Chargement de mes heures…</p>
+      <p id="personalTimeStatus" role="status" aria-live="polite"><span data-i18n="shell.chargement_de_mes_heures_c9425f">Chargement de mes heures…</span></p>
       <div id="personalTimeRecommendations" hidden></div>
       <div id="personalTimeCapacity" hidden></div>
       <div id="personalTimeContent"></div>
@@ -1640,25 +1645,25 @@
     <p id="statusText" class="portfolio-message" role="alert" hidden></p>
     <p id="timesheetDebugStatus" class="portfolio-message" role="status" aria-live="polite" hidden></p>
 
-    <section id="subcontractorNotePanel" class="panel" aria-label="Hours included in the dashboard" hidden>
-      <p id="subcontractorHoursNote" class="remaining-help" aria-live="polite">AI Consultant and AI Consultant Ormit actual and planned hours are excluded from hour totals and budget consumption.</p>
+    <section id="subcontractorNotePanel" class="panel" aria-label="Hours included in the dashboard" hidden data-i18n-aria-label="shell.aria.includedHours">
+      <p id="subcontractorHoursNote" class="remaining-help" aria-live="polite"><span data-i18n="shell.ai_consultant_and_ai_consultant_ormit_actual_and_planned_hours_0a818e">Les heures réalisées et prévues des AI Consultant et AI Consultant Ormit sont exclues des totaux d’heures et de la consommation du budget.</span></p>
     </section>
 
-    <section id="kpiGrid" class="kpis" aria-label="Summary metrics">
+    <section id="kpiGrid" class="kpis" aria-label="Summary metrics" data-i18n-aria-label="shell.aria.metrics">
       <div class="kpi">
-        <span id="overviewHoursLabel">Portfolio actual hours</span>
+        <span id="overviewHoursLabel"><span data-i18n="shell.portfolio_actual_hours_406985">Heures réalisées du portefeuille</span></span>
         <strong id="myHours">0</strong>
       </div>
       <div class="kpi">
-        <span id="overviewProjectsLabel">Owned projects</span>
+        <span id="overviewProjectsLabel"><span data-i18n="shell.owned_projects_ad67f8">Projets de l’unité</span></span>
         <strong id="myProjectCount">0</strong>
       </div>
       <div class="kpi">
-        <span>Selected project hours</span>
+        <span><span data-i18n="shell.selected_project_hours_80de5f">Heures du projet sélectionné</span></span>
         <strong id="projectHours">0</strong>
       </div>
       <div class="kpi">
-        <span>Selected project employees</span>
+        <span><span data-i18n="shell.selected_project_employees_7894c7">Employés du projet sélectionné</span></span>
         <strong id="employeeCount">0</strong>
       </div>
     </section>
@@ -1666,49 +1671,49 @@
     <section id="employeePanel" class="panel" hidden>
       <div class="panel-head">
         <div>
-          <h2 id="employeePanelTitle">Suivi par projet</h2>
+          <h2 id="employeePanelTitle"><span data-i18n="shell.suivi_par_projet_b8c72c">Suivi par projet</span></h2>
         </div>
         <div id="employeeMeta" class="panel-meta"></div>
       </div>
       <div class="employee-chart">
         <div id="legacyOverviewPies" class="employee-pie-grid" hidden>
           <div id="employeeActualBlock" class="employee-pie-block">
-            <h3>Portfolio actual time</h3>
+            <h3><span data-i18n="shell.portfolio_actual_time_9a8cb7">Temps réalisé du portefeuille</span></h3>
             <div class="pie-wrap">
-              <canvas id="employeePie" class="chart-canvas" aria-label="My actual project time pie chart"></canvas>
+              <canvas id="employeePie" class="chart-canvas" aria-label="My actual project time pie chart" data-i18n-aria-label="shell.aria.actualPie"></canvas>
               <div id="employeeLegend" class="legend"></div>
             </div>
           </div>
           <div id="employeePlanBlock" class="employee-pie-block" hidden>
-            <h3>Planned time (selected year scope)</h3>
+            <h3><span data-i18n="shell.planned_time_selected_year_scope_0ba8e9">Temps prévu sur les années sélectionnées</span></h3>
             <div class="pie-wrap">
-              <canvas id="employeePlanPie" class="chart-canvas" aria-label="My planned project time pie chart"></canvas>
+              <canvas id="employeePlanPie" class="chart-canvas" aria-label="My planned project time pie chart" data-i18n-aria-label="shell.aria.plannedPie"></canvas>
               <div id="employeePlanLegend" class="legend"></div>
             </div>
           </div>
         </div>
         <div id="employeeRemainingBlock" class="remaining-block" hidden>
           <div class="remaining-head">
-            <h3>Remaining hours by project</h3>
+            <h3><span data-i18n="shell.remaining_hours_by_project_223f77">Heures restantes par projet</span></h3>
             <span id="employeeRemainingMeta" class="panel-meta"></span>
           </div>
           <p id="remainingDataScope" class="remaining-help" aria-live="polite"></p>
-          <p class="remaining-help">Bars compare foreseen and actual hours through today in the selected years. Actual is green within 10%, orange above 10% through 25%, and red above 25% deviation in either direction. Click a project name for more info.</p>
-          <p id="remainingComparisonNote" class="remaining-help" hidden>Monthly exports: foreseen hours are prorated through today; actual hours use the reported totals through the current month.</p>
+          <p class="remaining-help"><span data-i18n="shell.bars_compare_foreseen_and_actual_hours_through_today_in_the_se_407718">Les barres comparent le prévu et le réalisé à ce jour sur les années sélectionnées. Vert jusqu’à 10 %, orange au-delà de 10 % et jusqu’à 25 %, rouge au-delà de 25 % d’écart dans les deux sens. Cliquez sur un projet pour le détail.</span></p>
+          <p id="remainingComparisonNote" class="remaining-help" hidden><span data-i18n="shell.monthly_exports_foreseen_hours_are_prorated_through_today_actu_0a974f">Exports mensuels : le prévu est calculé au prorata jusqu’à aujourd’hui ; le réalisé reprend les totaux jusqu’au mois en cours.</span></p>
           <div class="dico-project-prompt">
-            <span>Want to see all projects with Dico as responsible Unit?</span>
-            <button id="fetchDicoProjects" class="secondary-button" type="button">Yes</button>
+            <span><span data-i18n="shell.want_to_see_all_projects_with_dico_as_responsible_unit_1ecf7c">Afficher tous les projets dont l’unité responsable est DiCo ?</span></span>
+            <button id="fetchDicoProjects" class="secondary-button" type="button"><span data-i18n="shell.yes_5397e0">Oui</span></button>
           </div>
           <div id="employeeRemainingEmpty" class="remaining-empty" hidden></div>
           <div id="employeeRemainingTableWrap" class="remaining-table-wrap">
             <table class="remaining-table">
               <thead id="employeeRemainingTableHead">
                 <tr>
-                  <th>Project</th>
-                  <th class="number">Actual</th>
-                  <th class="number">Planned</th>
-                  <th class="number">Remaining</th>
-                  <th>Hours through today</th>
+                  <th><span data-i18n="shell.project_f6f4da">Projet</span></th>
+                  <th class="number"><span data-i18n="shell.actual_7bb2ee">Réalisé</span></th>
+                  <th class="number"><span data-i18n="shell.planned_9cbe42">Prévu</span></th>
+                  <th class="number"><span data-i18n="shell.remaining_cc632b">Restant</span></th>
+                  <th><span data-i18n="shell.hours_through_today_afa8f7">Heures à ce jour</span></th>
                 </tr>
               </thead>
               <tbody id="employeeRemainingTable"></tbody>
@@ -1718,16 +1723,24 @@
       </div>
     </section>
 
-    <h2 id="projectDetailTitle" hidden>Fiche projet</h2>
+    <h2 id="projectDetailTitle" hidden><span data-i18n="shell.fiche_projet_83fd18">Fiche projet</span></h2>
     <section id="projectList" class="project-list" aria-labelledby="projectDetailTitle" hidden></section>
 
     <section id="emptyState" class="panel empty-state">
-      <strong>Mes projets</strong>
-      <p>Les heures de votre compte Odoo se chargent automatiquement.</p>
+      <strong><span data-i18n="shell.mes_projets_d3d45a">Mes projets</span></strong>
+      <p><span data-i18n="shell.les_heures_de_votre_compte_odoo_se_chargent_automatiquement_20ad3b">Les heures de votre compte Odoo se chargent automatiquement.</span></p>
     </section>
     </div>
   </main>
 
+  <script src="/i18n.js"></script>
+  <script src="/i18n-core-messages.js"></script>
+  <script src="/i18n-shell-messages.js"></script>
+  <script src="/i18n-server-messages.js"></script>
+  <script src="/i18n-steering-messages.js"></script>
+  <script src="/i18n-project-messages.js"></script>
+  <script src="/i18n-timeline-messages.js"></script>
+  <script src="/language-client.js"></script>
   <script src="/personal-time.js"></script>
   <script src="/work-capacity.js"></script>
   <script src="/personal-capacity.js"></script>
@@ -1742,17 +1755,20 @@
     (() => {
       "use strict";
 
+      const I18n = globalThis.DashboardI18n;
+      const t = (key, params) => I18n.t(key, params);
+
       const CHART_COLORS = [
         "#0f766e", "#c75f4c", "#4556b2", "#a87618", "#7b3f8c", "#2f855a",
         "#c05621", "#2b6cb0", "#b83280", "#718096", "#b7791f", "#00838f",
         "#9f1239", "#4c51bf", "#2c7a7b", "#805ad5", "#b45309", "#047857"
       ];
       const BUDGET_BAR_SERIES = [
-        { key: "budgeted", label: "Budgeted", color: "#4556b2" },
-        { key: "engaged", label: "Consumed + ordered + review", color: "#a87618" },
-        { key: "consumed", label: "Consumed", color: "#0f766e" },
-        { key: "ordered", label: "Ordered", color: "#c75f4c" },
-        { key: "underReview", label: "Under review", color: "#718096" }
+        { key: "budgeted", get label() { return t("shell.budgeted_361859"); }, color: "#4556b2" },
+        { key: "engaged", get label() { return t("shell.consumed_ordered_review_9cde30"); }, color: "#a87618" },
+        { key: "consumed", get label() { return t("shell.consumed_cf1270"); }, color: "#0f766e" },
+        { key: "ordered", get label() { return t("shell.ordered_c9dd3b"); }, color: "#c75f4c" },
+        { key: "underReview", get label() { return t("shell.under_review_7e3e17"); }, color: "#718096" }
       ];
       const CURRENT_YEAR = new Date().getFullYear();
       const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -1808,6 +1824,9 @@
         personalProjectExcludeOrmitterCosts: new Map(),
         personalProjectShowBwPersonnelCosts: new Map(),
         personalProjectOrmitters: new Map(),
+        personalProjectIgnoredEmployees: new Map(),
+        projectCalendarView: "full",
+        focusCalendarView: null,
         personalProjectMonthlyMode: new Map(),
         personalProjectMonthlyEmployee: new Map(),
         personalProjectPlannedMonthlyEmployee: new Map(),
@@ -1918,10 +1937,51 @@
         }
         return response;
       };
-      loadSessionIdentity();
-      fetchPersonalTime();
+      (window.DashboardLanguage?.ready || Promise.resolve()).then(() => {
+        applyDashboardLanguage();
+        loadSessionIdentity();
+        fetchPersonalTime();
+      });
       initializeCustomDateRangeControls();
       window.addEventListener("dashboard:viewchange", handleDashboardViewChange);
+      window.addEventListener("dashboard:languagechange", applyDashboardLanguage);
+
+      function applyDashboardLanguage() {
+        window.DashboardLanguage?.applyStatic();
+        // Only application status/error nodes participate in message resolution.
+        // Repaint existing feedback without validating or applying a date scope.
+        for (const element of [els.customDateError, els.timesheetDebugStatus, els.statusText]) {
+          if (element) element.textContent = I18n.message(element.textContent);
+        }
+        const title = state.dashboardView === "time" ? t("common.myTime") :
+          I18n.message(({ projects: "Projets", "unit-dico": "Unité DiCo", programmes: "Programmes" })[state.dashboardView] || "Pilotage DiCo");
+        document.title = `${title} · ${t("shell.page.dashboard")}`;
+        renderYearFilters();
+        renderPersonalTimeMacro();
+        renderProgrammes();
+        renderPersonalProjects();
+      }
+
+      function setProjectCalendarView(view) {
+        if (!["full", "near"].includes(view) || view === state.projectCalendarView) return;
+        state.projectCalendarView = view;
+        state.focusCalendarView = view;
+        renderPersonalProjects();
+      }
+
+      function setPersonalProjectEmployeeInclusion(employeeId, included) {
+        const id = getSelectedDetailProjectId();
+        if (id == null || typeof included !== "boolean") return;
+        const key = String(id), result = state.personalProjectHoursCache.get(key)?.result;
+        if (!result || !getDetailProjectCatalogue().some(project => String(project.id) === key)) return;
+        const employeeKey = String(employeeId);
+        const summary = summarizePersonalProjectHours(result, false);
+        if (!summary?.employees?.some(employee => String(employee.id) === employeeKey)) return;
+        const ignored = new Set(state.personalProjectIgnoredEmployees.get(key) || []);
+        if (included) ignored.delete(employeeKey); else ignored.add(employeeKey);
+        state.personalProjectIgnoredEmployees.set(key, ignored);
+        renderPersonalProjects();
+      }
 
       function handleDashboardViewChange(event) {
         if (state.dashboardView !== event.detail.view) {
@@ -1951,7 +2011,7 @@
       document.getElementById("logoutButton").addEventListener("click", async () => {
         try {
           const response = await fetch("/api/auth/logout", { method: "POST" });
-          if (!response.ok) throw new Error("Sign-out failed. Please try again.");
+          if (!response.ok) throw new Error(t("shell.sign_out_failed_please_try_again_9ff6e0"));
           window.location.replace("/login");
         } catch (error) { setTimesheetDebugStatus(error.message, "warn"); }
       });
@@ -2042,7 +2102,7 @@
         renderPersonalTimeMacro();
         renderPersonalProjects();
         try {
-          const result = await postOdooJson("/api/odoo/my-time", {}, "Mes heures");
+          const result = await postOdooJson("/api/odoo/my-time", {}, t("shell.mes_heures_c43969"));
           if (token !== state.personalTimeFetchToken) return;
           state.personalTimeResult = result;
           state.personalProjectHoursGeneration += 1;
@@ -2078,7 +2138,7 @@
           render();
         } catch (error) {
           if (token !== state.personalTimeFetchToken) return;
-          state.personalTimeError = "La lecture de mes heures est indisponible avec vos accès Odoo. Réessayez.";
+          state.personalTimeError = t("shell.la_lecture_de_mes_heures_est_indisponible_avec_vos_acces_odoo__670327");
         } finally {
           if (token === state.personalTimeFetchToken) {
             state.personalTimeLoading = false;
@@ -2096,9 +2156,9 @@
       function renderPersonalTimeMacro() {
         if (typeof window === "undefined" || !window.PersonalTime || !els.personalTimeContent) return;
         const messages = [];
-        if (state.personalTimeLoading) messages.push("Chargement de mes heures…");
-        if (state.personalTimeError) messages.push(state.personalTimeError);
-        if (state.personalTimeResult?.planningError) messages.push("Le planning est indisponible. Les heures réalisées restent affichées dans la liste.");
+        if (state.personalTimeLoading) messages.push(t("shell.chargement_de_mes_heures_c9425f"));
+        if (state.personalTimeError) messages.push(I18n.message(state.personalTimeError));
+        if (state.personalTimeResult?.planningError) messages.push(t("shell.le_planning_est_indisponible_les_heures_realisees_restent_affi_11c82c"));
         els.personalTimeStatus.textContent = messages.join(" ");
         els.personalTimeContent.setAttribute("aria-busy", String(state.personalTimeLoading));
         renderPersonalRecommendations();
@@ -2133,12 +2193,12 @@
 
       async function fetchPersonalCapacity(years, key, entry, generation) {
         try {
-          const result = await postOdooJson("/api/odoo/my-work-capacity", { years }, "Capacité de travail");
+          const result = await postOdooJson("/api/odoo/my-work-capacity", { years }, t("shell.capacite_de_travail_d3ffdd"));
           if (generation !== state.personalCapacityGeneration || state.personalCapacityCache.get(key) !== entry) return;
           entry.result = result;
         } catch (_) {
           if (generation !== state.personalCapacityGeneration || state.personalCapacityCache.get(key) !== entry) return;
-          entry.error = "Le calendrier de travail ou les droits annuels sont indisponibles avec vos accès Odoo.";
+          entry.error = t("shell.le_calendrier_de_travail_ou_les_droits_annuels_sont_indisponib_b7a74c");
         } finally {
           if (generation === state.personalCapacityGeneration && state.personalCapacityCache.get(key) === entry) {
             entry.loading = false;
@@ -2171,7 +2231,7 @@
           ? projects.reduce((sum, project) => sum + project.planned, 0) : null };
         window.PersonalCapacity.render(container, model, {
           loading: Boolean(state.personalTimeLoading || entry?.loading),
-          error: entry?.error || (!years.length || years.length > 30 ? "Choisissez une période couvrant au maximum 30 années." : "")
+          error: entry?.error || (!years.length || years.length > 30 ? t("shell.choisissez_une_periode_couvrant_au_maximum_30_annees_758ded") : "")
         });
       }
 
@@ -2257,12 +2317,12 @@
         state.programmeProjectsCache.set(id, entry);
         if (state.dashboardView === "programmes" && state.selectedProgrammeId === id) renderPersonalProjects();
         try {
-          const result = await postOdooJson("/api/odoo/programme-projects", { programmeId: id }, "Projets du programme");
+          const result = await postOdooJson("/api/odoo/programme-projects", { programmeId: id }, t("shell.projets_du_programme_e4c13a"));
           if (state.programmeProjectsCache.get(id) !== entry) return;
           if (result.programme?.id !== id || !Array.isArray(result.projects) ||
             result.projects.some(project => !Number.isSafeInteger(project.id) || project.id <= 0) ||
             new Set(result.projects.map(project => project.id)).size !== result.projects.length) {
-            throw new Error("Les projets reçus ne correspondent pas au programme sélectionné.");
+            throw new Error(t("shell.les_projets_recus_ne_correspondent_pas_au_programme_selectionn_9488c8"));
           }
           entry.result = result;
           if (force && state.dashboardView === "programmes" && state.selectedProgrammeId === id) {
@@ -2276,7 +2336,7 @@
           }
         } catch (_) {
           if (state.programmeProjectsCache.get(id) !== entry) return;
-          entry.error = "Les projets de ce programme sont indisponibles avec vos accès Odoo. Réessayez.";
+          entry.error = t("shell.les_projets_de_ce_programme_sont_indisponibles_avec_vos_acces__893689");
         } finally {
           if (state.programmeProjectsCache.get(id) === entry) {
             entry.loading = false;
@@ -2300,7 +2360,7 @@
           state.programmeResult = { programmes: window.ProgrammeBrowser.normalizeCatalogue(result) };
         } catch (error) {
           if (token !== state.programmeFetchToken) return;
-          state.programmeError = "Les portraits des responsables sont indisponibles. Réessayez.";
+          state.programmeError = t("shell.les_portraits_des_responsables_sont_indisponibles_reessayez_e4a29a");
         } finally {
           if (token === state.programmeFetchToken) {
             state.programmeLoading = false;
@@ -2316,11 +2376,11 @@
         state.unitDicoError = "";
         renderPersonalProjects();
         try {
-          const result = await postOdooJson("/api/odoo/unit-dico-projects", {}, "Projets Unité DiCo");
+          const result = await postOdooJson("/api/odoo/unit-dico-projects", {}, t("shell.projets_unite_dico_c98fae"));
           if (token !== state.unitDicoFetchToken) return;
           if (result.unit?.id !== 206 || result.responsibleField !== "lead_unit_id" || !Array.isArray(result.projects) ||
             result.projects.some(project => !Number.isSafeInteger(project.id) || project.id <= 0)) {
-            throw new Error("Les projets reçus ne correspondent pas à l’unité DiCo attendue.");
+            throw new Error(t("shell.les_projets_recus_ne_correspondent_pas_a_l_unite_dico_attendue_d34b60"));
           }
           state.unitDicoResult = result;
           if (force) {
@@ -2334,7 +2394,7 @@
           if (token !== state.unitDicoFetchToken) return;
           state.unitDicoResult = null;
           state.selectedUnitProjectId = null;
-          state.unitDicoError = "Les projets de l’unité DiCo sont indisponibles avec vos accès Odoo. Réessayez.";
+          state.unitDicoError = t("shell.les_projets_de_l_unite_dico_sont_indisponibles_avec_vos_acces__306c4c");
         } finally {
           if (token === state.unitDicoFetchToken) {
             state.unitDicoLoading = false;
@@ -2373,24 +2433,28 @@
         if ((unitView || programmeView) && getSelectedDetailProjectId() == null) {
           window.ProjectBrowser.cleanup?.(container);
           window.UnitDico?.render(container, programmeView ? catalogue?.result : state.unitDicoResult, {
+            calendarView: state.projectCalendarView,
+            onCalendarViewChange: setProjectCalendarView,
+            focusCalendarView: state.focusCalendarView,
             loading: programmeView ? catalogue?.loading : state.unitDicoLoading,
             error: programmeView ? catalogue?.error : state.unitDicoError,
             ...(programmeView ? {
-              projectsHeading: `${programme.code} · 01 / Projets · ${programme.subtitle}`,
-              caption: "Liste de projets associée à ce programme, sur leur durée totale. Affectation définie dans le dashboard ; accès Odoo respectés.",
-              legend: `Choisir un projet ${programme.code}`, radioName: "programme-project",
-              loadingMessage: `Chargement des projets ${programme.code}…`,
-              unavailableMessage: `Les projets ${programme.code} sont indisponibles.`,
-              emptyMessage: `Aucun projet ${programme.code} accessible.`,
-              heading: `${programme.code} · 02 / Calendrier des projets`,
-              regionLabel: `Calendrier de durée des projets ${programme.code}, défilement horizontal disponible`,
-              concurrencyHeading: `${programme.code} · 03 / Projets simultanés`
+              projectsHeading: t("shell.p0_01_projets_p1_ea8575", { p0: programme.code, p1: programme.subtitle }),
+              caption: t("shell.liste_de_projets_associee_a_ce_programme_sur_leur_duree_totale_ec964a"),
+              legend: t("shell.choisir_un_projet_p0_4a8d0c", { p0: programme.code }), radioName: "programme-project",
+              loadingMessage: t("shell.chargement_des_projets_p0_a37393", { p0: programme.code }),
+              unavailableMessage: t("shell.les_projets_p0_sont_indisponibles_0dc013", { p0: programme.code }),
+              emptyMessage: t("shell.aucun_projet_p0_accessible_1bd8c1", { p0: programme.code }),
+              heading: t("shell.p0_02_calendrier_des_projets_452e6c", { p0: programme.code }),
+              regionLabel: t("shell.calendrier_de_duree_des_projets_p0_defilement_horizontal_dispo_16a508", { p0: programme.code }),
+              concurrencyHeading: t("shell.p0_03_projets_simultanes_8ac0ba", { p0: programme.code })
             } : {}),
             onRetry: () => programmeView ? fetchProgrammeProjects(programme.id, true) : fetchUnitDicoProjects(true),
             onRefresh: () => programmeView ? fetchProgrammeProjects(programme.id, true) : fetchUnitDicoProjects(true),
             onSelect: choosePersonalProject, focusProjectId: state.focusPersonalProjectId
           });
           state.focusPersonalProjectId = null;
+          state.focusCalendarView = null;
           state.focusPersonalProjectDetail = false;
           updatePersonalProjectFilterVisibility();
           return;
@@ -2416,6 +2480,9 @@
         window.ProjectBrowser.render(container, {
           projects,
           timelineRenderer: window.UnitDico,
+          calendarView: state.projectCalendarView,
+          onCalendarViewChange: setProjectCalendarView,
+          focusCalendarView: state.focusCalendarView,
           selectedId: getSelectedDetailProjectId(),
           loading: unitView ? state.unitDicoLoading : programmeView ? catalogue?.loading : state.personalTimeLoading,
           error: unitView ? state.unitDicoError : programmeView ? catalogue?.error : state.personalTimeError,
@@ -2443,6 +2510,7 @@
             }) : null,
             monthlyEmployeeId,
             plannedMonthlyEmployeeId,
+            ignoredEmployeeIds: state.personalProjectIgnoredEmployees.get(projectKey) || new Set(),
             monthlyMode: state.personalProjectMonthlyMode.get(String(getSelectedDetailProjectId())) || "monthly",
             monthlyRevealKey: state.personalProjectMonthlyReveal.get(String(getSelectedDetailProjectId())) || 0,
             loading: hours?.loading ?? !hours?.error,
@@ -2460,12 +2528,14 @@
           onExcludeOrmitterCostsChange: setPersonalProjectExcludeOrmitterCosts,
           onShowBwPersonnelCostsChange: setPersonalProjectShowBwPersonnelCosts,
           onIncludeOrmittersChange: setPersonalProjectOrmitters,
+          onEmployeeInclusionChange: setPersonalProjectEmployeeInclusion,
           onMonthlyModeChange: setPersonalProjectMonthlyMode,
           onMonthlyEmployeeChange: setPersonalProjectMonthlyEmployee,
           onPlannedMonthlyEmployeeChange: setPersonalProjectPlannedMonthlyEmployee,
           onRetry: () => loadPersonalProjectHours(getSelectedDetailProjectId(), true)
         });
         state.focusPersonalProjectDetail = false;
+        state.focusCalendarView = null;
         state.focusPersonalProjectId = null;
         updatePersonalProjectFilterVisibility();
       }
@@ -2545,14 +2615,14 @@
         const records = [...lines, ...slots];
         const warnings = [];
         if (records.some(record => !record.subcontractorClassification || record.subcontractorClassification === "unknown")) {
-          warnings.push("Certaines fonctions sont inconnues ; leurs heures restent incluses.");
+          warnings.push(t("shell.certaines_fonctions_sont_inconnues_leurs_heures_restent_inclus_b32de3"));
         }
         if (records.some(record => record.subcontractorClassification === "planning-role")) {
-          warnings.push("Certaines fonctions sont déterminées à partir du rôle de planning.");
+          warnings.push(t("shell.certaines_fonctions_sont_determinees_a_partir_du_role_de_plann_a6c821"));
         }
         if (!personal && (result.warnings || []).some(warning => typeof warning === "string" &&
           (warning.startsWith("Project assignments are unavailable") || warning.startsWith("Project assignment functions are unavailable")))) {
-          warnings.push("Certaines affectations ou fonctions sont indisponibles ; la présence d’Ormitters peut être incomplète.");
+          warnings.push(t("shell.certaines_affectations_ou_fonctions_sont_indisponibles_la_pres_8fc628"));
         }
         const totals = { planned: summary?.planned ?? (knownPlan ? 0 : null), actual: summary?.actual ?? 0, warnings };
         if (!personal) {
@@ -2569,7 +2639,7 @@
             if (!groups.has(id)) {
               const metadata = employeeId ? byEmployee.get(String(employeeId)) : byResource.get(String(resourceId));
               groups.set(id, { id, employeeId, resourceId,
-                name: String(metadata?.name || line.employee || "Employé non identifié"),
+                name: String(I18n.displayName(metadata) || line.employee || t("shell.employe_non_identifie_753dcb")),
                 photoDataUrl: metadata?.photoDataUrl || null,
                 isSubcontractor: line.isSubcontractor === true, lines: [] });
             }
@@ -2606,7 +2676,7 @@
         const current = new Date(now);
         if (!startDate || !endDate || startDate > endDate || !Number.isFinite(current.getTime())) {
           return { planned, budgetStatus, actual: null, employees: [], startDate, endDate, calendarFraction: null,
-            warnings: ["Période du projet indisponible. Demandez au MIS de vérifier les dates de début et de fin."] };
+            warnings: [t("shell.periode_du_projet_indisponible_demandez_au_mis_de_verifier_les_969973")] };
         }
         const todayParts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
           timeZone: "Europe/Brussels", year: "numeric", month: "2-digit", day: "2-digit"
@@ -2708,15 +2778,15 @@
         state.personalProjectHoursCache.set(key, entry);
         renderPersonalProjects();
         try {
-          const result = await postOdooJson("/api/odoo/project-hours", { projectId: Number(id) }, "Heures du projet");
+          const result = await postOdooJson("/api/odoo/project-hours", { projectId: Number(id) }, t("shell.heures_du_projet_5269fb"));
           if (generation !== state.personalProjectHoursGeneration) return;
           if (Number(result.project?.id) !== Number(id) || !Array.isArray(result.timesheets?.lines)) {
-            throw new Error("Les heures reçues ne correspondent pas au projet sélectionné.");
+            throw new Error(t("shell.les_heures_recues_ne_correspondent_pas_au_projet_selectionne_dfd2fe"));
           }
           entry.result = result;
         } catch (error) {
           if (generation !== state.personalProjectHoursGeneration) return;
-          entry.error = "Les heures du projet sont indisponibles avec vos accès Odoo. Réessayez.";
+          entry.error = t("shell.les_heures_du_projet_sont_indisponibles_avec_vos_acces_odoo_re_f7978e");
         } finally {
           if (generation === state.personalProjectHoursGeneration) {
             entry.loading = false;
@@ -2742,11 +2812,11 @@
         state.personalProjectFinanceCache.set(key, entry);
         renderPersonalProjects();
         try {
-          const result = await postOdooJson("/api/odoo/project-finance", { projectId: Number(id) }, "Budget du projet");
+          const result = await postOdooJson("/api/odoo/project-finance", { projectId: Number(id) }, t("shell.budget_du_projet_0be885"));
           if (generation !== state.personalProjectFinanceGeneration) return;
           if (Number(result.project?.id) !== Number(id) || !Array.isArray(result.conventions) ||
             !Array.isArray(result.annual) || !result.lifetime || !result.macro) {
-            throw new Error("Le budget reçu ne correspond pas au projet sélectionné.");
+            throw new Error(t("shell.le_budget_recu_ne_correspond_pas_au_projet_selectionne_d073d3"));
           }
           entry.result = result;
           const selectedConvention = state.personalProjectConvention.get(key);
@@ -2755,7 +2825,7 @@
           }
         } catch (error) {
           if (generation !== state.personalProjectFinanceGeneration) return;
-          entry.error = "Le budget du projet est indisponible avec vos accès Odoo. Réessayez.";
+          entry.error = t("shell.le_budget_du_projet_est_indisponible_avec_vos_acces_odoo_reess_81c088");
         } finally {
           if (generation === state.personalProjectFinanceGeneration) {
             entry.loading = false;
@@ -2784,12 +2854,12 @@
         const payload = { employeeName: els.timesheetEmployeeName?.value?.trim() || state.employee?.employeeName || "" };
 
         if (!payload.employeeName) {
-          setTimesheetDebugStatus("Enter an employee name.", "warn");
+          setTimesheetDebugStatus(t("shell.enter_an_employee_name_b82185"), "warn");
           els.timesheetEmployeeName.focus();
           return;
         }
 
-        setTimesheetDebugStatus("Fetching timesheets and planning...", "warn");
+        setTimesheetDebugStatus(t("shell.fetching_timesheets_and_planning_64135a"), "warn");
         state.hoursCacheGeneration += 1;
         state.projectFetchToken += 1;
         state.projectHoursCache.clear();
@@ -2800,8 +2870,8 @@
 
         try {
           const [timesheetFetch, planningFetch] = await Promise.allSettled([
-            postOdooJson("/api/odoo/employee-timesheets", payload, "Timesheet fetch"),
-            postOdooJson("/api/odoo/employee-planning", payload, "Planning fetch")
+            postOdooJson("/api/odoo/employee-timesheets", payload, t("shell.timesheet_fetch_27f796")),
+            postOdooJson("/api/odoo/employee-planning", payload, t("shell.planning_fetch_924381"))
           ]);
 
           if (overviewFetchGeneration !== state.hoursCacheGeneration) return;
@@ -2857,17 +2927,17 @@
           render();
           if (state.hoursScope === "whole") await ensureWholeProjectHours();
           const planningStatus = planningError
-            ? `planning failed: ${planningError}`
-            : `${planningResult.slotCount} planning slots, ${formatHours(planningResult.totalHours)} h fetched, ${formatHours(planChartHours)} h in selected year scope`;
+            ? t("shell.planning_failed_p0_31e250", { p0: planningError })
+            : t("shell.p0_planning_slots_p1_h_fetched_p2_h_in_selected_year_scope_da9c84", { p0: planningResult.slotCount, p1: formatHours(planningResult.totalHours), p2: formatHours(planChartHours) });
           setTimesheetDebugStatus(
-            `${result.lineCount} timesheet lines, ${formatHours(result.totalHours)} h fetched, ${formatHours(chartHours)} h charted; ${planningStatus}`,
+            t("shell.p0_timesheet_lines_p1_h_fetched_p2_h_charted_p3_a186bc", { p0: result.lineCount, p1: formatHours(result.totalHours), p2: formatHours(chartHours), p3: planningStatus }),
             planningError ? "warn" : "ok"
           );
 
         } catch (error) {
           const unavailable = error instanceof TypeError;
           const message = unavailable
-            ? "Connector unavailable. Run node server.js, then open the local URL."
+            ? t("shell.connector_unavailable_run_node_server_js_then_open_the_local_u_26175a")
             : error.message;
           setTimesheetDebugStatus(message, "warn");
 
@@ -2880,11 +2950,11 @@
         const payload = {};
         const wasAllYears = state.years.length > 0 && state.selectedYears.size === state.years.length;
 
-        setTimesheetDebugStatus("Fetching Dico projects...", "warn");
+        setTimesheetDebugStatus(t("shell.fetching_dico_projects_3c79ea"), "warn");
         setOdooButtonsDisabled(true);
 
         try {
-          const result = await postOdooJson("/api/odoo/dico-projects", payload, "Dico project fetch");
+          const result = await postOdooJson("/api/odoo/dico-projects", payload, t("shell.dico_project_fetch_79738e"));
           if (overviewFetchGeneration !== state.hoursCacheGeneration) return;
           state.dicoProjects = buildDicoProjectListFromApi(result);
           refreshYears(false);
@@ -2893,14 +2963,14 @@
           }
           render();
           setTimesheetDebugStatus(
-            `${result.projectCount} Dico project${result.projectCount === 1 ? "" : "s"} fetched; ${formatHours(result.actualTotalHours || 0)} h actual, ${formatHours(result.plannedTotalHours || 0)} h planned.`,
+            t("shell.p0_dico_project_p1_fetched_p2_h_actual_p3_h_planned_4aad08", { p0: result.projectCount, p1: result.projectCount === 1 ? "" : "s", p2: formatHours(result.actualTotalHours || 0), p3: formatHours(result.plannedTotalHours || 0) }),
             result.projectCount ? "ok" : "warn"
           );
 
         } catch (error) {
           const unavailable = error instanceof TypeError;
           const message = unavailable
-            ? "Connector unavailable. Run node server.js, then open the local URL."
+            ? t("shell.connector_unavailable_run_node_server_js_then_open_the_local_u_26175a")
             : error.message;
           setTimesheetDebugStatus(message, "warn");
 
@@ -2916,9 +2986,9 @@
         const token = state.projectFetchToken;
         setOdooButtonsDisabled(true);
 
-        setTimesheetDebugStatus("Loading owned projects, timesheets and planning…", "warn");
+        setTimesheetDebugStatus(t("shell.loading_owned_projects_timesheets_and_planning_c4c545"), "warn");
         try {
-          const result = await postOdooJson("/api/odoo/team-projects", {}, "Lead Unit portfolio");
+          const result = await postOdooJson("/api/odoo/team-projects", {}, t("shell.lead_unit_portfolio_e69d9d"));
           if (token !== state.projectFetchToken) return;
           els.leadUnitName.textContent = result.team.name;
           state.portfolioProjects = result.projects;
@@ -2937,8 +3007,8 @@
           refreshYears(true);
           render();
 
-          setTimesheetDebugStatus(`${result.projects.length} owned projects — ${result.team.name}${result.planningError ? "; planning unavailable" : ""}`, result.planningError ? "warn" : "ok");
-        } catch (error) { els.leadUnitName.textContent = "Lead Unit unavailable"; setTimesheetDebugStatus(error.message, "warn"); }
+          setTimesheetDebugStatus(t("shell.p0_owned_projects_p1_p2_78aa23", { p0: result.projects.length, p1: result.team.name, p2: result.planningError ? t("shell.planning_unavailable_5a47a6") : "" }), result.planningError ? "warn" : "ok");
+        } catch (error) { els.leadUnitName.textContent = t("shell.lead_unit_unavailable_bb739c"); setTimesheetDebugStatus(error.message, "warn"); }
         finally {
           setOdooButtonsDisabled(false);
 
@@ -2951,12 +3021,12 @@
           if (!selected) return;
           const token = ++state.projectFetchToken;
           const payload = { projectId: Number(selected.id) };
-          setTimesheetDebugStatus("Chargement de la fiche projet…", "warn");
+          setTimesheetDebugStatus(t("shell.chargement_de_la_fiche_projet_85ce0c"), "warn");
           const routes = ["project-timesheets", "project-planning", "project-workpackages", "project-milestones", "project-budgets"];
-          const results = await Promise.allSettled(routes.map(route => postOdooJson(`/api/odoo/${route}`, payload, "Fiche projet")));
+          const results = await Promise.allSettled(routes.map(route => postOdooJson(`/api/odoo/${route}`, payload, t("shell.fiche_projet_83fd18"))));
           if (token !== state.projectFetchToken) return;
           if (results[0].status !== "fulfilled") {
-            setTimesheetDebugStatus("La fiche projet est indisponible avec vos accès Odoo.", "warn");
+            setTimesheetDebugStatus(t("shell.la_fiche_projet_est_indisponible_avec_vos_acces_odoo_611a17"), "warn");
             return;
           }
           const project = buildProjectDatasetFromApi({ ...results[0].value, personal: true });
@@ -2991,7 +3061,7 @@
           const detailToken = ++state.projectFetchToken;
           const payload = { projectId: Number(selected.id) };
           const details = await Promise.allSettled([
-            postOdooJson("/api/odoo/project-workpackages", payload, "Work packages"),
+            postOdooJson("/api/odoo/project-workpackages", payload, t("shell.work_packages_492216")),
             postOdooJson("/api/odoo/project-milestones", payload, "Milestones"),
             postOdooJson("/api/odoo/project-budgets", payload, "Budgets")
           ]);
@@ -3013,7 +3083,7 @@
         });
         const result = await response.json().catch(() => ({}));
         if (!response.ok || !result.ok) {
-          throw new Error(result.error || `${label} failed with HTTP ${response.status}`);
+          throw new Error(I18n.message(result.error) || t("shell.p0_failed_with_http_p1_492290", { p0: label, p1: response.status }));
         }
         return result;
       }
@@ -3028,7 +3098,7 @@
       }
 
       async function loadEmployee(file) {
-        setStatus("Reading employee export...", "Loading", false);
+        setStatus(t("shell.reading_employee_export_dcff14"), t("shell.loading_8f26c6"), false);
         state.errors = [];
         state.projectMacroOverrides.clear();
         try {
@@ -3044,7 +3114,7 @@
       }
 
       async function loadPersonalPlan(file) {
-        setStatus("Reading personal planning export...", "Loading", false);
+        setStatus(t("shell.reading_personal_planning_export_ca3a30"), t("shell.loading_8f26c6"), false);
         state.errors = [];
         state.projectMacroOverrides.clear();
         try {
@@ -3073,7 +3143,7 @@
           return;
         }
 
-        setStatus("Reading project exports...", "Loading", false);
+        setStatus(t("shell.reading_project_exports_af5a34"), t("shell.loading_8f26c6"), false);
         const next = [];
         for (const file of files) {
           try {
@@ -3098,7 +3168,7 @@
           return;
         }
 
-        setStatus("Reading planned project exports...", "Loading", false);
+        setStatus(t("shell.reading_planned_project_exports_c5abd9"), t("shell.loading_8f26c6"), false);
         const next = [];
         for (const file of files) {
           try {
@@ -3114,7 +3184,7 @@
 
       async function loadProjectTaskDeadlines(project, file) {
         const wasAll = state.years.length > 0 && state.selectedYears.size === state.years.length;
-        setStatus("Reading task deadline export...", "Loading", false);
+        setStatus(t("shell.reading_task_deadline_export_b88d73"), t("shell.loading_8f26c6"), false);
         state.errors = [];
         try {
           state.taskDeadlines.set(projectSeriesKey(project), await parseTaskDeadlineWorkbook(file));
@@ -3133,12 +3203,12 @@
         const workbook = await readXlsx(file);
         const sheet = workbook.sheets[0];
         if (!sheet) {
-          throw new Error("No worksheet found");
+          throw new Error(t("shell.no_worksheet_found_e8ecb1"));
         }
         const monthColumns = detectMonthColumns(sheet.rows);
         const rows = extractTimeRows(sheet.rows, monthColumns);
         if (!rows.length) {
-          throw new Error("No timesheet rows found");
+          throw new Error(t("shell.no_timesheet_rows_found_ce9976"));
         }
         return {
           fileName: file.name,
@@ -3152,14 +3222,14 @@
         const workbook = await readXlsx(file);
         const sheet = workbook.sheets[0];
         if (!sheet) {
-          throw new Error("No worksheet found");
+          throw new Error(t("shell.no_worksheet_found_e8ecb1"));
         }
 
         const plannedColumn = detectPlannedHoursColumn(sheet.rows);
         const dateMonths = detectPersonalPlanningMonths(sheet.rows);
         const events = extractPersonalPlanningEvents(sheet.rows, plannedColumn);
         if (!events.length) {
-          throw new Error("No personal planned project rows found");
+          throw new Error(t("shell.no_personal_planned_project_rows_found_370c83"));
         }
 
         return buildPersonalPlanDataset(file.name, sheet.name, events, dateMonths);
@@ -3169,7 +3239,7 @@
         const workbook = await readXlsx(file);
         const sheet = workbook.sheets[0];
         if (!sheet) {
-          throw new Error("No worksheet found");
+          throw new Error(t("shell.no_worksheet_found_e8ecb1"));
         }
 
         const monthColumns = detectMonthColumns(sheet.rows);
@@ -3203,7 +3273,7 @@
 
         const deadlines = Array.from(grouped.values()).sort((a, b) => a.month.date - b.month.date);
         if (!deadlines.length) {
-          throw new Error("No task deadlines found");
+          throw new Error(t("shell.no_task_deadlines_found_8b82ef"));
         }
 
         return {
@@ -3218,14 +3288,14 @@
         const workbook = await readXlsx(file);
         const sheet = workbook.sheets[0];
         if (!sheet) {
-          throw new Error("No worksheet found");
+          throw new Error(t("shell.no_worksheet_found_e8ecb1"));
         }
 
         const monthColumns = detectMonthColumns(sheet.rows);
         const projectName = detectPlannedProjectName(sheet.rows, monthColumns) || file.name.replace(/\.xlsx$/i, "");
         const rows = extractTimeRows(sheet.rows, monthColumns).filter((row) => isDataRow(row));
         if (!rows.length) {
-          throw new Error("No planned employee rows found");
+          throw new Error(t("shell.no_planned_employee_rows_found_f8e4f4"));
         }
 
         return buildPlannedDataset(file.name, {
@@ -3243,7 +3313,7 @@
         const workbookXml = parseXml(entries.get("xl/workbook.xml"), "workbook.xml");
         const relationships = parseWorkbookRelationships(entries.get("xl/_rels/workbook.xml.rels"));
         const sheets = Array.from(workbookXml.getElementsByTagName("sheet")).map((sheetNode, index) => {
-          const name = sheetNode.getAttribute("name") || `Sheet ${index + 1}`;
+          const name = sheetNode.getAttribute("name") || t("shell.sheet_p0_0288ef", { p0: index + 1 });
           const relId = sheetNode.getAttribute("r:id");
           const target = relationships.get(relId) || `worksheets/sheet${index + 1}.xml`;
           const path = resolveXlPath(target);
@@ -3263,7 +3333,7 @@
 
         for (let i = 0; i < entryCount; i += 1) {
           if (view.getUint32(offset, true) !== 0x02014b50) {
-            throw new Error("Invalid XLSX central directory");
+            throw new Error(t("shell.invalid_xlsx_central_directory_0c2586"));
           }
 
           const method = view.getUint16(offset + 10, true);
@@ -3286,7 +3356,7 @@
           } else if (method === 8) {
             bytes = await inflateRaw(compressed);
           } else {
-            throw new Error(`Unsupported XLSX compression method ${method}`);
+            throw new Error(t("shell.unsupported_xlsx_compression_method_p0_90d1a9", { p0: method }));
           }
 
           entries.set(name, decodeUtf8(bytes));
@@ -3303,12 +3373,12 @@
             return offset;
           }
         }
-        throw new Error("Invalid XLSX file");
+        throw new Error(t("shell.invalid_xlsx_file_de8f31"));
       }
 
       async function inflateRaw(compressed) {
         if (!("DecompressionStream" in window)) {
-          throw new Error("This browser cannot decompress XLSX files");
+          throw new Error(t("shell.this_browser_cannot_decompress_xlsx_files_ec86b2"));
         }
         const formats = ["deflate-raw", "deflate"];
         let lastError = null;
@@ -3320,7 +3390,7 @@
             lastError = error;
           }
         }
-        throw lastError || new Error("Unable to decompress XLSX file");
+        throw lastError || new Error(t("shell.unable_to_decompress_xlsx_file_41d5cf"));
       }
 
       function decodeUtf8(bytes) {
@@ -3329,11 +3399,11 @@
 
       function parseXml(text, label) {
         if (!text) {
-          throw new Error(`${label} missing from XLSX`);
+          throw new Error(t("shell.p0_missing_from_xlsx_fd3ffd", { p0: label }));
         }
         const xml = new DOMParser().parseFromString(text, "application/xml");
         if (xml.getElementsByTagName("parsererror").length) {
-          throw new Error(`${label} could not be parsed`);
+          throw new Error(t("shell.p0_could_not_be_parsed_908e92", { p0: label }));
         }
         return xml;
       }
@@ -3437,7 +3507,7 @@
         });
 
         if (!best || best.months.length === 0) {
-          throw new Error("No month columns found");
+          throw new Error(t("shell.no_month_columns_found_7c3630"));
         }
         return best.months.sort((a, b) => a.date - b.date);
       }
@@ -3484,7 +3554,7 @@
           year: normalizedYear,
           month: normalizedMonth,
           date,
-          label: new Intl.DateTimeFormat("en", { month: "short", year: "numeric" }).format(date)
+          label: new Intl.DateTimeFormat(I18n.locale(), { month: "short", year: "numeric" }).format(date)
         };
       }
 
@@ -3569,7 +3639,7 @@
             }
           }
         }
-        throw new Error("No planned-hours column found");
+        throw new Error(t("shell.no_planned_hours_column_found_ca1309"));
       }
 
       function detectPersonalPlanningMonths(rows) {
@@ -3632,7 +3702,7 @@
       function buildEmployeeDataset(fileName, parsed) {
         const candidates = parsed.rows.filter((row) => isDataRow(row));
         if (!candidates.length) {
-          throw new Error("No project rows found after removing Internal");
+          throw new Error(t("shell.no_project_rows_found_after_removing_internal_fb00c3"));
         }
         const minIndent = Math.min(...candidates.map((row) => row.indent));
         const projectRows = candidates.filter((row) => row.indent === minIndent && row.total > 0);
@@ -3672,7 +3742,7 @@
         const source = sources.find((dataset) => dataset.sourceResult && dataset.sourceResult.employeeName);
         return {
           ids, names,
-          label: source ? cleanLabel(source.sourceResult.employeeName) : "selected employee",
+          label: source ? cleanLabel(source.sourceResult.employeeName) : t("shell.selected_employee_2b323f"),
           available: ids.size > 0 || names.size > 0
         };
       }
@@ -3757,8 +3827,8 @@
         const projects = state.hoursScope === "whole" ? allProjects.filter((name) => name !== "(No project)") : allProjects;
         const identity = getPersonalIdentity();
         const base = { projects, keepZeroRows: true, unavailable: false,
-          message: projects.length < allProjects.length ? "Unassigned hours are shown in Me; Whole Project covers assigned projects." : "",
-          scopeLabel: state.hoursScope === "whole" ? `Whole Project · all employees${state.dicoProjects ? " on Dico projects" : ""}` : `Me · ${identity.label}` };
+          message: projects.length < allProjects.length ? t("shell.unassigned_hours_are_shown_in_me_whole_project_covers_assigned_d6e343") : "",
+          scopeLabel: state.hoursScope === "whole" ? t("shell.whole_project_all_employees_p0_636a05", { p0: state.dicoProjects ? t("shell.on_dico_projects_a6d94c") : "" }) : t("shell.me_p0_c950f7", { p0: identity.label }) };
         if (state.dicoProjects) {
           const dico = state.dicoProjects;
           const actual = { source: dico.source, sourceResult: dico.sourceResult, months: dico.months, rows: dico.actualRows,
@@ -3767,8 +3837,8 @@
             ...(Array.isArray(dico.slots) ? { slots: dico.slots } : {}) };
           if (state.hoursScope === "whole") return { ...base, actual, planned };
           if (!identity.available || !Array.isArray(dico.lines) || !Array.isArray(dico.slots)) {
-            return { ...base, actual, planned, baseline: true, scopeLabel: "Dico projects · baseline for all employees",
-              message: "Fetch your employee hours to enable Me for the Dico overview." };
+            return { ...base, actual, planned, baseline: true, scopeLabel: t("shell.dico_projects_baseline_for_all_employees_3b0bd7"),
+              message: t("shell.fetch_your_employee_hours_to_enable_me_for_the_dico_overview_608899") };
           }
           const personal = (dataset, key) => {
             const records = dataset[key].filter((record) => recordMatchesPersonalIdentity(record, identity));
@@ -3783,7 +3853,7 @@
           return { ...base, actual: seedOverviewRows(state.employee, projects), planned: seedOverviewRows(state.personalPlan, projects) };
         }
         if (!projects.length) return { ...base, actual: null, planned: null,
-          message: base.message || "Fetch employee hours or Dico projects to choose a project scope." };
+          message: base.message || t("shell.fetch_employee_hours_or_dico_projects_to_choose_a_project_scop_9a6bcf") };
         const missing = projects.filter((name) => {
           const entry = state.projectHoursCache.get(projectColorKey(name));
           return !entry || !entry.actualResult || !entry.plannedResult || entry.error;
@@ -3791,9 +3861,9 @@
         if (missing.length) {
           const failures = missing.map((name) => state.projectHoursCache.get(projectColorKey(name))).filter((entry) => entry && entry.error);
           return { ...base, actual: null, planned: null, unavailable: true,
-            message: state.wholeProjectHoursLoading ? "Loading whole-project hours… Me remains available." :
-              failures.length ? `Whole-project hours unavailable: ${failures[0].error} Select Whole Project to retry.` :
-              "Select Whole Project to load team hours for the listed projects." };
+            message: state.wholeProjectHoursLoading ? t("shell.loading_whole_project_hours_me_remains_available_6d389b") :
+              failures.length ? t("shell.whole_project_hours_unavailable_p0_select_whole_project_to_ret_4cd291", { p0: failures[0].error }) :
+              t("shell.select_whole_project_to_load_team_hours_for_the_listed_project_43e884") };
         }
         const actualDatasets = [];
         const plannedDatasets = [];
@@ -3842,8 +3912,8 @@
             const name = queue.shift();
             const projectPayload = { ...payload, projectCode: extractProjectCode(name) || name, projectName: name };
             const [actual, planned] = await Promise.allSettled([
-              postOdooJson("/api/odoo/project-timesheets", projectPayload, "Project timesheet fetch"),
-              postOdooJson("/api/odoo/project-planning", projectPayload, "Project planning fetch")
+              postOdooJson("/api/odoo/project-timesheets", projectPayload, t("shell.project_timesheet_fetch_d0ce78")),
+              postOdooJson("/api/odoo/project-planning", projectPayload, t("shell.project_planning_fetch_6787ba"))
             ]);
             if (generation !== state.hoursCacheGeneration) return;
             state.projectHoursCache.set(projectColorKey(name), { name,
@@ -3918,13 +3988,13 @@
           });
         });
         const notes = [legacyApi
-          ? "Filter unavailable for some loaded API data: all hours in those datasets remain included. Restart the server and fetch the data again to apply this filter."
+          ? t("shell.filter_unavailable_for_some_loaded_api_data_all_hours_in_those_d8358e")
           : state.includeOrmittersHours
-          ? "AI Consultant and AI Consultant Ormit actual and planned hours are included in hour totals and budget consumption."
-          : "AI Consultant and AI Consultant Ormit actual and planned hours are excluded from hour totals and budget consumption."];
-        if (datasets.some((dataset) => dataset.source !== "api")) notes.push("Employee functions are unavailable in workbook exports; their hours remain included.");
-        if (unknownFunctions) notes.push("Some employee functions are unavailable in this scope; unclassified hours remain included.");
-        if (planningRoleFallback) notes.push("Planning roles are used where employee functions are unavailable.");
+          ? t("shell.ai_consultant_and_ai_consultant_ormit_actual_and_planned_hours_067dfa")
+          : t("shell.ai_consultant_and_ai_consultant_ormit_actual_and_planned_hours_0a818e")];
+        if (datasets.some((dataset) => dataset.source !== "api")) notes.push(t("shell.employee_functions_are_unavailable_in_workbook_exports_their_h_bceae8"));
+        if (unknownFunctions) notes.push(t("shell.some_employee_functions_are_unavailable_in_this_scope_unclassi_82cc70"));
+        if (planningRoleFallback) notes.push(t("shell.planning_roles_are_used_where_employee_functions_are_unavailab_f3e40b"));
         return notes.join(" ");
       }
 
@@ -3962,7 +4032,7 @@
 
       function renderRemainingHoursScope() {
         if (state.personalTimeResult) {
-          els.remainingDataScope.textContent = "Mes heures sur la période sélectionnée, quelle que soit ma fonction.";
+          els.remainingDataScope.textContent = t("shell.mes_heures_sur_la_periode_selectionnee_quelle_que_soit_ma_fonc_be86cf");
           return;
         }
         const overview = getScopedOverview();
@@ -3972,9 +4042,9 @@
         }
         const scope = buildRemainingHoursScopeInfo();
         const availability = scope.filteringAvailable
-          ? `Consultant hours ${state.includeOrmittersHours ? "included" : "excluded"} in the selected years: ${formatHours(scope.actualSubcontractorHours)} h actual / ${formatHours(scope.plannedSubcontractorHours)} h planned.`
-          : "Consultant-hour filtering is unavailable for this table's data; hours remain included.";
-        const personalExplanation = state.hoursScope === "me" && !state.personalTimeResult ? " Select Whole Project for all employees' hours." : "";
+          ? t("shell.consultant_hours_p0_in_the_selected_years_p1_h_actual_p2_h_pla_622de8", { p0: state.includeOrmittersHours ? "included" : "excluded", p1: formatHours(scope.actualSubcontractorHours), p2: formatHours(scope.plannedSubcontractorHours) })
+          : t("shell.consultant_hour_filtering_is_unavailable_for_this_table_s_data_3286c4");
+        const personalExplanation = state.hoursScope === "me" && !state.personalTimeResult ? t("shell.select_whole_project_for_all_employees_hours_b0c38f") : "";
         els.remainingDataScope.textContent = `${scope.label}. ${availability}${personalExplanation}`;
       }
 
@@ -4021,14 +4091,14 @@
           .filter((row) => sumMap(row.values) > 0);
 
         if (!months.length) {
-          throw new Error("No project rows found in API timesheets after removing Internal");
+          throw new Error(t("shell.no_project_rows_found_in_api_timesheets_after_removing_interna_8bf2d1"));
         }
 
         return {
           type: "employee",
           source: "api",
           sourceResult: result,
-          fileName: `Odoo API - ${result.teamName || result.employeeName || "timesheets"}`,
+          fileName: t("shell.odoo_api_p0_02dcf6", { p0: result.teamName || result.employeeName || "timesheets" }),
           sheetName: "account.analytic.line",
           months,
           rows,
@@ -4086,7 +4156,7 @@
           type: "personal-plan",
           source: "api",
           sourceResult: result,
-          fileName: `Odoo API - ${result.employeeName || "employee planning"}`,
+          fileName: t("shell.odoo_api_p0_02dcf6", { p0: result.employeeName || t("shell.employee_planning_825aea") }),
           sheetName: "planning.slot",
           months,
           timelineMonths: months,
@@ -4153,9 +4223,9 @@
           type: "project",
           source: "api",
           sourceResult: result,
-          fileName: `Odoo API - project ${result.projectCode}`,
+          fileName: t("shell.odoo_api_project_p0_1acf55", { p0: result.projectCode }),
           sheetName: "account.analytic.line",
-          name: result.projectName || `[${result.projectCode}] Project ${result.projectCode}`,
+          name: result.projectName || t("shell.p0_project_p1_c9d566", { p0: result.projectCode, p1: result.projectCode }),
           code: result.projectCode,
           months,
           rows,
@@ -4228,9 +4298,9 @@
           source: "api",
           sourceResult: result,
           allocationMode: "monthly",
-          fileName: `Odoo API - project planning ${result.projectCode}`,
+          fileName: t("shell.odoo_api_project_planning_p0_f9d348", { p0: result.projectCode }),
           sheetName: "planning.slot",
-          name: result.projectName || (projectDataset && projectDataset.name) || `[${result.projectCode}] Project ${result.projectCode}`,
+          name: result.projectName || (projectDataset && projectDataset.name) || t("shell.p0_project_p1_c9d566", { p0: result.projectCode, p1: result.projectCode }),
           code: result.projectCode,
           projectStart: months[0],
           months,
@@ -4243,7 +4313,7 @@
       function buildProjectWorkPackageDatasetFromApi(result, projectDataset = null) {
         const rows = (Array.isArray(result.workPackages) ? result.workPackages : [])
           .map((workPackage) => {
-            const name = cleanLabel(workPackage.name || workPackage.displayName || `Task ${workPackage.id || ""}`);
+            const name = cleanLabel(workPackage.name || workPackage.displayName || t("shell.task_p0_91cb2d", { p0: workPackage.id || "" }));
             const hoursSpent = Math.max(0, toHours(workPackage.hoursSpent));
             const plannedHours = Math.max(0, toHours(workPackage.plannedHours));
             const progressPercent = normalizeProgressPercent(workPackage.progressPercent);
@@ -4291,9 +4361,9 @@
         return {
           type: "workpackages",
           source: "api",
-          fileName: `Odoo API - project work packages ${result.projectCode}`,
+          fileName: t("shell.odoo_api_project_work_packages_p0_a85199", { p0: result.projectCode }),
           sheetName: "project.task",
-          name: result.projectName || (projectDataset && projectDataset.name) || `[${result.projectCode}] Project ${result.projectCode}`,
+          name: result.projectName || (projectDataset && projectDataset.name) || t("shell.p0_project_p1_c9d566", { p0: result.projectCode, p1: result.projectCode }),
           code: result.projectCode,
           taskCount: result.taskCount || rows.length,
           workPackageCount: result.workPackageCount || rows.length,
@@ -4306,7 +4376,7 @@
         const monthMap = new Map();
         const milestones = (Array.isArray(result.milestones) ? result.milestones : [])
           .map((milestone) => {
-            const name = cleanLabel(milestone.name || `Milestone ${milestone.id || ""}`);
+            const name = cleanLabel(milestone.name || t("shell.milestone_p0_b06368", { p0: milestone.id || "" }));
             const date = parseDateValue(milestone.date);
             if (!name || !date) {
               return null;
@@ -4333,9 +4403,9 @@
         return {
           type: "milestones",
           source: "api",
-          fileName: `Odoo API - project milestones ${result.projectCode}`,
+          fileName: t("shell.odoo_api_project_milestones_p0_4f575a", { p0: result.projectCode }),
           sheetName: "project.milestone",
-          name: result.projectName || (projectDataset && projectDataset.name) || `[${result.projectCode}] Project ${result.projectCode}`,
+          name: result.projectName || (projectDataset && projectDataset.name) || t("shell.p0_project_p1_c9d566", { p0: result.projectCode, p1: result.projectCode }),
           code: result.projectCode,
           months: Array.from(monthMap.values()).sort((a, b) => a.date - b.date),
           milestones,
@@ -4423,7 +4493,7 @@
         const projects = (Array.isArray(result.projects) ? result.projects : [])
           .map((project) => ({
             id: project.id,
-            name: cleanLabel(project.name || `Project ${project.id || ""}`),
+            name: cleanLabel(project.name || t("shell.project_p0_c357f7", { p0: project.id || "" })),
             responsibleUnit: cleanLabel(project.responsibleUnit),
             responsibleField: cleanLabel(project.responsibleField)
           }))
@@ -4528,7 +4598,7 @@
       function buildProjectDatasets(fileName, parsed) {
         const candidates = parsed.rows.filter((row) => isDataRow(row));
         if (!candidates.length) {
-          throw new Error("No project or employee rows found after removing Internal");
+          throw new Error(t("shell.no_project_or_employee_rows_found_after_removing_internal_fb164e"));
         }
 
         const minIndent = Math.min(...candidates.map((row) => row.indent));
@@ -4923,10 +4993,10 @@
         els.hoursScopeMe.setAttribute("aria-pressed", String(state.hoursScope === "me"));
         els.hoursScopeWhole.setAttribute("aria-pressed", String(state.hoursScope === "whole"));
         const overview = getScopedOverview();
-        els.hoursScopeStatus.textContent = overview.message || `${overview.scopeLabel}. Tasks, milestones and financial budgets show shared project data.`;
+        els.hoursScopeStatus.textContent = overview.message || t("shell.p0_tasks_milestones_and_financial_budgets_show_shared_project__f27eb9", { p0: overview.scopeLabel });
         const subcontractorHoursNote = buildSubcontractorHoursNote();
         els.subcontractorHoursNote.textContent = subcontractorHoursNote;
-        els.subcontractorHoursNote.classList.toggle("warn", subcontractorHoursNote.startsWith("Filter unavailable"));
+        els.subcontractorHoursNote.classList.toggle("warn", subcontractorHoursNote.startsWith(t("shell.filter_unavailable_d871b4")));
         renderStatus();
         renderYearFilters();
         const selectedKeys = getSelectedMonthKeys();
@@ -4954,8 +5024,8 @@
         if (state.personalTimeResult) {
           els.kpiGrid.hidden = true;
           els.legacyOverviewPies.hidden = true;
-          els.employeePanelTitle.textContent = "Suivi par projet";
-          els.employeeMeta.textContent = "Mon temps · 02";
+          els.employeePanelTitle.textContent = t("shell.suivi_par_projet_b8c72c");
+          els.employeeMeta.textContent = t("shell.mon_temps_02_f5d4ff");
           els.employeePanel.hidden = true;
           els.projectList.hidden = true;
         }
@@ -5019,9 +5089,9 @@
         els.customDateStart.setAttribute("aria-invalid", String(!valid));
         els.customDateEnd.setAttribute("aria-invalid", String(!valid));
         els.customDateError.textContent = valid ? "" : !range.startDate || !range.endDate
-          ? "Choisissez une date de début et une date de fin."
-          : range.startDate > range.endDate ? "La date de fin doit être égale ou postérieure à la date de début."
-          : "Vérifiez les dates de début et de fin.";
+          ? t("shell.choisissez_une_date_de_debut_et_une_date_de_fin_16d1ed")
+          : range.startDate > range.endDate ? t("shell.la_date_de_fin_doit_etre_egale_ou_posterieure_a_la_date_de_deb_aa18ff")
+          : t("shell.verifiez_les_dates_de_debut_et_de_fin_e451bd");
         if (!valid) return;
         if (state.customDateRange?.startDate === range.startDate && state.customDateRange?.endDate === range.endDate) return;
         state.customDateRange = range;
@@ -5065,16 +5135,16 @@
         container.classList.toggle("visible", state.years.length > 0 || Boolean(state.personalTimeResult));
         chips.replaceChildren();
         if (!state.years.length) {
-          scopeText.textContent = state.customDateRange ? getPersonalTimeScopeLabel() : state.personalTimeResult ? "Années disponibles" : "Tous les mois disponibles";
+          scopeText.textContent = state.customDateRange ? getPersonalTimeScopeLabel() : state.personalTimeResult ? t("shell.annees_disponibles_c23cbd") : t("shell.tous_les_mois_disponibles_135d6a");
           return;
         }
 
         const allActive = !state.customDateRange && state.selectedYears.size === state.years.length;
         scopeText.textContent = state.customDateRange ? getPersonalTimeScopeLabel() : allActive
-          ? (state.personalTimeResult ? "Toutes les années" : "Tous les mois disponibles")
+          ? (state.personalTimeResult ? t("shell.toutes_les_annees_1a5f0b") : t("shell.tous_les_mois_disponibles_135d6a"))
           : Array.from(state.selectedYears).sort((a, b) => a - b).join(", ");
 
-        chips.append(makeYearButton(state.personalTimeResult ? "Toutes" : "All", allActive, () => selectAllYears()));
+        chips.append(makeYearButton(t("shell.all_6a7208"), allActive, () => selectAllYears()));
         state.years.forEach((year) => {
           chips.append(makeYearButton(String(year), !state.customDateRange && state.selectedYears.has(year), () => toggleSelectedYear(year)));
         });
@@ -5226,7 +5296,7 @@
           return;
         }
         els.employeePanel.hidden = false;
-        if (els.employeePanelTitle) els.employeePanelTitle.textContent = state.portfolioProjects.length ? "My Lead Unit — Time by Project" : state.hoursScope === "whole" || overview.baseline ? "Whole Project Time by Project" : "My Time by Project";
+        if (els.employeePanelTitle) els.employeePanelTitle.textContent = state.portfolioProjects.length ? t("shell.my_lead_unit_time_by_project_0d0e8f") : state.hoursScope === "whole" || overview.baseline ? t("shell.whole_project_time_by_project_eae700") : t("shell.my_time_by_project_842280");
         els.employeeActualBlock.hidden = !overview.actual;
         els.employeePlanBlock.hidden = !overview.planned;
 
@@ -5234,10 +5304,10 @@
         const plannedTotal = sumEntries(plannedEntries);
         const metaParts = [];
         if (overview.actual && !state.personalTimeResult) {
-          metaParts.push(`${formatHours(actualTotal)} h actual`);
+          metaParts.push(t("shell.p0_h_actual_5f590f", { p0: formatHours(actualTotal) }));
         }
         if (overview.planned && !state.personalTimeResult) {
-          metaParts.push(`${formatHours(plannedTotal)} h planned`);
+          metaParts.push(t("shell.p0_h_planned_0d5889", { p0: formatHours(plannedTotal) }));
         }
         els.employeeMeta.textContent = metaParts.join(" / ");
 
@@ -5256,7 +5326,7 @@
         els.employeeRemainingBlock.hidden = !state.employee && !state.personalPlan && !state.dicoProjects;
         renderRemainingHoursScope();
         if (state.portfolioPlanningError) {
-          els.employeeRemainingMeta.textContent = "Planning unavailable; remaining hours cannot be calculated.";
+          els.employeeRemainingMeta.textContent = t("shell.planning_unavailable_remaining_hours_cannot_be_calculated_3b0fbb");
           const rows = buildEmployeeRemainingRows(actualEntries, []);
           els.employeeRemainingTableWrap.hidden = false;
           els.employeeRemainingTable.innerHTML = rows.map(row => renderRemainingRow({ ...row, unknownPlanning: true }, 0)).join("");
@@ -5274,7 +5344,7 @@
         if (!overview.planned || overview.unavailable) {
           els.employeeRemainingMeta.textContent = "";
           els.employeeRemainingEmpty.hidden = false;
-          els.employeeRemainingEmpty.textContent = overview.message || "Load planning to calculate remaining hours.";
+          els.employeeRemainingEmpty.textContent = overview.message || t("shell.load_planning_to_calculate_remaining_hours_f7e65d");
           els.employeeRemainingTableWrap.hidden = true;
           els.employeeRemainingTable.innerHTML = "";
           return;
@@ -5288,14 +5358,14 @@
         if (!rows.length) {
           els.employeeRemainingMeta.textContent = "";
           els.employeeRemainingEmpty.hidden = false;
-          els.employeeRemainingEmpty.textContent = "No actual or planned project hours in the selected year scope.";
+          els.employeeRemainingEmpty.textContent = t("shell.no_actual_or_planned_project_hours_in_the_selected_year_scope_6c3b35");
           els.employeeRemainingTableWrap.hidden = true;
           els.employeeRemainingTable.innerHTML = "";
           return;
         }
 
         const totalRemaining = rows.reduce((total, row) => total + row.remaining, 0);
-        els.employeeRemainingMeta.textContent = `${rows.length} project${rows.length === 1 ? "" : "s"} / ${formatSignedHours(totalRemaining)} h net`;
+        els.employeeRemainingMeta.textContent = t("shell.p0_project_p1_p2_h_net_e778b4", { p0: rows.length, p1: rows.length === 1 ? "" : "s", p2: formatSignedHours(totalRemaining) });
         els.employeeRemainingEmpty.hidden = true;
         els.employeeRemainingTableWrap.hidden = false;
         els.employeeRemainingTable.innerHTML = rows.map(renderRemainingRow).join("");
@@ -5305,11 +5375,11 @@
         const dateLabel = formatMacroWarningDate(new Date());
         els.employeeRemainingTableHead.innerHTML = `
           <tr>
-            <th>Project</th>
-            <th class="number">Actual</th>
-            <th class="number">Planned</th>
-            <th class="number">Remaining</th>
-            <th>Hours through today<span class="remaining-comparison-date">${escapeHtml(dateLabel)}</span></th>
+            <th>${t("shell.project_f6f4da")}</th>
+            <th class="number">${t("shell.actual_7bb2ee")}</th>
+            <th class="number">${t("shell.planned_9cbe42")}</th>
+            <th class="number">${t("shell.remaining_cc632b")}</th>
+            <th>${t("shell.hours_through_today_afa8f7")}<span class="remaining-comparison-date">${escapeHtml(dateLabel)}</span></th>
           </tr>
         `;
       }
@@ -5324,7 +5394,7 @@
         if (!projects.length) {
           els.employeeRemainingMeta.textContent = "";
           els.employeeRemainingEmpty.hidden = false;
-          els.employeeRemainingEmpty.textContent = "No projects found for the Dico responsible unit.";
+          els.employeeRemainingEmpty.textContent = t("shell.no_projects_found_for_the_dico_responsible_unit_95dc4d");
           els.employeeRemainingTableWrap.hidden = true;
           els.employeeRemainingTable.innerHTML = "";
           return;
@@ -5340,7 +5410,7 @@
         const rows = buildEmployeeRemainingRows(actualEntries, plannedEntries, toDateTotals);
         const totalRemaining = rows.reduce((total, row) => total + row.remaining, 0);
 
-        els.employeeRemainingMeta.textContent = `${rows.length} Dico project${rows.length === 1 ? "" : "s"} / ${formatSignedHours(totalRemaining)} h net`;
+        els.employeeRemainingMeta.textContent = t("shell.p0_dico_project_p1_p2_h_net_5b85f2", { p0: rows.length, p1: rows.length === 1 ? "" : "s", p2: formatSignedHours(totalRemaining) });
         els.employeeRemainingEmpty.hidden = true;
         els.employeeRemainingTableWrap.hidden = false;
         els.employeeRemainingTable.innerHTML = rows.map(renderRemainingRow).join("");
@@ -5497,20 +5567,20 @@
 
       function renderRemainingRow(row, maxAbsRemaining) {
         if (row.unknownPlanning) {
-          return `<tr data-project-drilldown="true" data-project-name="${escapeHtml(row.name)}"><td><button class="remaining-project-button" type="button" data-project-drilldown="true" data-project-name="${escapeHtml(row.name)}">${escapeHtml(compactLegendLabelWithDates(row.name))}</button></td><td class="number">${formatHours(row.actual)}</td><td class="number">—</td><td class="number">—</td><td>Planning unavailable</td></tr>`;
+          return `<tr data-project-drilldown="true" data-project-name="${escapeHtml(row.name)}"><td><button class="remaining-project-button" type="button" data-project-drilldown="true" data-project-name="${escapeHtml(row.name)}">${escapeHtml(displayEntityLabel(compactLegendLabelWithDates(row.name)))}</button></td><td class="number">${formatHours(row.actual)}</td><td class="number">—</td><td class="number">—</td><td>${t("shell.legacy.planningUnavailable")}</td></tr>`;
         }
         const remainingClass = row.remaining < -0.01 ? "negative" : "positive";
         const comparison = buildRemainingComparison(row.actualToDate, row.foreseenToDate);
         const deviationLabel = Number.isFinite(comparison.divergence)
-          ? `${formatPercent(comparison.actual - comparison.foreseen, comparison.foreseen)} from foreseen`
-          : "Actual hours with no foreseen hours";
+          ? t("shell.p0_from_foreseen_050bba", { p0: formatPercent(comparison.actual - comparison.foreseen, comparison.foreseen) })
+          : t("shell.actual_hours_with_no_foreseen_hours_2c5776");
         const dateLabel = formatMacroWarningDate(new Date());
-        const comparisonLabel = `Through ${dateLabel} in selected years: foreseen ${formatHours(comparison.foreseen)} h; actual ${formatHours(comparison.actual)} h; ${deviationLabel}. ${comparison.status === "green" ? "Within 10%" : comparison.status === "orange" ? "Above 10% through 25% deviation" : "Above 25% deviation"}.`;
+        const comparisonLabel = t("shell.through_p0_in_selected_years_foreseen_p1_h_actual_p2_h_p3_p4_b302d7", { p0: dateLabel, p1: formatHours(comparison.foreseen), p2: formatHours(comparison.actual), p3: deviationLabel, p4: comparison.status === "green" ? t("shell.within_10_ef8364") : comparison.status === "orange" ? t("shell.above_10_through_25_deviation_b255a8") : t("shell.above_25_deviation_04cef9") });
         const label = compactLegendLabelWithDates(row.name);
         const fullName = escapeHtml(row.name);
-        const displayName = escapeHtml(label);
+        const displayName = escapeHtml(displayEntityLabel(label));
         const activeClass = state.activeProjectKey && state.activeProjectKey === row.key ? " active" : "";
-        const title = `${row.name}\nActual: ${formatHours(row.actual)} h\nPlanned: ${formatHours(row.planned)} h\nRemaining: ${formatSignedHours(row.remaining)} h\n${comparisonLabel}`;
+        const title = t("shell.p0_actual_p1_h_planned_p2_h_remaining_p3_h_p4_fcced7", { p0: row.name, p1: formatHours(row.actual), p2: formatHours(row.planned), p3: formatSignedHours(row.remaining), p4: comparisonLabel });
         return `
           <tr class="remaining-row${activeClass}" title="${escapeHtml(title)}" data-project-drilldown="true" data-project-name="${fullName}">
             <td>
@@ -5525,12 +5595,12 @@
             <td class="remaining-bar-cell">
               <div class="remaining-comparison" role="img" aria-label="${escapeHtml(comparisonLabel)}" title="${escapeHtml(comparisonLabel)}">
                 <div class="remaining-comparison-line">
-                  <span class="remaining-comparison-label">Foreseen</span>
+                  <span class="remaining-comparison-label">${t("shell.legacy.foreseen")}</span>
                   <div class="remaining-bar-track"><span class="remaining-bar foreseen" style="width:${comparison.foreseenWidth.toFixed(4)}%"></span></div>
                   <span class="remaining-comparison-hours">${formatHours(comparison.foreseen)} h</span>
                 </div>
                 <div class="remaining-comparison-line">
-                  <span class="remaining-comparison-label">Actual</span>
+                  <span class="remaining-comparison-label">${t("shell.actual_7bb2ee")}</span>
                   <div class="remaining-bar-track"><span class="remaining-bar ${comparison.status}" style="width:${comparison.actualWidth.toFixed(4)}%"></span></div>
                   <span class="remaining-comparison-hours">${formatHours(comparison.actual)} h</span>
                 </div>
@@ -5576,17 +5646,17 @@
           const budgetScaleToggleId = `budgetScaleToggle${index}`;
           const plannedBlock = plan ? `
                 <div class="chart-block">
-                  <h3>Planned vs actual</h3>
-                  <p class="line-key">Solid actual / dashed planned / milestone markers</p>
-                  <canvas id="${canvasPlannedId}" class="chart-canvas" aria-label="Planned versus actual employee contribution line chart"></canvas>
+                  <h3>${t("shell.planned_vs_actual_9b1290")}</h3>
+                  <p class="line-key">${t("shell.solid_actual_dashed_planned_milestone_markers_3cf55b")}</p>
+                  <canvas id="${canvasPlannedId}" class="chart-canvas" aria-label="${t("shell.legacy.comparisonAria")}"></canvas>
                 </div>
           ` : "";
           const workPackageBlock = workPackageSet ? `
                 <div class="chart-block workpackage-block">
-                  <h3>Tasks</h3>
-                  <p class="line-key">Whole-project tasks · spent vs foreseen hours in selected years / expected progress tick</p>
+                  <h3>${t("shell.tasks_090ec5")}</h3>
+                  <p class="line-key">${t("shell.whole_project_tasks_spent_vs_foreseen_hours_in_selected_years__85f372")}</p>
                   ${scopedWorkPackageSet.hoursFilteringUnavailable ? '<p class="line-key">Actual task hours are unavailable: subcontractor hours cannot be assigned to tasks.</p>' : ""}
-                  <canvas id="${canvasWorkPackageId}" class="chart-canvas workpackage-canvas" style="height:${workPackageCanvasHeight(scopedWorkPackageSet.rows.length)}px" aria-label="Work package time consumption and progress chart"></canvas>
+                  <canvas id="${canvasWorkPackageId}" class="chart-canvas workpackage-canvas" style="height:${workPackageCanvasHeight(scopedWorkPackageSet.rows.length)}px" aria-label="${t("shell.legacy.workPackageAria")}"></canvas>
                 </div>
           ` : "";
           const personalScope = state.hoursScope === "me" && !summary.project.scopeFallback && (!plan || !plan.scopeFallback);
@@ -5599,7 +5669,7 @@
                       ${budgetPersonnelToggleLabel(showPersonnelBudgetLines, personnelBudgetLineCount)}
                     </button>
                     <button id="${budgetScaleToggleId}" class="budget-toggle" type="button" aria-pressed="${budgetScale === "linear" ? "true" : "false"}">
-                      ${budgetScale === "linear" ? "Use log scale" : "Use linear scale"}
+                      ${budgetScale === "linear" ? t("shell.use_log_scale_8ba1b3") : t("shell.use_linear_scale_cafcdc")}
                     </button>
                   </div>
                 ` : ""}
@@ -5608,7 +5678,7 @@
                   <div class="chart-block">
                     <h3>${escapeHtml(budgetChartTitle(budget))}</h3>
                     <p class="line-key">${escapeHtml(budgetChartMeta(budget, budgetScale))}</p>
-                    <canvas id="${budgetCanvasPrefix}${budgetIndex}" class="chart-canvas" aria-label="${escapeHtml(budgetChartTitle(budget))} grouped budget bar chart"></canvas>
+                    <canvas id="${budgetCanvasPrefix}${budgetIndex}" class="chart-canvas" aria-label="${escapeHtml(t("shell.legacy.groupedAria", { name: budgetChartTitle(budget) }))}"></canvas>
                   </div>
                 `).join("")}
               </div>
@@ -5627,24 +5697,24 @@
               <div>
                 <h2>${escapeHtml(summary.project.name)}</h2>
               </div>
-              <div class="panel-meta">${escapeHtml(personalScope ? `Me · ${getPersonalIdentity().label}` : "Whole Project")}: ${formatHours(total)} h across ${summary.entries.length} employee${summary.entries.length === 1 ? "" : "s"}</div>
+              <div class="panel-meta">${escapeHtml(personalScope ? t("shell.me_p0_c950f7", { p0: getPersonalIdentity().label }) : t("shell.whole_project_e54412"))}: ${formatHours(total)} h across ${summary.entries.length} employee${summary.entries.length === 1 ? "" : "s"}</div>
             </div>
-            ${state.hoursScope === "me" && (summary.project.scopeFallback || (plan && plan.scopeFallback)) ? '<p class="remaining-help">Employee identity is unavailable for some loaded hours. Those charts show the shared project baseline.</p>' : ""}
+            ${state.hoursScope === "me" && (summary.project.scopeFallback || (plan && plan.scopeFallback)) ? `<p class="remaining-help">${t("shell.employee_identity_is_unavailable_for_some_loaded_hours_those_c_7cfb76")}</p>` : ""}
             <div class="project-chart-grid${budgetCharts.length ? " with-budgets" : ""}">
               <div class="pie-wrap project-pie-wrap">
-                <button id="${pieExpandId}" class="chart-icon-button project-pie-expand" type="button" aria-label="Expand project pie chart" title="Expand pie chart">⤢</button>
-                <canvas id="${canvasPieId}" class="chart-canvas" aria-label="Employee contribution pie chart"></canvas>
+                <button id="${pieExpandId}" class="chart-icon-button project-pie-expand" type="button" aria-label="${t("shell.legacy.expandProject")}" title="${t("shell.legacy.expandPie")}">⤢</button>
+                <canvas id="${canvasPieId}" class="chart-canvas" aria-label="${t("shell.legacy.contributionAria")}"></canvas>
                 <div id="${legendId}" class="legend"></div>
               </div>
               <div class="trend-stack">
                 ${macroBlock}
                 <div class="chart-block">
-                  <h3>Monthly hours</h3>
-                  <canvas id="${canvasLineId}" class="chart-canvas" aria-label="Monthly employee contribution line chart"></canvas>
+                  <h3>${t("shell.legacy.monthlyHours")}</h3>
+                  <canvas id="${canvasLineId}" class="chart-canvas" aria-label="${t("shell.legacy.monthlyAria")}"></canvas>
                 </div>
                 <div class="chart-block">
-                  <h3>Cumulative hours</h3>
-                  <canvas id="${canvasCumulativeId}" class="chart-canvas" aria-label="Cumulative employee contribution line chart"></canvas>
+                  <h3>${t("shell.legacy.cumulativeHours")}</h3>
+                  <canvas id="${canvasCumulativeId}" class="chart-canvas" aria-label="${t("shell.legacy.cumulativeAria")}"></canvas>
                 </div>
                 ${plannedBlock}
                 ${workPackageBlock}
@@ -5655,9 +5725,9 @@
             <table>
               <thead>
                 <tr>
-                  <th>Employee</th>
-                  <th class="number">Hours</th>
-                  <th class="number">Share</th>
+                  <th>${t("shell.legacy.employee")}</th>
+                  <th class="number">${t("shell.legacy.hours")}</th>
+                  <th class="number">${t("shell.legacy.share")}</th>
                 </tr>
               </thead>
               <tbody id="${tableId}"></tbody>
@@ -5724,16 +5794,16 @@
         overlay.className = "chart-fullscreen-overlay";
         overlay.tabIndex = -1;
         overlay.innerHTML = `
-          <div class="chart-fullscreen-panel" role="dialog" aria-modal="true" aria-label="${escapeHtml(`${summary.project.name} contribution pie chart`)}">
+          <div class="chart-fullscreen-panel" role="dialog" aria-modal="true" aria-label="${escapeHtml(t("shell.p0_contribution_pie_chart_e20b93", { p0: summary.project.name }))}">
             <div class="chart-fullscreen-toolbar">
               <h3>${escapeHtml(summary.project.name)}</h3>
               <div class="chart-fullscreen-actions">
-                <button id="expandedPieExport" class="chart-export-button" type="button">Export PNG</button>
-                <button id="expandedPieClose" class="chart-icon-button" type="button" aria-label="Reduce project pie chart" title="Reduce pie chart">⤡</button>
+                <button id="expandedPieExport" class="chart-export-button" type="button">${t("shell.legacy.exportPng")}</button>
+                <button id="expandedPieClose" class="chart-icon-button" type="button" aria-label="${t("shell.legacy.reduceProject")}" title="${t("shell.legacy.reducePie")}">⤡</button>
               </div>
             </div>
             <div class="chart-fullscreen-body">
-              <canvas id="expandedProjectPieCanvas" class="chart-canvas chart-fullscreen-canvas" aria-label="${escapeHtml(summary.project.name)} expanded employee contribution pie chart"></canvas>
+              <canvas id="expandedProjectPieCanvas" class="chart-canvas chart-fullscreen-canvas" aria-label="${escapeHtml(t("shell.legacy.expandedAria", { name: summary.project.name }))}"></canvas>
               <div id="expandedProjectPieLegend" class="legend"></div>
             </div>
           </div>
@@ -5829,10 +5899,10 @@
 
         return applyProjectMacroOverrides({
           overrideKey: projectMacroOverrideKey(project, "employee", scope.label, employeeKey),
-          title: "Current employee project plan",
+          title: t("shell.current_employee_project_plan_8ec18c"),
           planningWarning,
           scopeLabel: `${employeeName} / ${scope.label}`,
-          emptyMessage: `No planned hours were found for this employee on this project in ${scope.label}.`,
+          emptyMessage: t("shell.no_planned_hours_were_found_for_this_employee_on_this_project__7f24c3", { p0: scope.label }),
           plannedLabel: scope.plannedLabel,
           noteSubject: "you",
           plannedTotal,
@@ -5857,12 +5927,12 @@
         return applyProjectMacroOverrides({
           overrideKey: projectMacroOverrideKey(project, personalScope ? "employee" : "project", scope.label,
             personalScope ? Array.from(getPersonalIdentity().ids).sort().join(",") || getPersonalIdentity().label : ""),
-          title: personalScope ? "My project plan" : "Whole project plan",
+          title: personalScope ? t("shell.my_project_plan_99c34e") : t("shell.whole_project_plan_cada42"),
           planningWarning,
-          scopeLabel: `${personalScope ? getPersonalIdentity().label : "All employees"} / ${scope.label}`,
-          emptyMessage: `No planned hours were found for ${personalScope ? "you on this project" : "this project"} in ${scope.label}.`,
+          scopeLabel: `${personalScope ? getPersonalIdentity().label : t("shell.all_employees_c9decc")} / ${scope.label}`,
+          emptyMessage: t("shell.no_planned_hours_were_found_for_p0_in_p1_09bdd7", { p0: personalScope ? t("shell.you_on_this_project_5e81ae") : t("shell.this_project_bd0d43"), p1: scope.label }),
           plannedLabel: scope.plannedLabel,
-          noteSubject: personalScope ? "you" : "the project team",
+          noteSubject: personalScope ? "you" : t("shell.the_project_team_75d1d8"),
           plannedTotal,
           expectedToDate,
           actualToDate,
@@ -5884,16 +5954,16 @@
               <p class="project-macro-meta">${escapeHtml(info.scopeLabel)}</p>
               <div class="project-macro-stats">
                 <div class="project-macro-stat">
-                  <span>${escapeHtml(info.plannedLabel || "Planned in scope")}</span>
-                  ${renderProjectMacroValueInput(info, "plannedTotal", info.plannedLabel || "Planned in scope")}
+                  <span>${escapeHtml(info.plannedLabel || t("shell.planned_in_scope_440e65"))}</span>
+                  ${renderProjectMacroValueInput(info, "plannedTotal", info.plannedLabel || t("shell.planned_in_scope_440e65"))}
                 </div>
                 <div class="project-macro-stat">
-                  <span>Should have been spent</span>
+                  <span>${t("shell.legacy.expected")}</span>
                   ${renderProjectMacroValueDisplay(info.expectedToDate)}
                 </div>
                 <div class="project-macro-stat">
-                  <span>Actual by today</span>
-                  ${renderProjectMacroValueInput(info, "actualToDate", "Actual by today")}
+                  <span>${t("shell.actual_by_today_c62a0a")}</span>
+                  ${renderProjectMacroValueInput(info, "actualToDate", t("shell.actual_by_today_c62a0a"))}
                 </div>
               </div>
               <p class="project-macro-empty">${escapeHtml(info.emptyMessage)}</p>
@@ -5911,29 +5981,29 @@
             <p class="project-macro-meta">${escapeHtml(info.scopeLabel)}</p>
             <div class="project-macro-stats">
               <div class="project-macro-stat">
-                <span>${escapeHtml(info.plannedLabel || "Planned this year")}</span>
-                ${renderProjectMacroValueInput(info, "plannedTotal", info.plannedLabel || "Planned in scope")}
+                <span>${escapeHtml(info.plannedLabel || t("shell.planned_this_year_4f6ede"))}</span>
+                ${renderProjectMacroValueInput(info, "plannedTotal", info.plannedLabel || t("shell.planned_in_scope_440e65"))}
               </div>
               <div class="project-macro-stat">
-                <span>Should have been spent</span>
+                <span>${t("shell.legacy.expected")}</span>
                 ${renderProjectMacroValueDisplay(info.expectedToDate)}
               </div>
               <div class="project-macro-stat">
-                <span>Actual by today</span>
-                ${renderProjectMacroValueInput(info, "actualToDate", "Actual by today")}
+                <span>${t("shell.actual_by_today_c62a0a")}</span>
+                ${renderProjectMacroValueInput(info, "actualToDate", t("shell.actual_by_today_c62a0a"))}
               </div>
             </div>
-            <div class="project-macro-gauge" aria-label="${escapeHtml(`Planned ${formatHours(info.plannedTotal)} hours, should have spent ${formatHours(info.expectedToDate)} hours, actual ${formatHours(info.actualToDate)} hours`)}">
+            <div class="project-macro-gauge" aria-label="${escapeHtml(t("shell.planned_p0_hours_should_have_spent_p1_hours_actual_p2_hours_b8c2c8", { p0: formatHours(info.plannedTotal), p1: formatHours(info.expectedToDate), p2: formatHours(info.actualToDate) }))}">
               <span class="project-macro-gauge-fill"></span>
-              <span class="project-macro-tick expected" style="left:${expectedPercent.toFixed(2)}%" title="${escapeHtml(`Should have been spent: ${formatHours(info.expectedToDate)} h`)}"></span>
-              <span class="project-macro-tick actual" style="left:${actualPercent.toFixed(2)}%" title="${escapeHtml(`Actual by today: ${formatHours(info.actualToDate)} h`)}"></span>
+              <span class="project-macro-tick expected" style="left:${expectedPercent.toFixed(2)}%" title="${escapeHtml(t("shell.should_have_been_spent_p0_h_51ac3a", { p0: formatHours(info.expectedToDate) }))}"></span>
+              <span class="project-macro-tick actual" style="left:${actualPercent.toFixed(2)}%" title="${escapeHtml(t("shell.actual_by_today_p0_h_f6ce64", { p0: formatHours(info.actualToDate) }))}"></span>
             </div>
             <div class="project-macro-legend">
-              <span><i class="project-macro-key"></i>planned</span>
-              <span><i class="project-macro-key expected"></i>should have been spent</span>
-              <span><i class="project-macro-key actual"></i>actual by today</span>
+              <span><i class="project-macro-key"></i>${t("shell.legacy.plannedLower")}</span>
+              <span><i class="project-macro-key expected"></i>${t("shell.legacy.expectedLower")}</span>
+              <span><i class="project-macro-key actual"></i>${t("shell.legacy.actualLower")}</span>
             </div>
-            <p class="project-macro-note">To be aligned with the planned hours ${info.noteSubject === "you" ? "you have" : "allocated"} on this project, ${info.noteSubject} should now work ${formatHours(weeklyHours)} hours per week on it until the end of ${info.targetLabel}.</p>
+            <p class="project-macro-note">To be aligned with the planned hours ${info.noteSubject === "you" ? t("shell.you_have_2f83b5") : "allocated"} on this project, ${info.noteSubject} should now work ${formatHours(weeklyHours)} hours per week on it until the end of ${info.targetLabel}.</p>
           </div>
         `;
       }
@@ -5996,8 +6066,8 @@
               data-macro-override-key="${escapeHtml(info.overrideKey)}"
               data-macro-field="${escapeHtml(field)}"
               data-macro-value="${escapeHtml(formatEditableHours(value))}"
-              aria-label="${escapeHtml(`${label} hours`)}"
-              title="Type a value, then press Enter or leave the field. Clear it to revert to calculated."
+              aria-label="${escapeHtml(t("shell.p0_hours_2e4129", { p0: label }))}"
+              title="${t("shell.legacy.editHelp")}"
             >
             <span>h</span>
           </strong>
@@ -6136,7 +6206,7 @@
           monitoringPeriods,
           todayStart,
           label: formatYearScopeLabel(periods.map((period) => period.year)),
-          plannedLabel: "Planned in scope",
+          plannedLabel: t("shell.planned_in_scope_440e65"),
           linearElapsedFraction: calculateLinearElapsedFraction(linearStart, linearEnd, todayEnd),
           target
         };
@@ -6206,9 +6276,9 @@
         const ranges = gaps.map((gap) => {
           const start = formatMacroWarningDate(gap.start);
           const end = formatMacroWarningDate(addDays(gap.end, -1));
-          return `between ${start} and ${end}`;
+          return t("shell.between_p0_and_p1_d7e09d", { p0: start, p1: end });
         });
-        return `Warning, no planned hours for this project ${ranges.join("; ")}`;
+        return t("shell.warning_no_planned_hours_for_this_project_p0_b8b6df", { p0: ranges.join("; ") });
       }
 
       function findPlanningGapRanges(periods, plannedHoursForPeriod) {
@@ -6245,7 +6315,7 @@
       }
 
       function formatMacroWarningDate(date) {
-        return new Intl.DateTimeFormat("en", {
+        return new Intl.DateTimeFormat(I18n.locale(), {
           month: "short",
           day: "numeric",
           year: "numeric"
@@ -6407,7 +6477,7 @@
         }
         return {
           end: scopeEnd,
-          label: periods.length === 1 ? "year" : "selected scope"
+          label: periods.length === 1 ? "year" : t("shell.selected_scope_dead7a")
         };
       }
 
@@ -6507,38 +6577,38 @@
 
       function budgetPersonnelToggleLabel(showPersonnelLines, personnelLineCount) {
         if (!personnelLineCount) {
-          return "No personnel lines";
+          return t("shell.no_personnel_lines_5f8f28");
         }
         return showPersonnelLines
-          ? `Hide personnel lines (${personnelLineCount})`
-          : `Show personnel lines (${personnelLineCount})`;
+          ? t("shell.hide_personnel_lines_p0_821c8d", { p0: personnelLineCount })
+          : t("shell.show_personnel_lines_p0_93af04", { p0: personnelLineCount });
       }
 
       function budgetChartTitle(budget) {
         if (budget.chartKind === "convention") {
-          return "Convention budget";
+          return t("shell.convention_budget_1a8a40");
         }
         if (budget.year) {
-          return `Annual budget ${budget.year}`;
+          return t("shell.annual_budget_p0_a0425c", { p0: budget.year });
         }
-        return budget.name || "Annual budget";
+        return budget.name || t("shell.annual_budget_65c5e1");
       }
 
       function budgetChartMeta(budget, scale) {
         const lineCount = budget.lines.length;
         const label = lineCount === 1 ? "line" : "lines";
         const hidden = budget.hiddenPersonnelLineCount
-          ? ` / ${budget.hiddenPersonnelLineCount} personnel hidden`
+          ? t("shell.p0_personnel_hidden_b65aa8", { p0: budget.hiddenPersonnelLineCount })
           : "";
         if (!lineCount && budget.hiddenPersonnelLineCount) {
-          return `${budget.hiddenPersonnelLineCount} personnel ${budget.hiddenPersonnelLineCount === 1 ? "line" : "lines"} hidden`;
+          return t("shell.p0_personnel_p1_hidden_6359d9", { p0: budget.hiddenPersonnelLineCount, p1: budget.hiddenPersonnelLineCount === 1 ? "line" : "lines" });
         }
-        return `${formatAmount(budget.totals.budgeted)} budgeted / ${lineCount} ${label} / ${scale} scale${hidden}`;
+        return t("shell.p0_budgeted_p1_p2_p3_scale_p4_912831", { p0: formatAmount(budget.totals.budgeted), p1: lineCount, p2: label, p3: scale, p4: hidden });
       }
 
       function renderBudgetSeriesKeyHtml() {
         return `
-          <div class="budget-series-key" aria-label="Budget bar legend">
+          <div class="budget-series-key" aria-label="${t("shell.legacy.budgetLegend")}">
             ${BUDGET_BAR_SERIES.map((series) => `
               <span class="budget-key-item">
                 <span class="swatch" style="background:${series.color}"></span>
@@ -6889,7 +6959,7 @@
 
           ctx.clearRect(0, 0, width, height);
           if (!total) {
-            drawEmptyChart(ctx, width, height, "No hours");
+            drawEmptyChart(ctx, width, height, t("shell.no_hours_f36747"));
             return;
           }
 
@@ -6932,7 +7002,7 @@
           ctx.fillText(`${formatHours(total)} h`, cx, cy - 6);
           ctx.fillStyle = "#64726f";
           ctx.font = "700 12px system-ui, sans-serif";
-          ctx.fillText("selected scope", cx, cy + 18);
+          ctx.fillText(t("shell.selected_scope_dead7a"), cx, cy + 18);
         });
       }
 
@@ -7046,7 +7116,7 @@
 
           ctx.clearRect(0, 0, width, height);
           if (!months.length || !series.length) {
-            drawEmptyChart(ctx, width, height, options.cumulative ? "No cumulative data" : "No monthly data");
+            drawEmptyChart(ctx, width, height, options.cumulative ? t("shell.no_cumulative_data_99cb5d") : t("shell.no_monthly_data_a8601a"));
             return;
           }
 
@@ -7134,7 +7204,7 @@
           ctx.clearRect(0, 0, width, height);
 
           if (!lines.length) {
-            drawEmptyChart(ctx, width, height, budget.hiddenPersonnelLineCount ? "Personnel lines hidden" : "No budget data");
+            drawEmptyChart(ctx, width, height, budget.hiddenPersonnelLineCount ? t("shell.personnel_lines_hidden_df984c") : t("shell.no_budget_data_fd20e3"));
             return;
           }
 
@@ -7288,7 +7358,7 @@
 
           ctx.clearRect(0, 0, width, height);
           if (!displayMonths.length || !series.length) {
-            drawEmptyChart(ctx, width, height, "No planned data");
+            drawEmptyChart(ctx, width, height, t("shell.no_planned_data_da988c"));
             return;
           }
 
@@ -7319,7 +7389,7 @@
           const rows = Array.isArray(dataset.rows) ? dataset.rows : [];
           ctx.clearRect(0, 0, width, height);
           if (!rows.length) {
-            drawEmptyChart(ctx, width, height, "No task data");
+            drawEmptyChart(ctx, width, height, t("shell.no_task_data_f6dff4"));
             return;
           }
 
@@ -7378,7 +7448,7 @@
               ctx.font = "800 12px system-ui, sans-serif";
               ctx.fillStyle = "#92570b";
               ctx.fillText(
-                fitCanvasText(ctx, "Missing info on that task. Please update in Odoo.", plotWidth),
+                fitCanvasText(ctx, t("shell.missing_info_on_that_task_please_update_in_odoo_0e9ef3"), plotWidth),
                 left,
                 timeY + 7
               );
@@ -7480,7 +7550,7 @@
         if (!date) {
           return "";
         }
-        return new Intl.DateTimeFormat("en", {
+        return new Intl.DateTimeFormat(I18n.locale(), {
           month: "short",
           day: "numeric",
           year: "2-digit"
@@ -7610,7 +7680,7 @@
           ctx.lineTo(x, top + plotHeight);
           ctx.stroke();
           ctx.setLineDash([]);
-          const label = deadline.count === 1 ? "1 task" : `${formatCompact(deadline.count)} tasks`;
+          const label = deadline.count === 1 ? t("shell.1_task_4a8df2") : t("shell.p0_tasks_a7032c", { p0: formatCompact(deadline.count) });
           ctx.fillText(label, Math.min(x + 4, left + plotWidth - 46), top + 4);
           ctx.setLineDash([5, 5]);
         });
@@ -7661,7 +7731,7 @@
           ctx.setLineDash([]);
           const label = monthMilestones.length === 1
             ? monthMilestones[0].name
-            : `${formatCompact(monthMilestones.length)} milestones`;
+            : t("shell.p0_milestones_cbc27c", { p0: formatCompact(monthMilestones.length) });
           ctx.fillText(fitCanvasText(ctx, label, 92), Math.min(x + 4, left + plotWidth - 92), top + 18);
           ctx.setLineDash([3, 5]);
         });
@@ -7756,7 +7826,7 @@
 
       function renderLegend(container, entries) {
         const total = sumEntries(entries);
-        container.innerHTML = entries.length ? "" : `<p class="legend-value">No hours in selected scope.</p>`;
+        container.innerHTML = entries.length ? "" : `<p class="legend-value">${t("shell.no_hours_in_selected_scope_bfd3ba")}</p>`;
         entries.forEach((entry) => {
           const row = document.createElement("div");
           const label = compactLegendLabelWithDates(entry.name);
@@ -7860,21 +7930,21 @@
 
       function renderLineLegend(container, entries, options = {}) {
         const hiddenSeries = options.hiddenSeries || new Set();
-        container.innerHTML = entries.length ? "" : `<p class="legend-value">No employees in selected scope.</p>`;
+        container.innerHTML = entries.length ? "" : `<p class="legend-value">${t("shell.no_employees_in_selected_scope_984b99")}</p>`;
         entries.forEach((entry) => {
           const disabled = hiddenSeries.has(personKey(entry.name));
           const row = document.createElement(options.onToggle ? "button" : "div");
           row.className = `legend-row${options.onToggle ? " legend-toggle" : ""}${disabled ? " disabled-series" : ""}`;
           if (options.onToggle) {
             row.type = "button";
-            row.title = `Toggle ${entry.name}`;
+            row.title = t("shell.toggle_p0_299068", { p0: entry.name });
             row.setAttribute("aria-pressed", String(!disabled));
             row.dataset.seriesKey = personKey(entry.name);
             row.addEventListener("click", () => options.onToggle(entry));
           }
           row.innerHTML = `
             <span class="swatch" style="background:${entry.color}"></span>
-            <span class="legend-name">${escapeHtml(entry.name)}</span>
+            <span class="legend-name">${escapeHtml(displayEntityLabel(entry.name))}</span>
             <span class="legend-value">${formatHours(entry.value)} h</span>
           `;
           container.appendChild(row);
@@ -7898,14 +7968,14 @@
 
       function formatHours(value) {
         const hasDecimal = Math.abs(value - Math.round(value)) > 0.01;
-        return new Intl.NumberFormat("en", {
+        return new Intl.NumberFormat(I18n.locale(), {
           maximumFractionDigits: hasDecimal ? 1 : 0
         }).format(value);
       }
 
       function formatAmount(value) {
         const abs = Math.abs(Number(value) || 0);
-        return new Intl.NumberFormat("en", {
+        return new Intl.NumberFormat(I18n.locale(), {
           maximumFractionDigits: abs >= 1000 ? 0 : 1
         }).format(value);
       }
@@ -7921,14 +7991,18 @@
         if (!total) {
           return "0%";
         }
-        return `${new Intl.NumberFormat("en", { maximumFractionDigits: 1 }).format((value / total) * 100)}%`;
+        return `${new Intl.NumberFormat(I18n.locale(), { maximumFractionDigits: 1 }).format((value / total) * 100)}%`;
       }
 
       function formatCompact(value) {
-        return new Intl.NumberFormat("en", {
+        return new Intl.NumberFormat(I18n.locale(), {
           notation: value >= 1000 ? "compact" : "standard",
           maximumFractionDigits: 0
         }).format(value);
+      }
+
+      function displayEntityLabel(value) {
+        return value === "(No project)" ? t("shell.no_project_b9cbcc") : value === "(No employee)" ? t("shell.no_employee_1c9d04") : value;
       }
 
       function escapeHtml(value) {
