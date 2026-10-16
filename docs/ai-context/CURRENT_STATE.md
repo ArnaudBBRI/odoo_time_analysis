@@ -2,6 +2,18 @@
 
 ## Functional State
 
+- Publication completed on 2026-10-16 after the user's explicit request to
+  commit all changes and push `main`: feature commit `104b533` contains the
+  reviewed 57-file FR/NL/project-controls implementation, tests and docs.
+  Local `main` fast-forwarded from `dad8b58`; the push succeeded and the remote
+  `refs/heads/main` was verified at `104b533d039a8f4d6f352fb098905bcf1c054b2c`.
+  Existing final **936/936** offline tests apply to the unchanged source snapshot;
+  publication review found no secrets/private files or Odoo guard changes.
+  The user next requested branch `codex/project-card-outline` for a different
+  project-card presentation inspired by the supplied Uiverse reference. That
+  implementation plan is awaiting the repository-required approval; no card
+  code has changed. This documentation checkpoint records the publication.
+
 - Completed on 2026-10-16 (approved plan) on `codex/fr-nl-dashboard`, created
   from clean `main` at `dad8b58`: complete French/Dutch presentation, header
   selector and credential-independent local language preference; full versus
@@ -22,7 +34,7 @@
   loopback 8765 (welcome 200, public preferences/current assets verified,
   anonymous project-hours 401, empty stderr). Sign in again after restart.
   No live Odoo access, private-config modification, commit, push or PR occurred
-  during this task. Next action: user review; changes remain local/uncommitted.
+  during that implementation task. Publication is now recorded above.
 
 - Published on 2026-10-15 after the user's explicit commit/push request:
   nine commits on `origin/codex/project-budgets`, from `658a865` through
@@ -1378,14 +1390,22 @@ A runnable dashboard, authenticated local connector and authentication integrati
 
 ## Session handoff
 
+- On 2026-10-16 the user explicitly requested commit-all, push to `main`, then
+  a new card-design branch. Feature `104b533` is published and remote-verified;
+  the 936-test source snapshot is unchanged. Next: create
+  `codex/project-card-outline` after this publication checkpoint, then implement
+  the pending card plan after approval. Keep white/black/turquoise project
+  cards with short name/portrait at rest and animated outline/full metadata
+  on hover/focus; the proposed scope preserves the separate programme cards.
+
 - Current objective completed on 2026-10-16 on `codex/fr-nl-dashboard`:
   FR/NL selector/persistence, calendar full/near mode and short left labels,
   multiple employee exclusions with explicit ignored hours, and zero monthly
   details cleanup. Final **936/936** offline tests and independent/static/UI
   checks pass. Runtime PID **33592** serves loopback 8765; sign in again after
   restart. Preview resources are released, private config is untouched and
-  Odoo was not contacted. Changes remain uncommitted; no publication requested.
-  Next action is user review. Earlier handoff entries below are historical;
+  Odoo was not contacted. These changes are now published as recorded above.
+  Earlier handoff entries below are historical;
   their former runtime/uncommitted/next-action notes are superseded here.
 
 - Publication is complete for the nine feature/integration commits ending at
@@ -1714,10 +1734,9 @@ A runnable dashboard, authenticated local connector and authentication integrati
   server by command and exact served login bytes before replacement. Starting
   a new process requires signing in again.
   Isolated synthetic preview processes are no longer running.
-- Next action: user review of FR/NL, short calendar names and full/near ranges,
-  employee ignored-hours controls and zero monthly details after reconnecting.
-  This task remains local/uncommitted; no publication was requested.
-  Earlier hours/budget features are published as recorded above.
+- Next action: new project-card experiment on `codex/project-card-outline`,
+  after the pending implementation-plan approval. All prior dashboard features
+  are published on `main` as recorded above.
   Previously targeted configured-token authentication
   and targeted Extrai budget/date/personal planning reads are verified;
   staffing-assignment, profile-photo access, broader personal/project access and
