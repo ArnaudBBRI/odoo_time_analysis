@@ -2,6 +2,16 @@
 
 ## Functional State
 
+- Completed on 2026-10-23 at the user's explicit request: `main` was
+  fast-forwarded to `2e7746d` and pushed to `origin/main`, including the tested
+  app commit `3c66e67` and its companion documentation. Removed merged local
+  branches `codex/project-card-outline` and `codex/fr-nl-dashboard`; removed
+  the remote feature branch. The remote FR/NL branch was already absent.
+  Ancestry and remote refs were verified; the checkout is now on `main`.
+  The full **1204/1204** offline test result remains applicable because the
+  merge introduced no runtime changes; this follow-up only updates project
+  memory. No Odoo access, data change or server restart was needed.
+
 - Completed on 2026-10-23 at the user's explicit request: accumulated app,
   curated tag catalogue and test changes are committed as `3c66e67` and pushed
   to `origin/codex/project-card-outline`, with upstream tracking established.
@@ -2149,7 +2159,17 @@ A runnable dashboard, authenticated local connector and authentication integrati
 
 ## Session handoff
 
-- Latest publication completed on 2026-10-23: the user requested commits/push.
+- Latest publication completed on 2026-10-23: the user requested merge/push to
+  main and cleanup of the feature and FR/NL branches. `origin/main` now contains
+  feature/documentation tip `2e7746d` via a conflict-free fast-forward from
+  `32d7211`. Both local branches are removed; the remote feature branch was
+  deleted and the FR/NL remote branch was already absent. Checkout is `main`.
+  All feature code remains identical to the previously tested **1204/1204**
+  snapshot; only this project-memory checkpoint follows the merge. Private
+  configuration and raw reports remain ignored; no Odoo or runtime change.
+  Earlier feature-branch publication notes below are historical.
+
+- Previous publication completed on 2026-10-23: the user requested commits/push.
   App/tests/catalogue commit `3c66e67` is published on the matching tracked
   `origin/codex/project-card-outline` branch, based on `32d7211`.
   Companion documentation captures this checkpoint and prior feature work.
@@ -2896,8 +2916,8 @@ A runnable dashboard, authenticated local connector and authentication integrati
   review remains available for the lower milestone title axis, descending project/convention bars and prior
   local refinements on `codex/project-card-outline` after refreshing/signing in.
   Earlier published dashboard features remain on `main` as recorded above;
-  this map and the accumulated refinements are now committed and published in
-  `3c66e67` on `origin/codex/project-card-outline`.
+  this map and the accumulated refinements are now committed in `3c66e67` and
+  published on `origin/main`, together with documentation tip `2e7746d`.
   Previously targeted configured-token authentication
   and targeted Extrai budget/date/personal planning reads are verified;
   staffing-assignment, profile-photo access, broader personal/project access and
