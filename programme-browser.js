@@ -80,6 +80,7 @@
         photo.width = 64; photo.height = 64; photo.addEventListener("error", () => { photo.hidden = true; }); avatar.append(photo);
       }
       ProjectCard.mount(label, radio, programme, [avatar, ProjectCard.createTitle(doc, programme, "programme-browser-name")], {
+        variant: "programme",
         badge: catchphrase, fullName: programme.subtitle,
         tooltip: t("programme.tooltip", { p0: programme.code, p1: programme.subtitle, p2: catchphrase, p3: programme.manager.name }),
         description: t("programme.description", { p0: programme.subtitle, p1: catchphrase, p2: programme.manager.name })

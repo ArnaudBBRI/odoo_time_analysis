@@ -627,11 +627,12 @@
     const known = visible.filter(project => project.planned != null);
     const planned = known.reduce((sum, project) => sum + hours(project.planned), 0);
     const actual = visible.reduce((sum, project) => sum + hours(project.actual), 0);
-    for (const [label, value, detail] of [
-      [t("personal.plannedInPeriod"), visible.length && !known.length ? null : planned, known.length < visible.length ? t("personal.partialPlanning") : t("personal.displayedProjects")],
-      [t("common.actualToDate"), actual, t("personal.correctionsIncluded")]
+    for (const [kind, label, value, detail] of [
+      ["planned", t("personal.plannedInPeriod"), visible.length && !known.length ? null : planned, known.length < visible.length ? t("personal.partialPlanning") : t("personal.displayedProjects")],
+      ["actual", t("common.actualToDate"), actual, t("personal.correctionsIncluded")]
     ]) {
       const metric = node("div", "personal-time-metric");
+      metric.setAttribute("data-personal-metric", kind);
       metric.append(node("span", "personal-time-metric-label", label), node("strong", "personal-time-metric-value", formatHours(value)),
         node("span", "personal-time-metric-note", detail));
       metrics.append(metric);

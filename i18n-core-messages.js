@@ -4,6 +4,15 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function (I18n) {
   "use strict";
   I18n.register({
+  "personal.layout.standard": { "fr": "Normal", "nl": "Normaal" },
+  "personal.layout.wide": { "fr": "Large", "nl": "Breed" },
+  "personal.layout.switchLabel": { "fr": "Affichage large", "nl": "Brede weergave" },
+  "personal.layout.standardHint": { "fr": "Vue verticale habituelle.", "nl": "De gebruikelijke verticale weergave." },
+  "personal.layout.unavailableHint": { "fr": "Affichage large pas encore disponible dans cette vue.", "nl": "Brede weergave is nog niet beschikbaar in deze weergave." },
+  "personal.layout.wideActive": { "fr": "Quatre colonnes actives.", "nl": "Vier kolommen actief." },
+  "personal.layout.wideHint": { "fr": "Quatre colonnes dès {width} px de largeur de fenêtre.", "nl": "Vier kolommen vanaf een vensterbreedte van {width} px." },
+  "project.layout.wideActive": { "fr": "Vue d’ensemble à gauche · graphiques et légendes à droite.", "nl": "Overzicht links · grafieken en legenda’s rechts." },
+  "project.layout.wideHint": { "fr": "Vue d’ensemble et graphiques côte à côte dès {width} px.", "nl": "Overzicht en grafieken naast elkaar vanaf {width} px." },
   "common.unavailable": {
     "fr": "Indisponible",
     "nl": "Niet beschikbaar"
@@ -675,6 +684,10 @@
   "monthly.conventionDatesInvalid": {
     "fr": "Dates du projet absentes ou invalides ; la référence conventionnelle est indisponible.",
     "nl": "Projectdatums ontbreken of zijn ongeldig; de conventiereferentie is niet beschikbaar."
+  },
+  "monthly.conventionOverflow": {
+    "fr": "La référence conventionnelle dépasse la capacité de calcul ; elle est indisponible.",
+    "nl": "De referentie van de overeenkomst overschrijdt de rekencapaciteit en is niet beschikbaar."
   },
   "planning.invalidActual": {
     "fr": "Certaines imputations ont des dates ou des heures invalides ; les heures déjà prestées restent indisponibles.",
@@ -1425,6 +1438,46 @@
   "budget.status.revised": { "fr": "Révisé", "nl": "Herzien" },
   "budget.status.done": { "fr": "Clôturé", "nl": "Afgesloten" },
   "budget.status.canceled": { "fr": "Annulé", "nl": "Geannuleerd" },
+  "purchaseFlow.heading": { "fr": "Achats depuis le début du projet - Diagramme Sankey", "nl": "Aankopen sinds de projectstart - Sankeydiagram" },
+  "purchaseFlow.expand": { "fr": "Afficher le graphique en plein écran", "nl": "Grafiek schermvullend weergeven" },
+  "purchaseFlow.restore": { "fr": "Réduire le graphique", "nl": "Grafiek verkleinen" },
+  "purchaseFlow.hide": { "fr": "Masquer le diagramme", "nl": "Diagram verbergen" },
+  "purchaseFlow.show": { "fr": "Afficher le diagramme", "nl": "Diagram weergeven" },
+  "purchaseFlow.scope": { "fr": "Du {p0} au {p1}", "nl": "Van {p0} tot {p1}" },
+  "purchaseFlow.basis": { "fr": "Factures fournisseurs et avoirs comptabilisés · montants affectés au projet.", "nl": "Geboekte leveranciersfacturen en creditnota’s · bedragen toegewezen aan het project." },
+  "purchaseFlow.instruction": { "fr": "Survolez un flux pour l’isoler et afficher son détail.", "nl": "Beweeg over een stroom om die te markeren en de details te zien." },
+  "purchaseFlow.categories": { "fr": "Catégories conventionnelles", "nl": "Overeenkomstcategorieën" },
+  "purchaseFlow.codes": { "fr": "Codes internes", "nl": "Interne codes" },
+  "purchaseFlow.purchases": { "fr": "Achats comptabilisés", "nl": "Geboekte aankopen" },
+  "purchaseFlow.corrections": { "fr": "Avoirs et corrections", "nl": "Creditnota’s en correcties" },
+  "purchaseFlow.gross": { "fr": "Achats", "nl": "Aankopen" },
+  "purchaseFlow.correctionTotal": { "fr": "Avoirs et corrections (signés)", "nl": "Creditnota’s en correcties (met teken)" },
+  "purchaseFlow.net": { "fr": "Total net", "nl": "Nettototaal" },
+  "purchaseFlow.unavailable": { "fr": "Les achats détaillés sont indisponibles.", "nl": "De gedetailleerde aankopen zijn niet beschikbaar." },
+  "purchaseFlow.partial": { "fr": "Liste partielle : certains achats ou rattachements ne sont pas vérifiables.", "nl": "Gedeeltelijke lijst: sommige aankopen of koppelingen kunnen niet worden geverifieerd." },
+  "purchaseFlow.empty": { "fr": "Aucun achat comptabilisé dans cette période.", "nl": "Geen geboekte aankopen in deze periode." },
+  "purchaseFlow.unknownCategory": { "fr": "Catégorie non renseignée", "nl": "Categorie ontbreekt" },
+  "purchaseFlow.unknownCode": { "fr": "Code non renseigné", "nl": "Code ontbreekt" },
+  "purchaseFlow.unknownPurchase": { "fr": "Achat sans description", "nl": "Aankoop zonder beschrijving" },
+  "purchaseFlow.unknownSupplier": { "fr": "Fournisseur non renseigné", "nl": "Leverancier ontbreekt" },
+  "purchaseFlow.unknownDocument": { "fr": "Référence non renseignée", "nl": "Referentie ontbreekt" },
+  "purchaseFlow.unknownCurrency": { "fr": "Devise non vérifiée", "nl": "Valuta niet geverifieerd" },
+  "purchaseFlow.details": { "fr": "Voir tous les achats et corrections ({p0})", "nl": "Alle aankopen en correcties bekijken ({p0})" },
+  "purchaseFlow.date": { "fr": "Date", "nl": "Datum" },
+  "purchaseFlow.supplier": { "fr": "Fournisseur", "nl": "Leverancier" },
+  "purchaseFlow.reference": { "fr": "Référence et description", "nl": "Referentie en beschrijving" },
+  "purchaseFlow.amount": { "fr": "Montant comptabilisé", "nl": "Geboekt bedrag" },
+  "purchaseFlow.flowLabel": { "fr": "{p0} → {p1} : {p2}", "nl": "{p0} → {p1} : {p2}" },
+  "purchaseFlow.diagramLabel": { "fr": "{p0} · {p1}", "nl": "{p0} · {p1}" },
+  "purchaseFlow.issue.sourceUnavailable": { "fr": "La source des achats est indisponible.", "nl": "De bron van de aankopen is niet beschikbaar." },
+  "purchaseFlow.issue.startUnavailable": { "fr": "La date de début du projet n’est pas vérifiable ; aucun périmètre n’est estimé.", "nl": "De projectstartdatum kan niet worden geverifieerd; er wordt geen periode geschat." },
+  "purchaseFlow.issue.documentUnavailable": { "fr": "Certaines factures fournisseurs ne sont pas vérifiables avec vos accès.", "nl": "Sommige leveranciersfacturen kunnen niet worden geverifieerd met uw toegangsrechten." },
+  "purchaseFlow.issue.incomplete": { "fr": "Certaines écritures ne permettent pas de confirmer un achat comptabilisé dans cette période.", "nl": "Voor sommige boekingen kan geen geboekte aankoop binnen deze periode worden bevestigd." },
+  "purchaseFlow.issue.mappingMissing": { "fr": "Certains achats n’ont pas de catégorie conventionnelle ou de code interne vérifié.", "nl": "Sommige aankopen hebben geen geverifieerde overeenkomstcategorie of interne code." },
+  "purchaseFlow.issue.descriptionsMissing": { "fr": "Certaines descriptions d’achat sont indisponibles ; les montants connus sont conservés.", "nl": "Sommige aankoopbeschrijvingen zijn niet beschikbaar; de bekende bedragen blijven behouden." },
+  "purchaseFlow.issue.currencyMissing": { "fr": "Des devises ne sont pas vérifiées ; ces montants ne sont pas combinés.", "nl": "Sommige valuta’s zijn niet geverifieerd; deze bedragen worden niet samengevoegd." },
+  "purchaseFlow.issue.amountMissing": { "fr": "Certains montants sont inconnus ; ils ne sont pas remplacés par zéro.", "nl": "Sommige bedragen zijn onbekend; ze worden niet vervangen door nul." },
+  "purchaseFlow.issue.duplicateConflict": { "fr": "Des écritures contradictoires ont été écartées ; la liste est partielle.", "nl": "Tegenstrijdige boekingen zijn uitgesloten; de lijst is gedeeltelijk." },
   "budget.partialSourceSuffix": {
     "fr": " · source partielle",
     "nl": " · gedeeltelijke bron"

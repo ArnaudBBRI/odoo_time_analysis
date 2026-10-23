@@ -133,6 +133,54 @@ function sourceCodes(row) {
   return codes;
 }
 
+// Shared resolution for the selected-programme lookup and the already-visible
+// unit catalogue. Neither incidental substrings nor ambiguous codes assign IDs.
+function resolveProjectReferences(references, byId) {
+  const candidates = references.map(() => new Set());
+  const identities = new Map();
+  for (const [id, rows] of byId) {
+    const codes = new Set(rows.flatMap(row => [...sourceCodes(row)]));
+    const sourceNames = new Set(rows.map(row => row.name));
+    const matched = references.map(reference => codes.has(reference.code))
+      .map((match, index) => match ? index : -1).filter(index => index >= 0);
+    if (codes.size > 1 || sourceNames.size > 1 || matched.length > 1) {
+      for (const index of matched) candidates[index].add(`invalid:${id}`);
+      continue;
+    }
+    if (matched.length !== 1) continue;
+    candidates[matched[0]].add(id);
+    identities.set(id, rows.find(row => typeof row.display_name === "string" && row.display_name.trim()) || rows[0]);
+  }
+  const missing = [], ambiguous = [], selected = new Map();
+  references.forEach((reference, index) => {
+    const ids = candidates[index];
+    if (!ids.size) missing.push({ ...reference });
+    else if (ids.size !== 1 || typeof [...ids][0] !== "number") ambiguous.push({ ...reference });
+    else {
+      const id = [...ids][0], source = identities.get(id);
+      const name = typeof source.display_name === "string" && source.display_name.trim() ? source.display_name.trim() : source.name.trim();
+      selected.set(id, { id, name, startDate: null, endDate: null, manager: null });
+    }
+  });
+  return { missing, ambiguous, selected };
+}
+
+function createProjectMap(visibleProjects) {
+  if (!Array.isArray(visibleProjects)) return { status: "unavailable", programmes: [] };
+  const byId = new Map();
+  for (const project of visibleProjects) {
+    if (!Number.isSafeInteger(project?.id) || project.id <= 0 || typeof project.name !== "string" || !project.name.trim()) continue;
+    if (!byId.has(project.id)) byId.set(project.id, []);
+    byId.get(project.id).push({ name: project.name, display_name: project.display_name });
+  }
+  return { status: "available", programmes: definitions.map(({ id, subtitle }) => {
+    // Resolve each list independently: a shared reference retains every
+    // programme membership instead of arbitrarily choosing one programme.
+    const { selected } = resolveProjectReferences(projectReferences[id], byId);
+    return { id, code: id, subtitle, projectIds: [...selected.keys()].sort((a, b) => a - b) };
+  }) };
+}
+
 async function loadProjects(programmeId, rpc, now = new Date()) {
   if (!["DC1", "DC2", "DC3"].includes(programmeId)) throw new Error("Programme inconnu.");
   const references = projectReferences[programmeId];
@@ -164,32 +212,7 @@ async function loadProjects(programmeId, rpc, now = new Date()) {
   if (!readableQueries) throw new Error("Les projets du programme sont indisponibles avec vos accès Odoo.");
   if (deniedQueries) warnings.push("Une partie des recherches de projets est indisponible avec vos accès Odoo ; la couverture de la liste reste partielle.");
 
-  const candidates = references.map(() => new Set());
-  const identities = new Map();
-  for (const [id, rows] of byId) {
-    const codes = new Set(rows.flatMap(row => [...sourceCodes(row)]));
-    const sourceNames = new Set(rows.map(row => row.name));
-    const matched = references.map(reference => codes.has(reference.code))
-      .map((match, index) => match ? index : -1).filter(index => index >= 0);
-    if (codes.size > 1 || sourceNames.size > 1 || matched.length > 1) {
-      for (const index of matched) candidates[index].add(`invalid:${id}`);
-      continue;
-    }
-    if (matched.length !== 1) continue;
-    candidates[matched[0]].add(id);
-    identities.set(id, rows.find(row => typeof row.display_name === "string" && row.display_name.trim()) || rows[0]);
-  }
-  const missing = [], ambiguous = [], selected = new Map();
-  references.forEach((reference, index) => {
-    const ids = candidates[index];
-    if (!ids.size) missing.push({ ...reference });
-    else if (ids.size !== 1 || typeof [...ids][0] !== "number") ambiguous.push({ ...reference });
-    else {
-      const id = [...ids][0], source = identities.get(id);
-      const name = typeof source.display_name === "string" && source.display_name.trim() ? source.display_name.trim() : source.name.trim();
-      selected.set(id, { id, name, startDate: null, endDate: null, manager: null });
-    }
-  });
+  const { missing, ambiguous, selected } = resolveProjectReferences(references, byId);
   if (missing.length) warnings.push(`${missing.length} projet(s) référencé(s) sont absents des données accessibles : ${missing.map(p => p.code || p.name).join(", ")}.`);
   if (ambiguous.length) warnings.push(`${ambiguous.length} référence(s) de projet sont ambiguës et restent exclues : ${ambiguous.map(p => p.code || p.name).join(", ")}.`);
 
@@ -226,4 +249,4 @@ async function loadProjects(programmeId, rpc, now = new Date()) {
     asOf: now.toISOString() };
 }
 
-module.exports = { catalogue, load, loadProjects };
+module.exports = { catalogue, load, loadProjects, createProjectMap };

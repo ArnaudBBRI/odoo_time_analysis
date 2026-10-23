@@ -210,10 +210,11 @@
 
   function summarizePlanning(result, options = {}) {
     const mode = options.mode === "cumulative" ? "cumulative" : "monthly";
-    const start = calendarDate(result?.lifetime?.startDate), end = calendarDate(result?.lifetime?.endDate);
+    const lifetime = result?.lifetime || {}, budget = budgetDetails(lifetime);
+    const start = calendarDate(lifetime.startDate), end = calendarDate(lifetime.endDate);
     const output = { status: "unavailable", startDate: start?.key || null, endDate: end?.key || null,
       throughDate: end?.key || null, months: [], employees: [], total: [], convention: null,
-      budgetStatus: "unavailable", warnings: [], mode, kind: "planned" };
+      budgetStatus: budget.status, warnings: [], mode, kind: "planned" };
     if (!start || !end || end.key < start.key || !positiveId(result?.project?.id)) {
       output.warnings.push(t("monthly.invalidProjectIdentity")); return output;
     }
@@ -221,7 +222,14 @@
     if (!axis) { output.warnings.push(t("monthly.planningTooLong")); return output; }
     const schedule = planningSchedule(result, options, start, end, end, axis.starts, mode);
     output.status = schedule.status; output.warnings = schedule.warnings;
-    if (schedule.status === "available") { output.months = axis.months; output.employees = schedule.employees; output.total = schedule.total; }
+    if (schedule.status === "available") {
+      output.months = axis.months; output.employees = schedule.employees; output.total = schedule.total;
+      if (budget.hours !== null) {
+        const convention = linearReference(budget.hours, start, end, end, axis.starts, mode === "cumulative");
+        if (convention.every(Number.isFinite)) output.convention = convention;
+        else { output.budgetStatus = "unavailable"; output.warnings.push(t("monthly.conventionOverflow")); }
+      }
+    }
     return output;
   }
 

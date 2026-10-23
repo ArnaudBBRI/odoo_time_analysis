@@ -373,6 +373,103 @@ test("annual three adjacent bars preserve overlaps and exact amounts rather than
   assert.match(get(container, "[data-budget-annual]").textContent, /Total net Odoo.*[-−]200 EUR/);
 });
 
+test("annual total bars expose exact amounts on hover, focus and tap without opening category bills", () => {
+  const container = domFixture(), data = fixture(); data.annual = [annual(26, 2026, 1000.12, 250.34, 400.56)];
+  const original = structuredClone(data); render(container, data);
+  const card = get(container, "[data-budget-annual]"), tooltip = get(card, ".project-budget-code-tooltip");
+  const normalize = text => text.replace(/[\s\u00a0\u202f]+/g, " ");
+  const expected = ["Total Budgeté : 1 000,12 EUR", "Total Consommé : 250,34 EUR", "Total Engagé : 400,56 EUR"];
+  card.querySelectorAll("[data-budget-bar]").forEach((bar, index) => {
+    assert.equal(bar.tagName, "button"); assert.equal(bar.type, "button");
+    assert.equal(bar.getAttribute("aria-describedby"), tooltip.id);
+    assert.equal(bar.getAttribute("aria-haspopup"), null);
+    bar.dispatch("pointerenter"); assert.equal(tooltip.hidden, false);
+    assert.equal(normalize(tooltip.textContent), expected[index]);
+    assert.equal(normalize(bar.getAttribute("aria-label")), expected[index]);
+    bar.dispatch("pointerleave"); assert.equal(tooltip.hidden, true);
+    bar.focus(); assert.equal(tooltip.hidden, false);
+    bar.dispatch("blur"); assert.equal(tooltip.hidden, true);
+    bar.dispatch("click"); bar.dispatch("pointerleave"); assert.equal(tooltip.hidden, false);
+    bar.dispatch("click"); assert.equal(tooltip.hidden, true);
+    bar.dispatch("click"); let prevented = false;
+    bar.dispatch("keydown", { key: "Escape", preventDefault() { prevented = true; } });
+    assert.equal(prevented, true); assert.equal(tooltip.hidden, true);
+  });
+  assert.equal(container.querySelectorAll("[data-budget-bills-modal]").length, 0);
+  assert.deepEqual(data, original);
+});
+
+test("annual total tooltips remain available without category bars and distinguish zero, credits and missing amounts", () => {
+  const container = domFixture(), data = fixture(), empty = annual(26, 2026), signed = annual(27, 2027, 0, -50.25, null);
+  empty.lines = []; empty.totals.committed = null; data.annual = [empty, signed]; render(container, data);
+  const cards = container.querySelectorAll("[data-budget-annual]"), emptyCard = cards[0];
+  assert.equal(emptyCard.querySelectorAll("[data-budget-code]").length, 0);
+  assert.equal(emptyCard.querySelectorAll(".project-budget-code-key").length, 0);
+  const emptyTooltip = get(emptyCard, ".project-budget-code-tooltip"); assert.ok(emptyTooltip);
+  const emptyBars = emptyCard.querySelectorAll("[data-budget-bar]");
+  emptyBars[0].dispatch("pointerenter"); assert.equal(emptyTooltip.hidden, false);
+  assert.equal(emptyTooltip.textContent, "Total Budgeté : 0 EUR");
+  emptyBars[0].dispatch("pointerleave");
+  emptyBars[2].focus(); assert.equal(emptyTooltip.textContent, "Total Engagé : Indisponible");
+  emptyBars[2].dispatch("blur"); assert.equal(emptyTooltip.hidden, true);
+  const signedBars = cards[1].querySelectorAll("[data-budget-bar]"), signedTooltip = get(cards[1], ".project-budget-code-tooltip");
+  for (const [index, text] of [[0, "Total Budgeté : 0 EUR"], [1, "Total Consommé : -50,25 EUR"], [2, "Total Engagé : Indisponible"]]) {
+    signedBars[index].dispatch("pointerenter"); assert.equal(signedTooltip.textContent, text);
+    signedBars[index].dispatch("pointerleave"); assert.equal(signedTooltip.hidden, true);
+  }
+  assert.ok(signedBars[1].querySelectorAll(".is-negative").length);
+  assert.equal(signedBars[2].querySelectorAll("[data-budget-height]").length, 0);
+  assert.doesNotMatch(container.textContent, /NaN|undefined/);
+});
+
+test("annual total tooltip identity stays within its card and focused totals survive rerender", () => {
+  const container = domFixture(), data = fixture(); data.annual = [annual(26, 2026, 1000, 250, 400), annual(27, 2027, 2000, 500, 800)];
+  render(container, data);
+  const cards = container.querySelectorAll("[data-budget-annual]"), tips = cards.map(card => get(card, ".project-budget-code-tooltip"));
+  assert.notEqual(tips[0].id, tips[1].id);
+  const first = get(cards[0], '[data-budget-bar="consumed"]'), second = get(cards[1], '[data-budget-bar="consumed"]');
+  first.dispatch("pointerenter"); assert.equal(tips[0].textContent, "Total Consommé : 250 EUR");
+  assert.equal(tips[1].hidden, true); first.dispatch("pointerleave");
+  second.focus(); assert.equal(tips[0].hidden, true); assert.equal(tips[1].textContent, "Total Consommé : 500 EUR");
+  assert.equal(second.getAttribute("aria-describedby"), tips[1].id);
+  data.annual[1].totals.consumed = 501.25; data.annual[1].lines[0].consumed = 501.25;
+  const original = structuredClone(data); render(container, data);
+  const replacement = get(container, '[data-budget-total-detail="27:consumed"]');
+  assert.notEqual(replacement, second); assert.equal(container.ownerDocument.activeElement, replacement);
+  const newCard = get(container, '[data-budget-annual="27"]'), newTooltip = get(newCard, ".project-budget-code-tooltip");
+  assert.equal(newTooltip.hidden, false); assert.equal(newTooltip.textContent, "Total Consommé : 501,25 EUR");
+  assert.equal(replacement.getAttribute("aria-describedby"), newTooltip.id); assert.deepEqual(data, original);
+});
+
+test("annual total tooltips use the displayed personnel and supplier filters in French and Dutch", () => {
+  const I18n = require("../i18n-core-messages"), oldLanguage = I18n.language();
+  const container = domFixture(), data = fixture(), budget = annual(26, 2026, 1300, 330, 480);
+  budget.lines = [{ ...line(1, 41, "6200 Personnel BW", 1000, 250, "6200"), committed: 400, isBwPersonnel: true },
+    { ...line(2, 42, "6139 Ormit Talent", 200, 60, "6139"), committed: 60, isBwPersonnel: false },
+    { ...line(3, 43, "6124 Services", 100, 20, "6124"), committed: 20, isBwPersonnel: false }];
+  budget.ormitterExclusion = { lines: [{ id: 2, consumed: 0, committed: 0 }, { id: 3, consumed: 20, committed: null }] };
+  data.annual = [budget]; const original = structuredClone(data);
+  try {
+    for (const language of ["fr", "nl"]) {
+      I18n.setLanguage(language);
+      for (const showBwPersonnelCosts of [false, true]) for (const excludeOrmitterCosts of [false, true]) {
+        render(container, data, { showBwPersonnelCosts, excludeOrmitterCosts });
+        const card = get(container, "[data-budget-annual]"), tooltip = get(card, ".project-budget-code-tooltip");
+        const values = excludeOrmitterCosts ? ["300 EUR", "20 EUR", language === "fr" ? "Indisponible" : "Niet beschikbaar"] : ["300 EUR", "80 EUR", "80 EUR"];
+        const labels = language === "fr" ? ["Total Budgeté : ", "Total Consommé : ", "Total Engagé : "] : ["Totaal Gebudgetteerd: ", "Totaal Verbruikt: ", "Totaal Vastgelegd: "];
+        card.querySelectorAll("[data-budget-bar]").forEach((bar, index) => {
+          bar.dispatch("pointerenter"); assert.equal(tooltip.hidden, false);
+          assert.equal(tooltip.textContent, labels[index] + values[index]);
+          const rawValue = bar.getAttribute("data-budget-value");
+          assert.equal(rawValue, excludeOrmitterCosts ? ["300", "20", "unavailable"][index] : ["300", "80", "80"][index]);
+          bar.dispatch("pointerleave");
+        });
+      }
+    }
+  } finally { I18n.setLanguage(oldLanguage); }
+  assert.deepEqual(data, original);
+});
+
 test("annual charts share exact currency axes while isolating different and unknown currencies", () => {
   const container = domFixture(), data = fixture();
   data.annual = [annual(26, 2026, 100, 50, 75), annual(27, 2027, 400, 200, 300),
@@ -742,4 +839,61 @@ test("known empty bills differ from unavailable or unreconciled lists and option
   get(container, "[data-budget-code-measure]").dispatch("click");
   const modal = get(container, "[data-budget-bills-modal]"); assert.match(modal.textContent, /Liste partielle/);
   assert.match(modal.textContent, /Description non renseignée/); assert.match(modal.textContent, /Écart liste/);
+});
+
+test("purchase Sankey follows the first total comparison with its own lifetime scope and unchanged budget controls", () => {
+  const container = domFixture(), data = fixture();
+  const purchase = { id: 501, date: "2026-10-09", consumed: 180, currencyId: 1, currency: "EUR", categoryId: 22,
+    category: "Équipement", codeCategoryId: 601, codeCategory: "6010 Matériel", code: "6010", description: "Achat fictif",
+    supplierLabel: "Fournisseur fictif", documentLabel: "INV-501", documentType: "in_invoice" };
+  data.purchases = { status: "available", startDate: "2025-12-01", endDate: "2026-10-09", items: [purchase], issues: [] };
+  const original = structuredClone(data);
+  render(container, data);
+  const host = get(container, "[data-budget-purchase-host]"), convention = host.parentElement;
+  const total = get(container, '[data-budget-horizontal="total:consumed"]');
+  assert.equal(convention.children.indexOf(host), convention.children.indexOf(total.parentElement.parentElement.parentElement) + 1);
+  assert.equal(total.getAttribute("data-budget-value"), "900");
+  const graph = get(host, ".purchase-flow-totals").textContent;
+  assert.match(graph, /180 EUR/); assert.doesNotMatch(graph, /900/);
+  assert.equal(get(host, "[data-purchase-flow-entry]").getAttribute("data-purchase-flow-entry"), "501");
+  render(container, data, { showBwPersonnelCosts: true, excludeOrmitterCosts: true });
+  assert.equal(get(container, '[data-budget-horizontal="total:consumed"]').getAttribute("data-budget-value"), "2000");
+  assert.equal(get(container, ".purchase-flow-totals").textContent, graph);
+  assert.deepEqual(data, original);
+  cleanup(container);
+});
+
+test("purchase detail disclosure and focused allocation survive budget rerenders and cleanup leaves no active tooltip", () => {
+  const container = domFixture(), data = fixture();
+  data.purchases = { status: "available", startDate: "2025-12-01", endDate: "2026-10-09", issues: [], items: [
+    { id: 501, date: "2026-09-01", consumed: 180, currencyId: 1, currency: "EUR", categoryId: 22, category: "Équipement",
+      codeCategoryId: 601, codeCategory: "6010 Matériel", code: "6010", description: "Achat fictif", documentType: "in_invoice" }
+  ] };
+  render(container, data);
+  get(container, "[data-purchase-flow-details]").open = true;
+  const flow = get(container, "[data-purchase-flow-link]"), key = flow.getAttribute("data-purchase-flow-control"); flow.focus();
+  assert.equal(get(container, ".purchase-flow-tooltip").hidden, false);
+  render(container, data);
+  assert.equal(get(container, "[data-purchase-flow-details]").open, true);
+  assert.equal(container.ownerDocument.activeElement.getAttribute("data-purchase-flow-control"), key);
+  assert.ok(container.contains(container.ownerDocument.activeElement));
+  get(container, '[data-purchase-flow-control="expand"]').dispatch("click");
+  const panel = get(container, "[data-purchase-flow]"), removePanel = panel.remove.bind(panel);
+  container.ownerDocument.activeElement.focus();
+  get(container, "[data-purchase-flow-link]").focus();
+  panel.remove = () => {
+    if (panel.contains(container.ownerDocument.activeElement)) container.ownerDocument.activeElement = null;
+    removePanel();
+  };
+  render(container, data);
+  assert.equal(container.ownerDocument.modalElement, null);
+  assert.equal(container.ownerDocument.activeElement.getAttribute("data-purchase-flow-control"), key);
+  const visibility = get(container, '[data-purchase-flow-control="visibility"]'); visibility.dispatch("click");
+  render(container, data);
+  assert.equal(get(container, "[data-purchase-flow-body]").hidden, true);
+  assert.equal(container.ownerDocument.activeElement.getAttribute("data-purchase-flow-control"), "visibility");
+  get(container, '[data-purchase-flow-control="visibility"]').dispatch("click");
+  cleanup(container);
+  assert.equal(get(container, ".purchase-flow-tooltip").hidden, true);
+  assert.equal(container.ownerDocument.listeners.size, 0);
 });

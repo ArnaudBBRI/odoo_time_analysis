@@ -481,7 +481,8 @@ test("dated planning uses slot-month overlap while the dotted individual referen
   assert.deepEqual(full.months.map(month => month.key), ["2026-01", "2026-02", "2026-03"]);
   assert.deepEqual(full.total, [0, 56, 20]);
   assert.deepEqual(full.employees.find(person => person.id === "employee:2").values, [0, 0, 20], "planning-only employees retain their future allocation");
-  assert.equal(full.convention, null);
+  assert.deepEqual(full.convention, [17, 28, 31]);
+  assert.equal(full.budgetStatus, "available");
   const history = summarize(input, { now });
   assert.equal(history.planningStatus, "available");
   assert.deepEqual(history.planning, [0, 56, 0]);
@@ -503,6 +504,8 @@ test("the full planning chart covers future projects and does not require actual
   assert.equal(full.status, "available");
   assert.deepEqual(full.months.map(month => month.key), ["2027-02", "2027-03"]);
   assert.deepEqual(full.total, [140, 20]);
+  assert.deepEqual(full.convention, [78.75, 11.25]);
+  assert.deepEqual(summarizePlanning(input, { now, mode: "cumulative" }).convention, [78.75, 90]);
   assert.equal(full.employees[0].id, "employee:9");
   assert.equal(summarize(input, { now }).status, "not-started");
 });
@@ -691,4 +694,95 @@ test("large finite slot amounts avoid multiplication overflow and true aggregate
   assert.equal(actual.status, "available");
   assert.equal(actual.planning, null);
   assert.deepEqual(actual.total, [0, 1, 0]);
+});
+
+test("full planned convention uses inclusive daily project proration for partial, leap, boundary and single-day months", () => {
+  for (const [startDate, endDate, conventionHours, expected] of [
+    ["2024-02-15", "2024-03-02", 17, [15, 2]],
+    ["2025-12-31", "2026-01-02", 30, [10, 20]],
+    ["2024-02-29", "2024-02-29", 7.25, [7.25]],
+    ["2026-01-15", "2026-03-31", 76, [17, 28, 31]]
+  ]) {
+    const input = source([], { lifetime: { startDate, endDate, conventionHours }, planning: { ok: true, slots: [] } });
+    const original = structuredClone(input), monthly = summarizePlanning(input), cumulative = summarizePlanning(input, { mode: "cumulative" });
+    assert.equal(monthly.status, "available"); assert.equal(monthly.budgetStatus, "available");
+    assert.deepEqual(monthly.convention, expected);
+    let sum = 0;
+    cumulative.convention.forEach((value, index) => { sum += expected[index]; close(value, sum); });
+    close(cumulative.convention.at(-1), conventionHours);
+    close(monthly.convention.reduce((sum, value) => sum + value, 0), conventionHours);
+    assert.deepEqual(monthly.total, expected.map(() => 0), "Empty readable planning remains zero beside a known convention");
+    assert.deepEqual(input, original);
+  }
+});
+
+test("the full planned convention retains raw hour precision and is independent of today, year scope and employee hints", () => {
+  const input = source([], { lifetime: { startDate: "2025-12-01", endDate: "2028-05-31", conventionHours: rawBudget },
+    planning: { slots: [slot(1, "2026-01-01", "2026-02-01", 100)] } });
+  const original = structuredClone(input), monthly = summarizePlanning(input, { now: new Date("2024-01-01T12:00:00Z") });
+  assert.equal(monthly.throughDate, "2028-05-31"); assert.equal(monthly.months.at(-1).key, "2028-05");
+  close(monthly.convention[0], rawBudget * 31 / 913);
+  assert.notEqual(monthly.convention[0], Math.round(monthly.convention[0] * 100) / 100);
+  for (const current of [new Date("2026-10-20T12:00:00Z"), new Date("2030-01-01T12:00:00Z"), new Date("invalid")]) {
+    assert.deepEqual(summarizePlanning(input, { now: current, years: [2026], selectedYears: [2024], employeeId: "employee:1" }), monthly);
+  }
+  const cumulative = summarizePlanning(input, { mode: "cumulative", now: new Date("2024-01-01T12:00:00Z") });
+  close(cumulative.convention.at(-1), rawBudget);
+  assert.deepEqual(input, original);
+});
+
+test("empty and unavailable full planned convention budgets remain distinct without inventing a zero reference", () => {
+  for (const [lifetime, expected] of [
+    [{ conventionHours: 0 }, "empty"], [{ conventionHours: -5 }, "empty"], [{ conventionHours: null }, "empty"],
+    [{ conventionHours: false }, "empty"], [{ conventionHours: "" }, "empty"], [{ conventionStatus: "empty" }, "empty"],
+    [{}, "unavailable"], [{ conventionStatus: "unavailable" }, "unavailable"], [{ conventionHours: "invalid" }, "unavailable"],
+    [{ conventionHours: Infinity }, "unavailable"], [{ conventionHours: true }, "unavailable"]
+  ]) {
+    const input = source([], { lifetime: { startDate: "2026-01-15", endDate: "2026-03-31", ...lifetime },
+      planning: { slots: [slot(1, "2026-02-01", "2026-03-01", 10)] } });
+    for (const mode of ["monthly", "cumulative"]) {
+      const result = summarizePlanning(input, { mode });
+      assert.equal(result.status, "available"); assert.equal(result.budgetStatus, expected);
+      assert.equal(result.convention, null); assert.equal(result.employees.length, 1);
+      assert.deepEqual(result.total, mode === "monthly" ? [0, 10, 0] : [0, 10, 10]);
+    }
+  }
+});
+
+test("full planned convention is unchanged by Ormitter inclusion while signed planning totals change", () => {
+  const input = source([], { planning: { slots: [slot(1, "2026-02-01", "2026-03-01", 20),
+    slot(1, "2026-03-01", "2026-03-02", -2), slot(2, "2026-02-01", "2026-03-01", 10, { isSubcontractor: true })] } });
+  for (const mode of ["monthly", "cumulative"]) {
+    const excluded = summarizePlanning(input, { mode }), included = summarizePlanning(input, { mode, includeOrmitters: true });
+    assert.deepEqual(included.convention, excluded.convention); assert.equal(included.budgetStatus, "available");
+    assert.deepEqual(excluded.total, mode === "monthly" ? [0, 20, -2] : [0, 20, 18]);
+    assert.deepEqual(included.total, mode === "monthly" ? [0, 30, -2] : [0, 30, 28]);
+    const sum = excluded.mode === "cumulative" ? excluded.convention.at(-1) : excluded.convention.reduce((sum, value) => sum + value, 0);
+    close(sum, 76);
+  }
+});
+
+test("known convention metadata cannot turn failed planning or invalid lifetime dates into an available planned plot", () => {
+  for (const extra of [
+    { planning: null }, { planning: { ok: false, slots: [] } }, { planning: { slots: null } },
+    { planning: { slots: [] }, planningError: "private source details" },
+    { lifetime: { startDate: "2026-02-30", endDate: "2026-03-31", conventionHours: 76 } },
+    { lifetime: { startDate: "2026-03-31", endDate: "2026-01-15", conventionHours: 76 } }
+  ]) {
+    const input = source([], { planning: { slots: [] }, ...extra }), result = summarizePlanning(input);
+    assert.equal(result.status, "unavailable"); assert.equal(result.budgetStatus, "available");
+    assert.equal(result.convention, null); assert.deepEqual(result.months, []); assert.deepEqual(result.total, []);
+    assert.deepEqual(result.employees, []); assert.doesNotMatch(JSON.stringify(result.warnings), /private/);
+  }
+});
+
+test("an overflowing cumulative convention is unavailable without erasing valid full-project planning", () => {
+  const input = source([], { lifetime: { startDate: "1900-01-01", endDate: "2099-12-31", conventionHours: Number.MAX_VALUE },
+    planning: { slots: [slot(1, "1900-01-01", "1900-01-02", 4)] } });
+  const original = structuredClone(input), result = summarizePlanning(input, { mode: "cumulative" });
+  assert.equal(result.status, "available"); assert.equal(result.months.length, 2400);
+  assert.equal(result.convention, null); assert.equal(result.budgetStatus, "unavailable");
+  assert.ok(result.warnings.some(warning => /référence conventionnelle.*capacité de calcul/.test(warning)));
+  assert.equal(result.total[0], 4); assert.equal(result.total.at(-1), 4);
+  assert.ok(result.total.every(Number.isFinite)); assert.deepEqual(input, original);
 });

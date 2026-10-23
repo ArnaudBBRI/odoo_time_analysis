@@ -478,6 +478,33 @@ test("chart legend keeps zero and unknown budgets inspectable and renders projec
   assert.equal(container.querySelectorAll("img").length, 0);
 });
 
+test("stable metric identities keep standard order, signed visible totals and accessible notes in both render modes", () => {
+  const rows = [{ ...project(1), planned: 100, actual: 12.5 },
+    { ...project(2), planned: null, actual: -2 }, { ...project(3), planned: 50, actual: 10 }];
+  const original = structuredClone(rows);
+  for (const embedded of [false, true]) {
+    const container = domFixture();
+    const card = render(container, rows, { embedded, scopeLabel: "2026", hiddenIds: new Set([3]) });
+    const metrics = container.querySelectorAll(".personal-time-metrics")[0];
+    assert.equal(metrics.parentElement, card, "CSS placement must not reparent the existing metrics");
+    assert.deepEqual(metrics.children.map(metric => metric.getAttribute("data-personal-metric")), ["planned", "actual"],
+      "Standard DOM order remains planned then actual; only wide CSS changes visual order");
+    const planned = metrics.children[0], actual = metrics.children[1];
+    assert.equal(planned.querySelectorAll(".personal-time-metric-label")[0].textContent, "Prévu sur la période");
+    assert.equal(planned.querySelectorAll(".personal-time-metric-value")[0].textContent, "100 h");
+    assert.equal(actual.querySelectorAll(".personal-time-metric-label")[0].textContent, "Réalisé à ce jour");
+    assert.equal(actual.querySelectorAll(".personal-time-metric-value")[0].textContent, "10,5 h");
+    for (const metric of metrics.children) {
+      const note = metric.querySelectorAll(".personal-time-metric-note")[0];
+      assert.ok(note.textContent, "Wide presentation retains the explanatory text for assistive technology");
+      assert.equal(note.hidden, false); assert.notEqual(note.getAttribute("aria-hidden"), "true");
+    }
+    assert.equal(container.querySelectorAll(".personal-time-chart-area")[0].contains(metrics), false);
+    assert.equal(container.querySelectorAll('[role="tooltip"]')[0].parentElement, card);
+  }
+  assert.deepEqual(rows, original);
+});
+
 test("project legend mirrors overruns and states the remaining scoped allowance only for known positive plans and actuals", () => {
   const container = domFixture();
   const inputs = [

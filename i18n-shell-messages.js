@@ -1,4 +1,24 @@
 (function(root,factory){if(typeof module==="object"&&module.exports)factory(require("./i18n"));else factory(root.DashboardI18n);})(typeof globalThis!=="undefined"?globalThis:this,function(I18n){"use strict";I18n.register({
+  "shell.settings.label": {
+    "fr": "Paramètres",
+    "nl": "Instellingen"
+  },
+  "shell.settings.chartPalette": {
+    "fr": "Couleurs des courbes et aires",
+    "nl": "Kleuren van lijn- en vlakgrafieken"
+  },
+  "shell.settings.paletteDicoVibes": {
+    "fr": "Dico vibes",
+    "nl": "Dico vibes"
+  },
+  "shell.settings.paletteClassic": {
+    "fr": "Classique",
+    "nl": "Klassiek"
+  },
+  "shell.settings.paletteVibrantEmotions": {
+    "fr": "Vibrant Emotions",
+    "nl": "Vibrant Emotions"
+  },
   "shell.language.label": {
     "fr": "Langue",
     "nl": "Taal"
@@ -1008,8 +1028,8 @@
     "nl": "Mijn tijd"
   },
   "shell.projets_b1e8cd": {
-    "fr": "Projets",
-    "nl": "Projecten"
+    "fr": "Mes Projets",
+    "nl": "Mijn projecten"
   },
   "shell.unite_dico_8d3ce6": {
     "fr": "Unité DiCo",

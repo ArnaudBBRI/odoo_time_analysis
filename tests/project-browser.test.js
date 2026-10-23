@@ -1,6 +1,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const { render, cleanup, barGeometry, monthlyGeometry, periodTitle } = require("../project-browser");
+const ChartPalette = require("../chart-palette");
 const { domFixture } = require("./dom-fixture");
 
 const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a1ekAAAAASUVORK5CYII=";
@@ -8,6 +9,14 @@ const projects = () => [
   { id: 2, name: "Zulu project", manager: { id: 20, name: "Alex Example", photoDataUrl: png } },
   { id: 1, name: "Alpha project", manager: null }
 ];
+
+function freshBrowser(chartPalette = ChartPalette) {
+  const dependency = require("node:module").createRequire(require.resolve("../project-browser"));
+  const filename = require.resolve("../project-browser"), context = { module: { exports: {} },
+    require: name => name === "./chart-palette" ? chartPalette : dependency(name) };
+  require("node:vm").runInNewContext(require("node:fs").readFileSync(filename, "utf8"), context, { filename });
+  return context.module.exports;
+}
 
 test("personal hours titles name the selected French years and inclusive custom dates", () => {
   const years = new Set([2027, 2026, 2027]);
@@ -39,6 +48,7 @@ test("Heures/Budget switch replaces hours graphs, retains its focus and reuses t
     onShowBwPersonnelCostsChange(value) { panels.push(["personnel", value]); },
     budgetRenderer: { render(host, data, options) { renders.push({ host, data, options }); host.replaceChildren(host.ownerDocument.createElement("p")); } } });
   draw();
+  assert.equal(container.querySelectorAll("[data-selected-project]")[0].getAttribute("data-project-panel"), "hours");
   assert.equal(container.querySelectorAll('[data-project-view="hours"]')[0].getAttribute("aria-pressed"), "true");
   assert.equal(container.querySelectorAll('[data-project-view="budget"]')[0].getAttribute("aria-pressed"), "false");
   assert.equal(renders.length, 0);
@@ -47,6 +57,8 @@ test("Heures/Budget switch replaces hours graphs, retains its focus and reuses t
   assert.deepEqual(panels, ["budget"]);
   assert.equal(container.ownerDocument.activeElement.getAttribute("data-project-view"), "budget");
   assert.equal(container.querySelectorAll('[data-project-view="budget"]')[0].getAttribute("aria-pressed"), "true");
+  assert.equal(container.querySelectorAll("[data-selected-project]")[0].getAttribute("data-project-panel"), "budget");
+  assert.equal(container.querySelectorAll("[data-project-hours-project]").length, 0);
   assert.equal(container.querySelectorAll(".project-comparison").length, 0);
   assert.equal(container.querySelectorAll("[data-monthly-project]").length, 0);
   assert.match(container.textContent, /Durée totale du projet/);
@@ -208,6 +220,8 @@ function planningInfoFixture(extra = {}) {
     actualHours: 40, actualStatus: "available", actualThroughDate: "2026-10-12", remainingPlannedHours: 110,
     plannedToDateHours: 50, plannedToDateStatus: "available", planningToDateDifference: -10,
     conventionToDateHours: 60, conventionToDateStatus: "available", conventionToDateDifference: -20,
+    personalToDate: { actualHours: 10, actualStatus: "available", plannedHours: 15, plannedStatus: "available",
+      difference: -5, status: "available" },
     remainingPlannedStatus: "available", remainingStartDate: "2026-10-13", remainingToHireHours: 20,
     remainingToHireStatus: "complete", projectedHours: 150, projectionDifference: 30, projectionStatus: "available",
     coverage: { status: "complete", startDate: "2026-10-12", endDate: "2028-05-31", gaps: [], gapDays: 0 },
@@ -220,13 +234,74 @@ test("a known-zero personal pair is omitted while full-project comparisons, hist
   render(container, { projects: projects(), selectedId: 2, detail, years: [2026] });
   assert.deepEqual(container.querySelectorAll("[data-comparison]").map(node => node.getAttribute("data-comparison")), ["project", "lifetime"]);
   assert.equal(container.querySelectorAll("[data-monthly-project]").length, 1);
+  const monthlyCharts = container.querySelectorAll(".project-hours-monthly")[0];
+  assert.equal(monthlyCharts.children.length, 1);
+  assert.equal(monthlyCharts.children[0], container.querySelectorAll('[data-monthly-kind="actual"]')[0],
+    "A missing planned series leaves the single existing actual chart available for full width");
   const overview = container.querySelectorAll(".project-browser-overview")[0];
-  assert.deepEqual(overview.children.map(node => node.className), ["project-browser-section-title", "project-planning-info", "project-hours-comparisons"]);
+  assert.deepEqual(overview.children.map(node => node.className), ["project-browser-section-title", "project-planning-info"]);
+  assert.equal(container.querySelectorAll(".project-hours-graphs")[0].querySelectorAll(".project-hours-comparisons").length, 1);
   for (const personal of [undefined, null, {}, { planned: null, actual: 0 }, { planned: 0, actual: null },
     { planned: false, actual: 0 }, { planned: 0.001, actual: 0 }, { planned: 0, actual: -1 }, { planned: 0, actual: 1 }]) {
     detail.personal = personal; render(container, { projects: projects(), selectedId: 2, detail });
     assert.equal(container.querySelectorAll('[data-comparison="personal"]').length, 1, "Unknown and nonzero personal totals remain inspectable");
   }
+});
+
+test("hours layout keeps overview and graph rails independent while exact legend controls and focus survive redraws", () => {
+  const container = domFixture(), detail = pairedMonthlyDetail(), changes = [];
+  detail.planningInfo = planningInfoFixture();
+  const original = structuredClone(detail);
+  let monthlyEmployeeId = null;
+  const draw = () => render(container, { projects: projects(), selectedId: 2, detail: { ...detail, monthlyEmployeeId },
+    onEmployeeInclusionChange(id, included) { changes.push([id, included]); },
+    onMonthlyEmployeeChange(id) { monthlyEmployeeId = id; changes.push(id); draw(); } });
+  try {
+    draw();
+    const selected = container.querySelectorAll("[data-selected-project]")[0];
+    const layout = selected.querySelectorAll("[data-project-hours-project]")[0];
+    assert.equal(layout.getAttribute("data-project-hours-project"), "2");
+    assert.deepEqual(layout.children.map(node => node.className),
+      ["project-browser-section project-browser-overview", "project-hours-graphs"]);
+    const overview = layout.children[0], graphs = layout.children[1];
+    assert.ok(overview.querySelectorAll("[data-project-planning-info]").length);
+    assert.equal(overview.querySelectorAll("[data-comparison]").length, 0);
+    assert.deepEqual(graphs.children.map(node => node.className),
+      ["project-hours-comparisons", "project-hours-monthly"]);
+    const monthlyCharts = graphs.children[1];
+    assert.deepEqual(monthlyCharts.children.map(node => node.getAttribute("data-monthly-kind")), ["actual", "planned"]);
+    assert.deepEqual(monthlyCharts.children, container.querySelectorAll("[data-monthly-kind]"),
+      "The spanning group contains each existing monthly section exactly once in normal reading order");
+    const comparison = graphs.querySelectorAll('[data-comparison="project"]')[0];
+    const plot = comparison.querySelectorAll(".project-hours-plot")[0];
+    assert.deepEqual(plot.children.map(node => node.className), ["project-hours-chart", "project-hours-legend"]);
+    assert.equal(plot.children[0].querySelectorAll(".project-hours-pair").length, 1);
+    assert.equal(plot.children[1].querySelectorAll(".project-hours-employees").length, 1);
+    assert.equal(plot.children[1].querySelectorAll("[data-employee-total]").length, 1);
+    const tooltip = selected.querySelectorAll(".project-hours-employee-tooltip")[0];
+    assert.equal(tooltip.parentElement, selected, "Employee tooltip keeps the detail coordinate system");
+    const employee = plot.children[1].querySelectorAll('[data-employee-id="employee:1"]')[0];
+    assert.equal(employee.getAttribute("aria-describedby"), tooltip.id);
+    employee.focus(); employee.dispatch("click"); draw();
+    assert.deepEqual(changes, [["employee:1", false]]);
+    assert.equal(container.ownerDocument.activeElement.getAttribute("data-employee-id"), "employee:1");
+    assert.equal(container.ownerDocument.activeElement.getAttribute("data-employee-kind"), "legend");
+    for (const section of container.querySelectorAll("[data-monthly-kind]")) {
+      const monthlyPlot = section.querySelectorAll(".project-monthly-plot")[0];
+      assert.deepEqual(monthlyPlot.children.map(node => node.className), ["project-monthly-legend", "project-monthly-chart-wrap"],
+        "Normal legend-first reading order remains intact");
+      assert.equal(monthlyPlot.children[1].querySelectorAll("[data-monthly-chart]").length, 1);
+      assert.equal(section.querySelectorAll("[data-monthly-tooltip]")[0].parentElement, section);
+    }
+    const actual = container.querySelectorAll('[data-monthly-kind="actual"]')[0];
+    const choice = actual.querySelectorAll('[data-monthly-employee-choice="employee:1"]')[0];
+    choice.focus(); choice.dispatch("click");
+    assert.equal(container.ownerDocument.activeElement.getAttribute("data-monthly-employee-choice"), "employee:1");
+    assert.ok(container.querySelectorAll(".project-hours-monthly")[0].contains(container.ownerDocument.activeElement));
+    assert.equal(container.querySelectorAll('[data-monthly-kind="actual"]')[0].getAttribute("data-monthly-selected-employee"), "employee:1");
+    assert.deepEqual(changes, [["employee:1", false], "employee:1"]);
+    assert.deepEqual(detail, original);
+  } finally { cleanup(container); }
 });
 
 test("four macro cards separate convention, actuals, remaining TH planning and the signed final projection", () => {
@@ -401,23 +476,34 @@ test("macro information is a hover, focus and touch disclosure with Escape and o
   button.dispatch("focus"); assert.equal(container.ownerDocument.listeners.size, 0, "Retired controls cannot reinstall outside handlers");
 });
 
-test("macro comparisons describe actuals versus dated planning and linear convention through today independently", () => {
+test("three compact usage cards immediately follow the four macro figures outside their information popover", () => {
   const container = domFixture(), detail = monthlyDetail(); detail.planningInfo = planningInfoFixture();
   const draw = () => render(container, { projects: projects(), selectedId: 2, detail, years: [2027] });
   draw();
-  let phrases = container.querySelectorAll("[data-planning-to-date-comparison]");
-  assert.match(phrases[0].textContent, /^À ce jour, 10 h pointées en moins par rapport au planning daté/);
-  assert.match(phrases[1].textContent, /^À ce jour, 20 h pointées en moins par rapport à la convention \(interpolation linéaire\)/);
-  assert.ok(phrases.every(phrase => !container.querySelectorAll("[data-planning-info-popover]")[0].contains(phrase)));
+  const info = container.querySelectorAll("[data-project-planning-info]")[0];
+  const metrics = info.querySelectorAll(".project-planning-info-metrics")[0];
+  const comparisons = info.querySelectorAll(".project-planning-info-comparisons")[0];
+  assert.equal(metrics.children.length, 4);
+  assert.equal(info.children[info.children.indexOf(metrics) + 1], comparisons);
+  let cards = comparisons.querySelectorAll("[data-planning-to-date-comparison]");
+  assert.deepEqual(cards.map(card => card.getAttribute("data-planning-to-date-comparison")), ["personal", "planning", "convention"]);
+  assert.deepEqual(cards.map(card => card.querySelectorAll("strong")[0].textContent),
+    ["Mes heures · planning", "Total · planning", "Total · convention"]);
+  assert.deepEqual(cards.map(card => card.querySelectorAll("span")[0].textContent),
+    ["5 h de sous-consommation à ce jour.", "10 h de sous-consommation à ce jour.", "20 h de sous-consommation à ce jour."]);
+  assert.ok(cards.every(card => !info.querySelectorAll("[data-planning-info-popover]")[0].contains(card)));
+  assert.ok(cards.every(card => card.querySelectorAll(".project-planning-info-value").length === 0), "Usage cards contain a short sentence rather than another oversized metric");
   detail.planningInfo.planningToDateDifference = 10.125;
   detail.planningInfo.conventionToDateDifference = 0;
-  draw(); phrases = container.querySelectorAll("[data-planning-to-date-comparison]");
-  assert.match(phrases[0].textContent, /10,13 h pointées en trop/);
-  assert.match(phrases[1].textContent, /correspondent à la convention/);
+  draw(); cards = container.querySelectorAll("[data-planning-to-date-comparison]");
+  assert.match(cards[1].textContent, /10,13 h de surconsommation/);
+  assert.match(cards[2].textContent, /Consommation conforme à ce jour/);
   detail.planningInfo.plannedToDateStatus = "unavailable";
   detail.planningInfo.conventionToDateStatus = "unavailable";
-  draw(); phrases = container.querySelectorAll("[data-planning-to-date-comparison]");
-  assert.ok(phrases.every(phrase => /indisponible/.test(phrase.textContent)), "Stale numeric differences cannot bypass source status");
+  draw(); cards = container.querySelectorAll("[data-planning-to-date-comparison]");
+  assert.equal(cards[0].getAttribute("data-planning-to-date-direction"), "under");
+  assert.ok(cards.slice(1).every(card => /indisponible/.test(card.textContent)), "Unavailable total references do not hide an independently known personal result");
+  cleanup(container);
 });
 
 test("only personal actual bars split at today's tick and the full plan, with a visible Surpointage callout", () => {
@@ -463,6 +549,113 @@ function pairedMonthlyDetail() {
     total: [2, 3, 1, 60], convention: null, warnings: [] };
   return detail;
 }
+
+function planningConventionDetail(mode = "monthly") {
+  const detail = pairedMonthlyDetail();
+  const summary = detail.plannedMonthly;
+  Object.assign(summary, { mode, startDate: "2026-10-15", endDate: "2027-01-31", throughDate: "2027-01-31",
+    months: [{ key: "2026-10" }, { key: "2026-11" }, { key: "2026-12" }, { key: "2027-01" }],
+    total: [2, 3, -1, 60], convention: [170.1234567890123, 300, 310, 310], budgetStatus: "available" });
+  summary.employees[0].values = [2, 3, -1, 20];
+  if (mode === "cumulative") {
+    const prefix = values => { let total = 0; return values.map(value => total += value); };
+    summary.employees.forEach(employee => { employee.values = prefix(employee.values); });
+    summary.total = prefix(summary.total); summary.convention = prefix(summary.convention);
+  }
+  detail.monthlyMode = mode;
+  return detail;
+}
+
+test("planned convention geometry spans the lifetime axis without joining employee stacks or changing its values on resource selection", () => {
+  for (const mode of ["monthly", "cumulative"]) {
+    const summary = planningConventionDetail(mode).plannedMonthly, original = structuredClone(summary);
+    for (const width of [280, 390, 1200]) for (const employeeId of [null, "employee:1", "resource:201", "unknown"]) {
+      const geometry = monthlyGeometry(summary, width, employeeId);
+      const convention = geometry.series.find(series => series.kind === "convention");
+      assert.deepEqual(convention.values, summary.convention);
+      assert.equal(convention.areas, undefined, "The project-wide reference must never be stacked into employee hours");
+      assert.equal(convention.points.length, summary.months.length);
+      assert.equal(convention.points[0].x, geometry.plot.left);
+      assert.equal(convention.points.at(-1).x, geometry.plot.left + geometry.plot.width);
+      assert.ok(convention.points.every(point => point.y >= geometry.plot.top && point.y <= geometry.plot.top + geometry.plot.height));
+      assert.ok(geometry.max >= Math.max(...summary.convention), "A large convention remains inside the y-axis after selecting a small resource");
+      assert.ok(!/NaN|Infinity| Z/.test(convention.path));
+      const selected = summary.employees.find(employee => employee.id === employeeId);
+      assert.equal(geometry.selectedEmployeeId, selected?.id || null);
+      assert.deepEqual(geometry.series.find(series => series.kind === "total").values, selected ? selected.values : summary.total);
+      assert.ok(geometry.series.filter(series => series.kind === "employee").every(series => series.areas.length > 0));
+      if (mode === "monthly" && (!selected || selected.id === "employee:1")) assert.ok(geometry.min <= -1);
+    }
+    assert.deepEqual(summary, original);
+  }
+});
+
+test("the planned convention stays dotted and project-wide in monthly and cumulative tooltips, tables and resource filters", () => {
+  const i18n = require("../i18n"), container = domFixture();
+  try {
+    for (const mode of ["monthly", "cumulative"]) {
+      const detail = planningConventionDetail(mode), original = structuredClone(detail), choices = [];
+      const draw = () => render(container, { projects: projects(), selectedId: 2, years: [2026], detail,
+        onPlannedMonthlyEmployeeChange(id) { choices.push(id); detail.plannedMonthlyEmployeeId = id; draw(); } });
+      draw();
+      const checkReference = (expectedEmployeeId = null) => {
+        const planned = container.querySelectorAll('[data-monthly-kind="planned"]')[0];
+        const path = planned.querySelectorAll('[data-monthly-series="convention"]')[0].querySelectorAll("path")[0];
+        assert.equal(path.getAttribute("stroke-dasharray"), "2 6"); assert.equal(path.getAttribute("fill"), "none");
+        assert.ok(planned.querySelectorAll("[data-monthly-area]").length > 0, "The convention cannot replace the employee area chart");
+        assert.match(planned.querySelectorAll('[data-monthly-legend="convention"]')[0].textContent, /Convention.*prorata journalier/);
+        assert.equal(planned.querySelectorAll('[data-planned-convention="available"]').length, 1);
+        const table = planned.querySelectorAll("[data-monthly-table]")[0];
+        const headers = table.querySelectorAll("thead")[0].querySelectorAll("th");
+        assert.equal(headers.at(-1).textContent, mode === "cumulative" ? "Convention cumulée" : "Convention");
+        const rows = table.querySelectorAll("tbody")[0].children;
+        assert.equal(rows.length, 4); assert.match(rows.at(-1).textContent, /janvier 2027/);
+        const exact = value => `${i18n.formatNumber(value, { maximumSignificantDigits: 17 })} h`;
+        rows.forEach((row, index) => assert.equal(row.querySelectorAll("td").at(-1).textContent, exact(detail.plannedMonthly.convention[index])));
+        planned.querySelectorAll('[data-monthly-month="2027-01"]')[0].focus();
+        const conventionRow = planned.querySelectorAll('[data-monthly-value="convention"]')[0];
+        assert.equal(conventionRow.querySelectorAll("strong")[0].textContent,
+          `${i18n.formatNumber(detail.plannedMonthly.convention.at(-1), { maximumFractionDigits: 2 })} h`);
+        if (expectedEmployeeId) {
+          assert.equal(planned.getAttribute("data-monthly-selected-employee"), expectedEmployeeId);
+          assert.equal(headers.length, 4, "A resource selection narrows employees, while retaining total and project convention columns");
+        }
+        return { planned, path: path.getAttribute("d") };
+      };
+      const allReference = checkReference();
+      allReference.planned.querySelectorAll('[data-monthly-employee-choice="resource:201"]')[0].dispatch("click");
+      const selectedReference = checkReference("resource:201");
+      const selectedGeometry = monthlyGeometry(detail.plannedMonthly, 800, "resource:201");
+      assert.equal(selectedReference.path, selectedGeometry.series.find(series => series.kind === "convention").path,
+        "The unchanged project convention is reprojected within the selected resource's signed y-axis domain");
+      assert.equal(container.querySelectorAll('[data-monthly-kind="actual"]')[0].getAttribute("data-monthly-selected-employee"), "");
+      selectedReference.planned.querySelectorAll('[data-monthly-employee-reset]')[0].dispatch("click");
+      assert.deepEqual(choices, ["resource:201", null]);
+      checkReference();
+      assert.deepEqual(detail.plannedMonthly, original.plannedMonthly);
+      cleanup(container);
+    }
+  } finally { cleanup(container); }
+});
+
+test("planned charts disclose missing convention references without losing future planning or inventing a zero curve", () => {
+  const container = domFixture();
+  try {
+    for (const budgetStatus of ["empty", "unavailable", undefined]) {
+      const detail = planningConventionDetail(); detail.plannedMonthly.convention = null;
+      if (budgetStatus === undefined) delete detail.plannedMonthly.budgetStatus;
+      else detail.plannedMonthly.budgetStatus = budgetStatus;
+      render(container, { projects: projects(), selectedId: 2, detail });
+      const planned = container.querySelectorAll('[data-monthly-kind="planned"]')[0];
+      assert.equal(planned.querySelectorAll(`[data-planned-convention="${budgetStatus === "empty" ? "empty" : "unavailable"}"]`).length, 1);
+      assert.equal(planned.querySelectorAll('[data-monthly-series="convention"]').length, 0);
+      assert.equal(planned.querySelectorAll('[data-monthly-legend="convention"]').length, 0);
+      assert.ok(planned.querySelectorAll("[data-monthly-area]").length > 0);
+      assert.equal(planned.querySelectorAll('[data-monthly-month="2027-01"]').length, 1);
+      assert.ok(!planned.querySelectorAll("thead")[0].textContent.includes("Convention"));
+    }
+  } finally { cleanup(container); }
+});
 
 test("actual monthly planning is a solid red dated curve, distinct from dotted convention and personal extrapolation", () => {
   const container = domFixture(), detail = pairedMonthlyDetail();
@@ -562,7 +755,10 @@ test("scoped headings stay distinct from individual lifetime planning labels, to
   assert.equal(container.querySelectorAll('[data-comparison="personal"]')[0].querySelectorAll("h3")[0].textContent, "Mes heures en 2026");
   assert.equal(container.querySelectorAll(".project-hours-period").length, 0);
   let history = container.querySelectorAll("[data-monthly-project]")[0];
-  assert.equal(history.querySelectorAll("h3")[0].textContent, "Projets · 02 / Évolution mensuelle · durée du projet");
+  assert.equal(history.querySelectorAll("h3")[0].textContent, "Projets · 02 / Heures réalisées · jusqu’à aujourd’hui");
+  assert.match(history.querySelectorAll(".project-monthly-period")[0].textContent, /01\/01\/2026.*05\/03\/2026/);
+  assert.doesNotMatch(history.querySelectorAll(".project-monthly-period")[0].textContent, /31\/05\/2028/,
+    "The clearer cutoff title retains the actual-through date rather than the future project end");
   assert.match(history.querySelectorAll("[data-monthly-employee-planning]")[0].textContent,
     /Planning total de Alex Example sur toute la durée du projet : 120 h/);
   const reference = history.querySelectorAll('[data-monthly-legend="planned:employee:1"]')[0];
@@ -741,6 +937,140 @@ test("employee isolation switches and reset replay one shared line reveal while 
   assert.equal(container.querySelectorAll("[data-monthly-project]")[0].getAttribute("data-monthly-reveal"), "complete");
 });
 
+test("wide monthly geometry expands its display width with bounded opt-in while standard geometry and source series stay intact", () => {
+  const summary = monthlySummary(), original = structuredClone(summary);
+  const normal = monthlyGeometry(summary, 2400);
+  assert.equal(normal.width, 1200);
+  for (const requested of [2400, 4096, 8000]) {
+    const wide = monthlyGeometry(summary, requested, null, null, null, 4096);
+    assert.equal(wide.width, Math.min(requested, 4096));
+    assert.equal(wide.plot.height, normal.plot.height, "Extra width must not enlarge the plot or its text vertically");
+    assert.deepEqual(wide.positive, normal.positive); assert.deepEqual(wide.negative, normal.negative);
+    assert.equal(wide.min, normal.min); assert.equal(wide.max, normal.max);
+    assert.deepEqual(wide.series.map(({ key, id, kind, values }) => ({ key, id, kind, values })),
+      normal.series.map(({ key, id, kind, values }) => ({ key, id, kind, values })));
+    assert.deepEqual(wide.ticks.map(tick => [tick.value, tick.y]), normal.ticks.map(tick => [tick.value, tick.y]));
+    wide.x.forEach((x, index) => assert.ok(Math.abs((x - wide.plot.left) / wide.plot.width -
+      (normal.x[index] - normal.plot.left) / normal.plot.width) < 1e-12));
+    for (const series of wide.series) {
+      if (series.path) assert.doesNotMatch(series.path, /NaN|Infinity/);
+      for (const area of series.areas || []) assert.doesNotMatch(area.path, /NaN|Infinity/);
+    }
+  }
+  for (const invalid of [NaN, Infinity, "invalid", {}]) {
+    assert.equal(monthlyGeometry(summary, 2400, null, null, null, invalid).width, 1200);
+  }
+  assert.equal(monthlyGeometry(summary, 2400, null, null, null, 100).width, 280);
+  assert.deepEqual(summary, original);
+});
+
+test("monthly resize uses wide geometry only for the exact mounted Hours project and retains focused month", () => {
+  const container = domFixture(), resizes = [];
+  Object.getPrototypeOf(container).closest = function (selector) {
+    const match = /^\[([^=\]]+)(?:="([^"]*)")?\]$/.exec(selector);
+    for (let node = this; node; node = node.parentElement) if (match && node.getAttribute(match[1]) !== null &&
+      (match[2] === undefined || node.getAttribute(match[1]) === match[2])) return node;
+    return null;
+  };
+  container.setAttribute("data-project-hours-superwide", "true");
+  container.ownerDocument.defaultView = { matchMedia: () => ({ matches: true }), ResizeObserver: class {
+    constructor(callback) { this.callback = callback; this.disconnected = false; resizes.push(this); }
+    observe(target) { this.target = target; } disconnect() { this.disconnected = true; }
+  } };
+  try {
+    render(container, { projects: projects(), selectedId: 2, detail: monthlyDetail() });
+    const section = container.querySelectorAll('[data-monthly-kind="actual"]')[0];
+    const chart = section.querySelectorAll("[data-monthly-chart]")[0];
+    assert.equal(resizes[0].target, section.querySelectorAll(".project-monthly-chart-wrap")[0]);
+    section.querySelectorAll('[data-monthly-month="2026-02"]')[0].focus();
+    const resize = width => resizes[0].callback([{ contentRect: { width } }]);
+    resize(2400); assert.equal(chart.getAttribute("viewBox"), "0 0 2400 340");
+    assert.equal(container.ownerDocument.activeElement.getAttribute("data-monthly-month"), "2026-02");
+    container.setAttribute("data-project-hours-superwide", "false");
+    resize(2400); assert.equal(chart.getAttribute("viewBox"), "0 0 1200 340");
+    container.setAttribute("data-project-hours-superwide", "true");
+    resize(2400); assert.equal(chart.getAttribute("viewBox"), "0 0 2400 340");
+    const layout = container.querySelectorAll("[data-project-hours-project]")[0];
+    layout.setAttribute("data-project-hours-project", "999");
+    resize(2400); assert.equal(chart.getAttribute("viewBox"), "0 0 1200 340");
+    layout.setAttribute("data-project-hours-project", "2");
+    resize(8000); assert.equal(chart.getAttribute("viewBox"), "0 0 4096 340");
+    container.querySelectorAll("[data-project-panel]")[0].setAttribute("data-project-panel", "budget");
+    resize(2400); assert.equal(chart.getAttribute("viewBox"), "0 0 1200 340");
+  } finally { cleanup(container); }
+  assert.ok(resizes.every(observer => observer.disconnected));
+});
+
+test("monthly ResizeObserver batches only the latest width outside delivery and cancels retired frames without losing interaction state", () => {
+  const container = domFixture(), resizes = [], frames = new Map(), cancelled = [];
+  Object.getPrototypeOf(container).closest = function (selector) {
+    const match = /^\[([^=\]]+)(?:="([^"]*)")?\]$/.exec(selector);
+    for (let node = this; node; node = node.parentElement) if (match && node.getAttribute(match[1]) !== null &&
+      (match[2] === undefined || node.getAttribute(match[1]) === match[2])) return node;
+    return null;
+  };
+  let nextFrame = 0;
+  container.setAttribute("data-project-hours-superwide", "true");
+  container.ownerDocument.defaultView = { matchMedia: () => ({ matches: true }),
+    requestAnimationFrame(callback) { const key = nextFrame++; frames.set(key, callback); return key; },
+    cancelAnimationFrame(key) { cancelled.push(key); frames.delete(key); },
+    ResizeObserver: class {
+      constructor(callback) { this.callback = callback; this.disconnected = false; resizes.push(this); }
+      observe(target) { this.target = target; } disconnect() { this.disconnected = true; }
+    } };
+  const detail = employeePlanningDetail(); detail.monthlyEmployeeId = "employee:1";
+  const original = structuredClone(detail), draw = () => render(container, { projects: projects(), selectedId: 2, detail });
+  try {
+    draw();
+    const section = container.querySelectorAll('[data-monthly-kind="actual"]')[0];
+    const svg = section.querySelectorAll("[data-monthly-chart]")[0];
+    const table = section.querySelectorAll(".project-monthly-details")[0]; table.open = true;
+    section.querySelectorAll('[data-monthly-month="2026-02"]')[0].focus();
+    const initialBox = svg.getAttribute("viewBox"), replace = svg.replaceChildren.bind(svg);
+    let writes = 0;
+    svg.replaceChildren = (...children) => { writes++; return replace(...children); };
+    const resize = width => resizes[0].callback([{ contentRect: { width } }]);
+    const flush = () => {
+      assert.equal(frames.size, 1); const [key, callback] = frames.entries().next().value;
+      frames.delete(key); callback(16);
+    };
+    resize(1087); resize(1800); resize(2443);
+    assert.equal(frames.size, 1, "Several notifications share one pending frame, including handle zero");
+    assert.equal(writes, 0); assert.equal(svg.getAttribute("viewBox"), initialBox,
+      "Observer delivery must not replace SVG children or its viewBox synchronously");
+    flush(); assert.equal(writes, 1); assert.equal(svg.getAttribute("viewBox"), "0 0 2443 340");
+    assert.equal(table.open, true); assert.equal(section.getAttribute("data-monthly-selected-employee"), "employee:1");
+    assert.equal(container.ownerDocument.activeElement.getAttribute("data-monthly-month"), "2026-02");
+    assert.equal(section.getAttribute("data-monthly-reveal"), "complete");
+    resize(2443); resize(2443.5); assert.equal(frames.size, 0, "Height-only and subpixel callbacks cannot start a redraw loop");
+    resize(1087); resize(2443); flush(); assert.equal(writes, 1, "A reverted width cancels the need for a pending redraw");
+    container.setAttribute("data-project-hours-superwide", "false");
+    resize(2443); container.setAttribute("data-project-hours-superwide", "true");
+    flush(); assert.equal(writes, 1, "The frame rechecks the current effective layout cap");
+    container.setAttribute("data-project-hours-superwide", "false");
+    resize(1087); assert.equal(writes, 1); flush();
+    assert.equal(writes, 2); assert.equal(svg.getAttribute("viewBox"), "0 0 1087 340");
+    container.setAttribute("data-project-hours-superwide", "true");
+    resize(2443); assert.equal(writes, 2); flush();
+    assert.equal(writes, 3); assert.equal(svg.getAttribute("viewBox"), "0 0 2443 340");
+    resize(2000); const [retiredKey, retiredCallback] = frames.entries().next().value;
+    draw(); assert.ok(cancelled.includes(retiredKey)); assert.equal(frames.size, 0);
+    assert.equal(resizes[0].disconnected, true);
+    retiredCallback(32); resize(1900); assert.equal(writes, 3); assert.equal(frames.size, 0,
+      "Retired observer and frame callbacks cannot modify the detached chart");
+    const current = container.querySelectorAll('[data-monthly-kind="actual"]')[0];
+    assert.equal(current.querySelectorAll(".project-monthly-details")[0].open, true);
+    assert.equal(current.getAttribute("data-monthly-selected-employee"), "employee:1");
+    resizes[1].callback([{ contentRect: { width: 2100 } }]);
+    const [lastKey, lastCallback] = frames.entries().next().value;
+    const currentBox = current.querySelectorAll("[data-monthly-chart]")[0].getAttribute("viewBox");
+    cleanup(container); assert.ok(cancelled.includes(lastKey)); assert.equal(frames.size, 0);
+    lastCallback(48); assert.equal(current.querySelectorAll("[data-monthly-chart]")[0].getAttribute("viewBox"), currentBox);
+    assert.deepEqual(detail, original);
+  } finally { cleanup(container); }
+  assert.ok(resizes.every(observer => observer.disconnected));
+});
+
 test("monthly geometry keeps signed values, a shared zero axis and finite one-month or empty paths", () => {
   const data = monthlySummary();
   const before = structuredClone(data);
@@ -806,14 +1136,267 @@ test("monthly areas stack positive hours and signed corrections within the share
   assert.deepEqual(data, original);
 });
 
-test("monthly stacked areas share bar colors, retain exact signed table values and render safe tooltips", () => {
+test("monthly chart actors use the twenty requested colors in order, loop across multiple cycles and retain existing bar colors", () => {
+  ChartPalette.set("classic");
+  const browser = freshBrowser(), container = domFixture();
+  const palette = ["#f7909f", "#e2647f", "#d1698c", "#e8555f", "#da332a", "#fe672a", "#ff7a34", "#ffb22c", "#83ba69", "#4ca64e",
+    "#2a897e", "#287f91", "#62b0dc", "#6492cb", "#4975c4", "#3b4f93", "#32436f", "#5f5395", "#6f4483", "#5a3340"];
+  const barPalette = ["#008bab", "#1c9c8c", "#6368ae", "#cd8747", "#b65c7b", "#488c62", "#5b88b4", "#8865a5", "#bc7057", "#86933f", "#448d8d", "#637d94"];
+  const actors = Array.from({ length: 61 }, (_, index) => ({ id: `palette:${index}`, name: `Actor ${String(index < 2 ? 0 : index).padStart(2, "0")}`,
+    values: [1, 2, 3], actual: 6, photoDataUrl: null }));
+  const detail = rows => ({ personal: { planned: 0, actual: 0 }, project: { planned: 200, actual: 6 * rows.length, employees: rows },
+    monthly: { ...monthlySummary(), employees: rows, total: [rows.length, 2 * rows.length, 3 * rows.length] },
+    plannedMonthly: { ...monthlySummary(), kind: "planned", employees: rows, total: [rows.length, 2 * rows.length, 3 * rows.length] } });
+  const barColors = () => new Map(container.querySelectorAll('[data-comparison="project"]')[0].querySelectorAll('[data-employee-kind="segment"]')
+    .map(segment => [segment.getAttribute("data-employee-id"), segment.style.backgroundColor]));
+  const chartColors = section => new Map(section.querySelectorAll('[data-monthly-series="employee"]')
+    .map(series => [series.getAttribute("data-monthly-employee-id"), series.querySelectorAll("path")[0].getAttribute("fill")]));
+  try {
+    const twenty = detail(actors.slice(0, 20));
+    browser.render(container, { projects: projects(), selectedId: 2, detail: { project: twenty.project } });
+    const originalBars = barColors();
+    assert.ok(barPalette.every(color => [...originalBars.values()].includes(color)), "The original twelve bar palette values remain in use");
+    browser.render(container, { projects: projects(), selectedId: 2, detail: twenty });
+    const colors = chartColors(container.querySelectorAll('[data-monthly-kind="actual"]')[0]);
+    assert.equal(new Set(colors.values()).size, 20);
+    assert.deepEqual([...colors.values()], palette, "The first twenty chart identities use the exact listed palette in order");
+    assert.deepEqual(barColors(), originalBars);
+    const expanded = detail(actors), source = structuredClone(expanded);
+    browser.render(container, { projects: projects(), selectedId: 2, detail: expanded });
+    const actual = container.querySelectorAll('[data-monthly-kind="actual"]')[0];
+    const allColors = chartColors(actual);
+    assert.equal(allColors.size, 61); assert.equal(new Set(allColors.values()).size, 20);
+    for (const [id, color] of colors) assert.equal(allColors.get(id), color);
+    actors.forEach((actor, index) => assert.equal(allColors.get(actor.id), palette[index % palette.length],
+      `Chart identity ${index + 1} uses the requested repeated palette slot`));
+    for (const section of container.querySelectorAll("[data-monthly-kind]")) {
+      assert.deepEqual(chartColors(section), allColors, "An exact actor uses the same color in actual and planned areas");
+      for (const [id, color] of allColors) {
+        const legend = section.querySelectorAll(`[data-monthly-legend="${id}"]`)[0];
+        assert.equal(legend.querySelectorAll(".project-monthly-legend-line")[0].style.backgroundColor, color);
+        assert.equal(legend.querySelectorAll(".project-hours-employee-avatar")[0].style.borderColor, color);
+      }
+    }
+    const filtered = detail([actors[60], actors[40], actors[20], actors[1]]);
+    browser.render(container, { projects: projects(), selectedId: 2, detail: filtered });
+    for (const section of container.querySelectorAll("[data-monthly-kind]")) {
+      for (const [id, color] of chartColors(section)) assert.equal(color, allColors.get(id),
+        "Removing and reordering actors retains exact-ID assignments across palette cycles");
+    }
+    browser.render(container, { projects: projects(), selectedId: 2, detail: expanded });
+    for (const section of container.querySelectorAll("[data-monthly-kind]")) assert.deepEqual(chartColors(section), allColors);
+    for (const [id, color] of originalBars) assert.equal(barColors().get(id), color);
+    assert.deepEqual(expanded, source);
+  } finally { browser.cleanup(container); ChartPalette.set("dico-vibes"); }
+});
+
+test("Dico vibes is the default monthly palette and repeats its exact fifteen colors across paired charts and actor filters", () => {
+  assert.equal(ChartPalette.current(), "dico-vibes");
+  const browser = freshBrowser(), container = domFixture();
+  const palette = ["#F89700", "#CAC800", "#4DD000", "#00EF75", "#00E0BF", "#00E7FF", "#00C2FF", "#00B8FF",
+    "#9289FF", "#E480FF", "#FF55FF", "#FF53D3", "#FF3272", "#FF5E00", "#FF7000"];
+  const actors = Array.from({ length: 46 }, (_, index) => ({ id: `dico:${index}`, name: `Actor ${index}`,
+    values: [1, 2, 3], actual: 6, photoDataUrl: null }));
+  const makeDetail = rows => ({ monthly: { ...monthlySummary(), employees: rows, total: [rows.length, rows.length * 2, rows.length * 3] },
+    plannedMonthly: { ...monthlySummary(), kind: "planned", employees: rows, total: [rows.length, rows.length * 2, rows.length * 3] } });
+  const detail = makeDetail(actors), original = structuredClone(detail);
+  const draw = value => browser.render(container, { projects: projects(), selectedId: 2, detail: value });
+  const colorFor = (section, id) => section.querySelectorAll(`[data-monthly-employee-id="${id}"]`)[0]
+    .querySelectorAll("path")[0].getAttribute("fill");
+  try {
+    draw(detail);
+    for (const section of container.querySelectorAll("[data-monthly-kind]")) {
+      actors.forEach((actor, index) => assert.equal(colorFor(section, actor.id), palette[index % palette.length]));
+      section.querySelectorAll('[data-monthly-month="2026-02"]')[0].focus();
+      actors.forEach((actor, index) => {
+        const color = palette[index % palette.length];
+        const legend = section.querySelectorAll(`[data-monthly-legend="${actor.id}"]`)[0];
+        assert.equal(legend.querySelectorAll(".project-monthly-legend-line")[0].style.backgroundColor, color);
+        assert.equal(legend.querySelectorAll(".project-hours-employee-avatar")[0].style.borderColor, color);
+        assert.equal(section.querySelectorAll(`[data-monthly-value="${actor.id}"]`)[0]
+          .querySelectorAll(".project-monthly-value-dot")[0].style.backgroundColor, color);
+      });
+    }
+    draw(makeDetail([actors[45], actors[30], actors[15], actors[1]]));
+    for (const section of container.querySelectorAll("[data-monthly-kind]")) {
+      for (const index of [45, 30, 15, 1]) assert.equal(colorFor(section, actors[index].id), palette[index % palette.length],
+        "Reordering or filtering cannot reassign an actor's palette slot");
+    }
+    assert.deepEqual(detail, original);
+  } finally { browser.cleanup(container); ChartPalette.set("dico-vibes"); }
+});
+
+test("monthly palette changes recolor mounted areas, isolated lines and open tooltips without replacing interaction or geometry", () => {
+  const allNodes = host => [host, ...host.children.flatMap(allNodes)];
+  const I18n = require("../i18n");
+  for (const language of ["fr", "nl"]) for (const selected of [false, true]) {
+    ChartPalette.set("dico-vibes"); I18n.setLanguage(language);
+    const browser = freshBrowser(), container = domFixture(), observers = [], calls = [];
+    container.ownerDocument.defaultView = { matchMedia: () => ({ matches: false }), IntersectionObserver: class {
+      constructor(callback) { this.callback = callback; observers.push(this); }
+      observe() {} disconnect() {}
+    } };
+    const detail = pairedMonthlyDetail();
+    detail.monthlyMode = "cumulative";
+    detail.monthlyRevealKey = 318;
+    detail.milestones = { available: true, milestones: [{ id: 7, date: "2026-02-05", name: "Review milestone" }] };
+    if (selected) detail.monthlyEmployeeId = "employee:1";
+    const original = structuredClone(detail);
+    const draw = () => browser.render(container, { projects: projects(), selectedId: 2, detail,
+      onMonthlyModeChange: value => calls.push(value), onMonthlyEmployeeChange: value => calls.push(value),
+      onPlannedMonthlyEmployeeChange: value => calls.push(value), onIncludeOrmittersChange: value => calls.push(value) });
+    try {
+      draw(); observers.forEach(observer => observer.callback([{ isIntersecting: true }]));
+      const sections = container.querySelectorAll("[data-monthly-kind]");
+      for (const section of sections) {
+        section.querySelectorAll(".project-monthly-details")[0].open = true;
+        section.querySelectorAll("[data-monthly-milestones]")[0].open = true;
+        const month = section.querySelectorAll('[data-monthly-month="2026-02"]')[0];
+        month.focus(); month.dispatch("click");
+      }
+      const actual = sections[0], planned = sections[1];
+      const tooltip = planned.querySelectorAll("[data-monthly-tooltip]")[0]; tooltip.focus();
+      const focused = container.ownerDocument.activeElement;
+      const nodes = allNodes(container);
+      const paths = nodes.filter(node => node.tagName === "path");
+      const geometry = paths.map(node => node.getAttribute("d"));
+      const initialFills = paths.map(node => [node.getAttribute("fill"), node.getAttribute("stroke")]);
+      const viewBoxes = sections.map(section => section.querySelectorAll("[data-monthly-chart]")[0].getAttribute("viewBox"));
+      const tableValues = sections.map(section => section.querySelectorAll("[data-monthly-table]")[0].textContent);
+      const revealStates = sections.map(section => section.getAttribute("data-monthly-reveal"));
+      const nonChartBars = container.querySelectorAll('[data-employee-kind="segment"]').map(node => [node, node.style.backgroundColor]);
+      const fullText = container.textContent;
+      const checkPreserved = () => {
+        assert.deepEqual(allNodes(container), nodes, "A palette change updates the mounted nodes in place, including tooltip contents");
+        assert.deepEqual(paths.map(node => node.getAttribute("d")), geometry);
+        assert.deepEqual(sections.map(section => section.querySelectorAll("[data-monthly-chart]")[0].getAttribute("viewBox")), viewBoxes);
+        assert.deepEqual(sections.map(section => section.querySelectorAll("[data-monthly-table]")[0].textContent), tableValues);
+        assert.deepEqual(sections.map(section => section.getAttribute("data-monthly-reveal")), revealStates,
+          "Changing colours must not replay an existing chart reveal");
+        assert.equal(container.ownerDocument.activeElement, focused);
+        assert.equal(container.textContent, fullText);
+        for (const section of sections) {
+          assert.equal(section.querySelectorAll(".project-monthly-details")[0].open, true);
+          assert.equal(section.querySelectorAll("[data-monthly-milestones]")[0].open, true);
+          assert.equal(section.querySelectorAll("[data-monthly-tooltip]")[0].hidden, false);
+          assert.equal(section.querySelectorAll("[data-monthly-tooltip]")[0].getAttribute("data-monthly-pinned"), "true");
+          for (const [kind, color] of [["total", "#183b53"], ["convention", "#8496a2"], ["planning", "#cf3347"]]) {
+            const group = section.querySelectorAll(`[data-monthly-series="${kind}"]`)[0];
+            if (group) assert.equal(group.querySelectorAll("path")[0].getAttribute("stroke"), color);
+          }
+          for (const marker of section.querySelectorAll("[data-monthly-milestone]")) assert.equal(marker.getAttribute("stroke"), "#000");
+        }
+        for (const [node, color] of nonChartBars) assert.equal(node.style.backgroundColor, color);
+        assert.equal(actual.getAttribute("data-monthly-selected-employee"), selected ? "employee:1" : "");
+        assert.equal(planned.getAttribute("data-monthly-selected-employee"), "");
+        assert.deepEqual(calls, []); assert.deepEqual(detail, original);
+      };
+      const checkActorColor = color => {
+        for (const section of sections) {
+          const legend = section.querySelectorAll('[data-monthly-legend="employee:1"]')[0];
+          assert.equal(legend.querySelectorAll(".project-monthly-legend-line")[0].style.borderTopColor, color);
+          assert.equal(legend.querySelectorAll(".project-hours-employee-avatar")[0].style.borderColor, color);
+          for (const group of section.querySelectorAll('[data-monthly-employee-id="employee:1"]')) {
+            for (const path of group.querySelectorAll("path")) {
+              assert.equal(path.getAttribute("stroke"), color);
+              if (group.getAttribute("data-monthly-series") === "employee") assert.equal(path.getAttribute("fill"), color);
+            }
+          }
+          assert.equal(section.querySelectorAll('[data-monthly-value="employee:1"]')[0]
+            .querySelectorAll(".project-monthly-value-dot")[0].style.backgroundColor, color);
+        }
+        if (selected) {
+          assert.equal(actual.querySelectorAll('[data-monthly-legend="planned:employee:1"]')[0]
+            .querySelectorAll(".project-monthly-legend-line")[0].style.borderTopColor, color);
+          assert.equal(actual.querySelectorAll('[data-monthly-value="planned:employee:1"]')[0]
+            .querySelectorAll(".project-monthly-value-dot")[0].style.backgroundColor, color);
+        }
+      };
+      checkActorColor("#F89700");
+      assert.equal(ChartPalette.set("classic"), true); checkPreserved(); checkActorColor("#f7909f");
+      assert.equal(ChartPalette.set("classic"), false); checkPreserved();
+      assert.equal(ChartPalette.set("dico-vibes"), true); checkPreserved(); checkActorColor("#F89700");
+      assert.deepEqual(paths.map(node => [node.getAttribute("fill"), node.getAttribute("stroke")]), initialFills,
+        "Returning to the first palette restores each exact actor colour");
+    } finally { browser.cleanup(container); I18n.setLanguage("fr"); ChartPalette.set("dico-vibes"); }
+  }
+});
+
+test("monthly palette subscriptions are released on rerender, Budget navigation and explicit cleanup", () => {
+  ChartPalette.set("dico-vibes");
+  const subscriptions = new Set();
+  const palette = { ...ChartPalette, subscribe(callback) {
+    subscriptions.add(callback);
+    const unsubscribe = ChartPalette.subscribe(callback);
+    return () => { subscriptions.delete(callback); unsubscribe(); };
+  } };
+  const browser = freshBrowser(palette), container = domFixture(), detail = pairedMonthlyDetail();
+  const draw = (panel = "hours") => browser.render(container, { projects: projects(), selectedId: 2, panel, detail });
+  try {
+    draw(); assert.equal(subscriptions.size, 2, "Each mounted monthly chart owns one palette subscription");
+    const retired = container.querySelectorAll("[data-monthly-area]");
+    const retiredColors = retired.map(path => path.getAttribute("fill"));
+    draw(); assert.equal(subscriptions.size, 2, "Rerendering replaces rather than accumulates subscriptions");
+    const live = container.querySelectorAll("[data-monthly-area]")[0];
+    assert.equal(live.getAttribute("fill"), "#F89700");
+    ChartPalette.set("classic");
+    assert.equal(live.getAttribute("fill"), "#f7909f");
+    assert.deepEqual(retired.map(path => path.getAttribute("fill")), retiredColors, "Retired charts cannot receive later palette updates");
+    draw("budget"); assert.equal(subscriptions.size, 0);
+    const previousColor = live.getAttribute("fill"); ChartPalette.set("dico-vibes");
+    assert.equal(live.getAttribute("fill"), previousColor);
+    draw(); assert.equal(subscriptions.size, 2);
+    const disposed = container.querySelectorAll("[data-monthly-area]")[0];
+    browser.cleanup(container); assert.equal(subscriptions.size, 0);
+    browser.cleanup(container); assert.equal(subscriptions.size, 0, "Cleanup is idempotent");
+    ChartPalette.set("classic"); assert.equal(disposed.getAttribute("fill"), "#F89700");
+  } finally { browser.cleanup(container); ChartPalette.set("dico-vibes"); }
+});
+
+test("monthly actor colors survive selection, reference lines, filters, cumulative mode and language changes", () => {
+  const container = domFixture(), I18n = require("../i18n"), detail = employeePlanningDetail();
+  detail.plannedMonthly = pairedMonthlyDetail().plannedMonthly;
+  const original = structuredClone(detail);
+  const draw = options => render(container, { projects: projects(), selectedId: 2, detail: { ...detail, ...options } });
+  const section = kind => container.querySelectorAll(`[data-monthly-kind="${kind}"]`)[0];
+  const actorColor = (host, id) => host.querySelectorAll(`[data-monthly-legend="${id}"]`)[0]
+    .querySelectorAll(".project-monthly-legend-line")[0].style.borderTopColor;
+  try {
+    draw(); const color = actorColor(section("actual"), "employee:1");
+    assert.equal(actorColor(section("planned"), "employee:1"), color);
+    for (const language of ["fr", "nl"]) for (const monthlyMode of ["monthly", "cumulative"]) {
+      I18n.setLanguage(language);
+      draw({ monthlyMode, monthlyEmployeeId: "employee:1", plannedMonthlyEmployeeId: "employee:1", includeOrmitters: true });
+      const actual = section("actual"), planned = section("planned");
+      assert.equal(actorColor(actual, "employee:1"), color); assert.equal(actorColor(actual, "planned:employee:1"), color);
+      assert.equal(actorColor(planned, "employee:1"), color);
+      for (const path of actual.querySelectorAll("[data-monthly-employee-line]")) assert.equal(path.getAttribute("stroke"), color);
+      assert.equal(planned.querySelectorAll('[data-monthly-series="employee"]')[0].querySelectorAll("path")[0].getAttribute("fill"), color);
+      actual.querySelectorAll('[data-monthly-month="2026-02"]')[0].focus();
+      for (const id of ["employee:1", "planned:employee:1"]) assert.equal(actual.querySelectorAll(`[data-monthly-value="${id}"]`)[0]
+        .querySelectorAll(".project-monthly-value-dot")[0].style.backgroundColor, color);
+      draw({ monthlyMode, monthly: { ...detail.monthly, employees: detail.monthly.employees.slice(0, 1) } });
+      assert.equal(actorColor(section("actual"), "employee:1"), color, "Removing another actor cannot reassign the retained actor");
+    }
+    draw();
+    for (const [key, color] of [["total", "#183b53"], ["convention", "#8496a2"], ["planning", "#cf3347"]]) {
+      const host = section("actual");
+      if (host.querySelectorAll(`[data-monthly-series="${key}"]`).length) {
+        assert.equal(host.querySelectorAll(`[data-monthly-series="${key}"]`)[0].querySelectorAll("path")[0].getAttribute("stroke"), color);
+      }
+    }
+    assert.deepEqual(detail, original);
+  } finally { cleanup(container); I18n.setLanguage("fr"); }
+});
+
+test("monthly stacked areas use their own matching legend, avatar and tooltip colors while retaining exact signed values", () => {
   const container = domFixture();
   const detail = monthlyDetail();
   detail.monthly.employees[1].name = '<script>Private employee</script>';
   detail.monthly.employees[1].photoDataUrl = "https://attacker.example/photo.png";
   render(container, { projects: projects(), selectedId: 2, detail });
   const section = container.querySelectorAll("[data-monthly-project]")[0];
-  assert.match(section.textContent, /Projets · 02 \/ Évolution mensuelle/);
+  assert.match(section.textContent, /Projets · 02 \/ Heures réalisées · jusqu’à aujourd’hui/);
   assert.match(section.textContent, /hors période sélectionnée/);
   const lines = section.querySelectorAll("[data-monthly-lines]")[0];
   assert.ok(lines.getAttribute("clip-path").startsWith("url(#"));
@@ -825,16 +1408,20 @@ test("monthly stacked areas share bar colors, retain exact signed table values a
   assert.equal(convention.querySelectorAll("path")[0].getAttribute("fill"), "none");
   assert.equal(series.at(-2), convention, "The dotted reference stays above the stacked employee fills");
   const segments = container.querySelectorAll('[data-comparison="project"]')[0].querySelectorAll('[data-employee-kind="segment"]');
+  const areaColors = new Map();
   for (const group of series.filter(group => group.getAttribute("data-monthly-series") === "employee")) {
     const id = group.getAttribute("data-monthly-employee-id");
-    const color = segments.find(segment => segment.getAttribute("data-employee-id") === id).style.backgroundColor;
+    const color = group.querySelectorAll("path")[0].getAttribute("fill"); areaColors.set(id, color);
+    assert.notEqual(color, segments.find(segment => segment.getAttribute("data-employee-id") === id).style.backgroundColor,
+      "The new area palette does not replace the established bar palette");
     for (const path of group.querySelectorAll("path")) {
       assert.equal(path.getAttribute("fill"), color);
       assert.equal(path.getAttribute("stroke"), color);
       assert.match(path.getAttribute("d"), / Z$/);
     }
-    assert.equal(section.querySelectorAll("[data-monthly-legend]").find(item => item.getAttribute("data-monthly-legend") === id)
-      .querySelectorAll(".project-monthly-legend-line")[0].style.borderTopColor, color);
+    const legend = section.querySelectorAll("[data-monthly-legend]").find(item => item.getAttribute("data-monthly-legend") === id);
+    assert.equal(legend.querySelectorAll(".project-monthly-legend-line")[0].style.borderTopColor, color);
+    assert.equal(legend.querySelectorAll(".project-hours-employee-avatar")[0].style.borderColor, color);
   }
   assert.ok(section.querySelectorAll("[data-monthly-y-tick]").some(tick => Number(tick.getAttribute("data-monthly-y-tick")) < 0));
   assert.match(section.querySelectorAll("[data-monthly-corrections]")[0].textContent, /sous zéro.*somme nette/);
@@ -851,6 +1438,8 @@ test("monthly stacked areas share bar colors, retain exact signed table values a
   assert.equal(tooltip.hidden, false);
   assert.ok(tooltip.textContent.includes("-2 h"));
   assert.ok(tooltip.textContent.includes('<script>Private employee</script>'));
+  for (const [id, color] of areaColors) assert.equal(tooltip.querySelectorAll(`[data-monthly-value="${id}"]`)[0]
+    .querySelectorAll(".project-monthly-value-dot")[0].style.backgroundColor, color);
   assert.equal(container.querySelectorAll("script").length, 0);
   assert.ok(container.querySelectorAll("img").every(image => image.src === png));
   target.dispatch("keydown", { key: "Escape" });
@@ -1067,7 +1656,7 @@ test("project tiles use a native named radio group, safe labels and exact projec
   assert.deepEqual(rows, before);
 });
 
-test("personal cards show a manager chip and short front title, with project and manager details on the back", () => {
+test("personal outline cards show source identity and dates while preserving manager and budget metadata access", () => {
   const container = domFixture(), rows = projects();
   rows[0].name = "[Autogrout] [54252043] Automated grouting research";
   rows[0].startDate = "2025-12-01"; rows[0].endDate = "2028-05-31";
@@ -1076,7 +1665,9 @@ test("personal cards show a manager chip and short front title, with project and
   render(container, { projects: rows, onSelect: id => selected.push(id), focusProjectId: 2 });
   const radio = container.querySelectorAll("[data-project-choice]").find(input => input.value === "2"), label = radio.parentElement;
   const front = label.querySelectorAll(".project-card-front")[0], back = label.querySelectorAll(".project-card-back")[0];
-  assert.equal(label.children[0], radio, "The native radio remains a direct label child outside the flipping faces");
+  assert.equal(label.children[0], radio, "The native radio remains a direct label child outside decorative card content");
+  assert.ok(label.className.split(/\s+/).includes("project-card-outline"));
+  assert.equal(label.querySelectorAll(".project-card-ambient").length, 0);
   const title = front.querySelectorAll(".project-browser-name")[0];
   assert.deepEqual(title.children.map(row => [row.tagName, row.className, row.textContent]), [
     ["strong", "project-card-title", "Autogrout"]
@@ -1086,16 +1677,16 @@ test("personal cards show a manager chip and short front title, with project and
   assert.equal(front.querySelectorAll("img").length, 1); assert.equal(back.querySelectorAll("img").length, 1);
   assert.equal(back.querySelectorAll(".project-card-short-name")[0].textContent, "Autogrout");
   assert.equal(back.querySelectorAll(".project-card-back-number")[0].textContent, "54252043");
-  assert.equal(back.querySelectorAll(".project-card-manager-name")[0].textContent, "Alex Example");
+  assert.equal(back.querySelectorAll(".project-card-manager-name").length, 0);
   assert.equal(back.querySelectorAll(".project-card-back-full-name")[0].textContent, "Automated grouting research");
-  const backOrder = ["54252043", "Autogrout", "Alex Example", "Automated grouting research"]
+  const backOrder = ["54252043", "Autogrout", "Automated grouting research", "01/12/2025", "31/05/2028"]
     .map(value => back.textContent.indexOf(value));
-  assert.deepEqual(backOrder, [...backOrder].sort((a, b) => a - b), "Back content follows number, short title, manager, full title order");
+  assert.deepEqual(backOrder, [...backOrder].sort((a, b) => a - b), "Source identity precedes the project start/end dates");
   assert.equal(back.querySelectorAll(".project-card-mini-photo")[0].src, png);
   assert.doesNotMatch(front.textContent, /54252043|Automated grouting research|12345|01\/12\/2025|31\/05\/2028/);
-  assert.equal(back.querySelectorAll(".project-card-date").length, 0);
+  assert.deepEqual(back.querySelectorAll(".project-card-date-value").map(value => value.textContent), ["01/12/2025", "31/05/2028"]);
   assert.equal(back.querySelectorAll(".project-card-budget").length, 0);
-  assert.doesNotMatch(back.textContent, /12345|01\/12\/2025|31\/05\/2028/);
+  assert.doesNotMatch(back.textContent, /12345|Alex Example/);
   assert.match(label.title, /Début : 01\/12\/2025\nFin : 31\/05\/2028/);
   assert.match(label.title.replace(/\s/g, ""), /Budgettotal:12345,67EUR/);
   const descriptionId = radio.getAttribute("aria-describedby"); assert.ok(descriptionId);
@@ -1108,7 +1699,7 @@ test("personal cards show a manager chip and short front title, with project and
   assert.deepEqual(rows, before);
 });
 
-test("personal cards move source numbers and full names to the back without inventing missing identity", () => {
+test("personal outline cards retain source numbers and complete name without inventing missing identity", () => {
   for (const [name, values] of [
     ["54252043 - [MiXeD] Full title [2026] (ID 99999999)", ["MiXeD", "54252043", "Full title [2026] (ID 99999999)"]],
     ["[54252043] Full title", ["Full title", "54252043", ""]],
@@ -1125,8 +1716,9 @@ test("personal cards move source numbers and full names to the back without inve
     assert.deepEqual(title.children.map(row => row.textContent), [values[0]], name);
     const back = label.querySelectorAll(".project-card-back")[0];
     assert.deepEqual(["project-card-short-name", "project-card-back-number", "project-card-back-full-name"]
-      .map(className => back.querySelectorAll(`.${className}`)[0].textContent), values, name);
-    assert.equal(back.querySelectorAll(".project-card-manager-name")[0].textContent, "Responsable indisponible");
+      .map(className => back.querySelectorAll(`.${className}`)[0].textContent), [values[0], values[1], values[2] || values[0]], name);
+    assert.equal(back.querySelectorAll(".project-card-manager-name").length, 0);
+    assert.deepEqual(back.querySelectorAll(".project-card-date-value").map(value => value.textContent), ["Indisponible", "Indisponible"]);
     assert.equal(title.title, name); assert.ok(label.title.startsWith(`${name}\n`)); assert.equal(radio.getAttribute("aria-label"), name);
     assert.equal(container.querySelectorAll("img").length, 0); assert.equal(container.querySelectorAll("script").length, 0);
     assert.deepEqual(rows, original);
@@ -1574,7 +2166,7 @@ test("Ormitter inclusion appears only in the project comparison and preserves ch
   assert.match(container.querySelectorAll('[data-comparison="project"]')[0].textContent, /Ormitters inclus/);
 });
 
-test("positive project actuals form a reconciled stack with stable ID colors and accessible narrow segments", () => {
+test("positive project actuals descend by contribution with stable ties, ID colors and accessible narrow segments", () => {
   const container = domFixture();
   const ids = [1, 13, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14];
   const employees = ids.map((id, index) => ({ id: `employee:${id}`, employeeId: id,
@@ -1588,6 +2180,8 @@ test("positive project actuals form a reconciled stack with stable ID colors and
   const whole = container.querySelectorAll('[data-comparison="project"]')[0];
   const segments = whole.querySelectorAll('[data-employee-kind="segment"]');
   assert.equal(segments.length, 14);
+  assert.deepEqual(segments.map(segment => segment.getAttribute("data-employee-id")),
+    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 13].map(id => `employee:${id}`));
   assert.equal(whole.querySelectorAll('[data-hours-kind="actual"]')[0].querySelectorAll("[data-hours-width]")[0].style.width, "100%");
   assert.ok(Math.abs(segments.reduce((sum, segment) => sum + Number(segment.getAttribute("data-employee-share")), 0) - 100) < 1e-10);
   assert.equal(container.querySelectorAll('[data-comparison="personal"]')[0].querySelectorAll("[data-employee-id]").length, 0);
@@ -1668,12 +2262,13 @@ test("employee callouts and legends keep safe photos, fallback initials and lite
   assert.match(container.querySelectorAll('[role="tooltip"]')[0].textContent, /Unknown Resource.*4 h.*Ormitter/);
 });
 
-test("lifetime convention uses its own period and date tick while contributor colors and focus stay exact", () => {
+test("lifetime convention sorts descending by its own hours while date tick, colors and focus stay exact", () => {
   const container = domFixture();
   const employees = [{ id: "employee:1", name: "Alex Example", actual: 30 },
     { id: "employee:2", name: "Drew Example", actual: 20 }];
   const detail = { personal: { planned: 10, actual: 2 }, project: { planned: 200, actual: 50, employees },
-    lifetime: { planned: 100, actual: 50, employees, startDate: "2024-01-01", endDate: "2026-12-31", calendarFraction: 0.25 },
+    lifetime: { planned: 100, actual: 50, employees: [{ ...employees[0], actual: 10 }, { ...employees[1], actual: 40 }],
+      startDate: "2024-01-01", endDate: "2026-12-31", calendarFraction: 0.25 },
     calendarFraction: 0.5, hasOrmitters: true };
   const draw = years => render(container, { projects: projects(), selectedId: 2, detail, years });
   draw([2026]);
@@ -1688,6 +2283,9 @@ test("lifetime convention uses its own period and date tick while contributor co
   assert.equal(lifetime.querySelectorAll("[data-include-ormitters]").length, 0);
   const projectColors = new Map(project.querySelectorAll('[data-employee-kind="segment"]')
     .map(segment => [segment.getAttribute("data-employee-id"), segment.style.backgroundColor]));
+  assert.deepEqual([...projectColors.keys()], ["employee:1", "employee:2"]);
+  assert.deepEqual(lifetime.querySelectorAll('[data-employee-kind="segment"]').map(segment => segment.getAttribute("data-employee-id")),
+    ["employee:2", "employee:1"]);
   for (const segment of lifetime.querySelectorAll('[data-employee-kind="segment"]')) {
     assert.equal(segment.style.backgroundColor, projectColors.get(segment.getAttribute("data-employee-id")));
     assert.equal(segment.getAttribute("data-employee-comparison"), "lifetime");
@@ -1880,7 +2478,7 @@ test("project browser translates French and Dutch text, accessible labels and da
     assert.match(container.textContent, /Projecten · 01 \/ Overzicht/);
     assert.match(container.textContent, /Projecturen in 2026 · alle medewerkers \(zonder Ormitters\)/);
     assert.match(container.textContent, /Genegeerde uren/);
-    assert.match(container.textContent, /Projecten · 02 \/ Maandelijkse evolutie/);
+    assert.match(container.textContent, /Projecten · 02 \/ Gepresteerde uren · tot vandaag/);
     assert.match(container.textContent, /Projecten · 03 \/ Maandelijkse planning/);
     assert.match(container.textContent, /Exacte waarden per maand bekijken/);
     assert.ok(container.textContent.includes("Zulu project"));
@@ -1888,6 +2486,8 @@ test("project browser translates French and Dutch text, accessible labels and da
     assert.equal(container.querySelectorAll("[data-planning-info-control]")[0].getAttribute("aria-label"), "Informatie over de overeenkomst en de planning");
     assert.equal(container.querySelectorAll(".project-hours-date-label")[0].textContent, "Vandaag");
     const actual = container.querySelectorAll('[data-monthly-kind="actual"]')[0];
+    assert.equal(actual.querySelectorAll("h3")[0].textContent, "Projecten · 02 / Gepresteerde uren · tot vandaag");
+    assert.match(container.querySelectorAll('[data-planned-convention="unavailable"]')[0].textContent, /De uren van de overeenkomst konden niet worden bepaald/);
     actual.querySelectorAll('[data-monthly-month="2026-02"]')[0].focus();
     assert.match(actual.querySelectorAll("[data-monthly-tooltip]")[0].textContent, /februari 2026/);
     assert.ok(!actual.querySelectorAll("[data-monthly-tooltip]")[0].textContent.includes("février"));
@@ -1896,8 +2496,50 @@ test("project browser translates French and Dutch text, accessible labels and da
     render(container, { projects: projects(), selectedId: 2, detail, years: [2026] });
     assert.match(container.textContent, /Convention et planning/);
     assert.match(container.textContent, /Heures ignorées/);
+    assert.equal(container.querySelectorAll('[data-monthly-kind="actual"]')[0].querySelectorAll("h3")[0].textContent,
+      "Projets · 02 / Heures réalisées · jusqu’à aujourd’hui");
     assert.equal(periodTitle([2026]), "Mes heures en 2026");
   } finally { i18n.setLanguage("fr"); cleanup(container); }
+});
+
+test("real purchase ribbon focus and disclosure survive project refresh and clean up on Hours navigation", () => {
+  const budgetRenderer = require("../project-budget"), container = domFixture();
+  const finance = { ok: true, project: { id: 11, name: "Projet fictif" }, annual: [], conventions: [],
+    purchases: { status: "available", startDate: "2026-01-01", endDate: "2026-10-21", issues: [], items: [
+      { id: 7001, date: "2026-09-01", consumed: 120, currencyId: 1, currency: "EUR", categoryId: 22, category: "Équipement",
+        codeCategoryId: 601, codeCategory: "6010 Matériel", code: "6010", description: "Achat fictif", documentType: "in_invoice" }
+    ] } };
+  const draw = (panel = "budget") => render(container, { projects: [{ id: 11, name: "Projet fictif" }], selectedId: 11,
+    panel, finance: { result: finance }, budgetRenderer });
+  draw();
+  container.querySelectorAll("[data-purchase-flow-details]")[0].open = true;
+  const ribbon = container.querySelectorAll("[data-purchase-flow-link]")[0]; ribbon.focus();
+  const key = ribbon.getAttribute("data-purchase-flow-control"), priorTip = container.querySelectorAll(".purchase-flow-tooltip")[0];
+  draw();
+  assert.equal(priorTip.hidden, true);
+  assert.equal(container.ownerDocument.activeElement.getAttribute("data-purchase-flow-control"), key);
+  assert.equal(container.querySelectorAll("[data-purchase-flow-details]")[0].open, true);
+  const tip = container.querySelectorAll(".purchase-flow-tooltip")[0]; assert.equal(tip.hidden, false);
+  container.querySelectorAll('[data-purchase-flow-control="expand"]')[0].dispatch("click");
+  container.querySelectorAll("[data-purchase-flow-link]")[0].focus();
+  const panel = container.querySelectorAll("[data-purchase-flow]")[0], removePanel = panel.remove.bind(panel);
+  panel.remove = () => {
+    if (panel.contains(container.ownerDocument.activeElement)) container.ownerDocument.activeElement = null;
+    removePanel();
+  };
+  draw();
+  assert.equal(container.ownerDocument.modalElement, null);
+  assert.equal(container.ownerDocument.activeElement.getAttribute("data-purchase-flow-control"), key);
+  container.querySelectorAll('[data-purchase-flow-control="visibility"]')[0].dispatch("click"); draw();
+  assert.equal(container.querySelectorAll("[data-purchase-flow-body]")[0].hidden, true);
+  assert.equal(container.ownerDocument.activeElement.getAttribute("data-purchase-flow-control"), "visibility");
+  container.querySelectorAll('[data-purchase-flow-control="expand"]')[0].dispatch("click");
+  const expanded = container.querySelectorAll("[data-purchase-flow-fullscreen]")[0]; assert.equal(expanded.open, true);
+  draw("hours");
+  assert.equal(expanded.open, false); assert.equal(container.ownerDocument.modalElement, null);
+  assert.equal(tip.hidden, true); assert.equal(container.querySelectorAll("[data-purchase-flow]").length, 0);
+  assert.equal(container.ownerDocument.listeners.size, 0);
+  cleanup(container);
 });
 
 test("project calendar forwards the shared view and accessible focus contract", () => {

@@ -73,6 +73,36 @@
     const today = localDay(options.now === undefined ? new Date() : options.now);
     const rawConvention = number(lifetime.conventionHours);
     const convention = lifetime.conventionStatus !== "unavailable" && rawConvention !== null && rawConvention > 0 ? rawConvention : null, warnings = new Set();
+    const ownEmployees = new Set((Array.isArray(result?.employee?.ids) ? result.employee.ids : []).filter(value => id(value)));
+    const ownResources = new Set((Array.isArray(result?.employee?.resourceIds) ? result.employee.resourceIds : []).filter(value => id(value)));
+    const ownIdentity = ownEmployees.size > 0 || ownResources.size > 0;
+    const ownsActual = record => id(record.employeeId) ? ownEmployees.has(record.employeeId) : ownResources.has(id(record.resourceId));
+    const personalResources = new Map();
+    for (const resource of Array.isArray(result?.planning?.resources) ? result.planning.resources : []) {
+      if (!id(resource?.id)) continue;
+      personalResources.set(resource.id, personalResources.has(resource.id) ? null : resource);
+    }
+    const uncertainOwn = record => ownEmployees.has(id(record.employeeId)) || ownResources.has(id(record.resourceId))
+      || !id(record.resourceId) || !ownResources.size ? null : false;
+    const ownsPlanning = record => {
+      const snapshot = record.planningIdentity, resourceId = id(record.resourceId);
+      if (Object.hasOwn(record, "planningIdentity")) {
+        if (snapshot?.status === "person" && id(snapshot.employeeId)) return ownEmployees.has(snapshot.employeeId);
+        if (["to-hire", "unlinked"].includes(snapshot?.status) && snapshot.employeeId === null && resourceId) return false;
+        // Unknown business identity cannot borrow a mutable technical employee
+        // relation: a TH placeholder can also have a positive employee ID.
+        return uncertainOwn(record);
+      }
+      if (!resourceId) return id(record.employeeId) ? ownEmployees.has(record.employeeId) : null;
+      const resource = personalResources.get(resourceId);
+      if (resource?.isToHire === true || resource?.linkStatus === "unlinked" && resource.isToHire === false) return false;
+      if (resource?.isToHire === false) {
+        if (resource.linkStatus === "linked" && id(resource.employeeId)) return ownEmployees.has(resource.employeeId);
+        if (id(record.employeeId)) return ownEmployees.has(record.employeeId);
+        if (ownResources.has(resourceId)) return true;
+      }
+      return uncertainOwn(record);
+    };
     const output = { status: "unavailable", startDate: first?.key || null, endDate: last?.key || null,
       conventionHours: convention, conventionStatus: convention !== null ? "available" : lifetime.conventionStatus !== "unavailable" &&
         (lifetime.conventionStatus === "empty" || rawConvention !== null && rawConvention <= 0) ? "empty" : "unavailable",
@@ -82,6 +112,8 @@
       plannedToDateHours: null, plannedToDateStatus: "unavailable",
       conventionToDateHours: null, conventionToDateStatus: "unavailable",
       planningToDateDifference: null, conventionToDateDifference: null,
+      personalToDate: { actualHours: null, actualStatus: "unavailable", plannedHours: null, plannedStatus: "unavailable",
+        difference: null, status: "unavailable" },
       remainingPlannedHours: null, remainingPlannedStatus: "unavailable", remainingStartDate: null,
       remainingToHireHours: null, remainingToHireStatus: "unavailable", remainingToHireResources: [],
       projectedHours: null, projectionDifference: null, projectionStatus: "unavailable",
@@ -99,6 +131,11 @@
           ? output.actualHours - output[reference] : null;
         output[field] = Number.isFinite(delta) ? delta : null;
       }
+      const personal = output.personalToDate;
+      const personalDelta = personal.actualStatus === "available" && personal.plannedStatus === "available"
+        ? personal.actualHours - personal.plannedHours : null;
+      personal.difference = Number.isFinite(personalDelta) ? personalDelta : null;
+      personal.status = personal.difference === null ? "unavailable" : "available";
       output.warnings = [...warnings]; return output;
     };
     if (convention !== null && first && last && first.time <= last.time && today) {
@@ -109,19 +146,24 @@
     }
     const projectId = id(result?.project?.id);
     if (projectId && first && today && Array.isArray(result?.timesheets?.lines) && result.timesheets.ok !== false && !result.timesheetsError) {
-      let actual = 0, validActual = true, unknownFunctions = false;
+      let actual = 0, validActual = true, unknownFunctions = false, personalActual = 0, validPersonalActual = ownIdentity;
       for (const line of result.timesheets.lines) {
         if (id(line?.projectId) !== projectId || line.isSubcontractor === true) continue;
         const day = date(line.date);
-        if (!day) { validActual = false; continue; }
+        const own = ownIdentity && ownsActual(line);
+        if (!day) { validActual = false; if (own) validPersonalActual = false; continue; }
         if (day.time < first.time || day.time > today.time) continue;
         const hours = number(line.hours);
         if (hours === null) validActual = false; else actual += hours;
+        if (own) { if (hours === null) validPersonalActual = false; else personalActual += hours; }
         unknownFunctions ||= line.subcontractorClassification === "unknown";
       }
       if (validActual && Number.isFinite(actual)) { output.actualHours = actual; output.actualStatus = "available"; }
       else warnings.add(t("planning.invalidActual"));
       if (unknownFunctions) warnings.add(t("planning.unknownActualFunctions"));
+      if (validPersonalActual && Number.isFinite(personalActual)) {
+        output.personalToDate.actualHours = personalActual; output.personalToDate.actualStatus = "available";
+      }
     } else warnings.add(t("planning.actualUnavailable"));
     if (!projectId || !first || !last || first.time > last.time) {
       warnings.add(t("planning.invalidProject")); return finish();
@@ -135,6 +177,7 @@
       ? { start: Math.max(firstInstant, tomorrowInstant), end: endInstant } : null;
     if (toDate && toDate.end <= toDate.start) {
       output.plannedToDateHours = 0; output.plannedToDateStatus = "available";
+      if (ownIdentity) { output.personalToDate.plannedHours = 0; output.personalToDate.plannedStatus = "available"; }
     }
     output.remainingStartDate = remaining && remaining.start < remaining.end ? key(Math.max(first.time, tomorrow.time)) : null;
     output.coverage.startDate = future && future.start < future.end ? key(future.start) : null;
@@ -153,6 +196,7 @@
     const hires = new Map(), remainingHires = new Map(), unlinked = new Map(), coverage = [], uncertain = [];
     let total = 0, knownHire = 0, validTotal = true, unknownIdentities = 0, knownIdentities = 0, indeterminateFuture = !today;
     let plannedToDate = 0, validToDate = !!toDate, unknownToDateFunctions = false;
+    let personalPlanned = 0, validPersonalPlanned = ownIdentity && !!toDate;
     let remainingTotal = 0, remainingHire = 0, validRemaining = !!remaining, remainingUnknown = 0, remainingKnown = 0, unknownRemainingFunctions = false;
     const resourceRow = (map, resourceId, hours) => {
       if (!map.has(resourceId)) map.set(resourceId, { id: resourceId, name: typeof metadata.get(resourceId)?.name === "string" && metadata.get(resourceId).name.trim()
@@ -164,9 +208,11 @@
       const macroIncluded = slot.isSubcontractor !== true, legacyIncluded = macroIncluded || options.includeOrmitters === true;
       if (!legacyIncluded) continue;
       const dates = period(slot), amount = number(slot.hours);
+      const own = ownIdentity && macroIncluded ? ownsPlanning(slot) : false;
       if (!dates) {
         validTotal = false; unknownIdentities += 1;
         if (macroIncluded) { validRemaining = false; validToDate = false; indeterminateFuture = true; }
+        if (own !== false && amount !== 0) validPersonalPlanned = false;
         continue;
       }
       const overlap = Math.max(0, Math.min(dates.end, last.time + DAY) - Math.max(dates.start, first.time));
@@ -187,6 +233,10 @@
           unknownToDateFunctions ||= slot.subcontractorClassification === "unknown";
           const allocated = amount === null ? null : amount * (elapsedOverlap / (dates.end - dates.start));
           if (allocated === null || !Number.isFinite(allocated)) validToDate = false; else plannedToDate += allocated;
+          if (own !== false && amount !== 0) {
+            if (own === null || allocated === null || !Number.isFinite(allocated)) validPersonalPlanned = false;
+            else personalPlanned += allocated;
+          }
         }
       }
       if (macroIncluded && remaining && remaining.start < remaining.end) {
@@ -221,6 +271,11 @@
     if (toDate && toDate.end <= toDate.start) { plannedToDate = 0; validToDate = true; }
     output.plannedToDateHours = validToDate ? plannedToDate : null;
     output.plannedToDateStatus = validToDate ? "available" : "unavailable";
+    if (!Number.isFinite(personalPlanned)) validPersonalPlanned = false;
+    if (ownIdentity && toDate && toDate.end <= toDate.start) { personalPlanned = 0; validPersonalPlanned = true; }
+    if (validPersonalPlanned) {
+      output.personalToDate.plannedHours = personalPlanned; output.personalToDate.plannedStatus = "available";
+    }
     if (!validToDate) warnings.add(t("planning.toDateUnavailable"));
     if (unknownToDateFunctions) warnings.add(t("planning.toDateUnknownFunctions"));
     if (!Number.isFinite(remainingTotal) || !Number.isFinite(remainingHire)) validRemaining = false;

@@ -27,6 +27,7 @@ function loadServer(respond) {
       if (name === "./steering-service") return require("../steering-service");
       if (name === "./project-finance-service") return require("../project-finance-service");
       if (name === "./unit-dico-service") return require("../unit-dico-service");
+      if (name === "./project-tag-view") return require("../project-tag-view");
       if (name === "http") {
         return { createServer: () => ({ listen() {}, on() {} }) };
       }
@@ -292,4 +293,90 @@ test("an all-subcontractor response includes an empty employeeMonthly without dr
   assert.equal(result.monthly[0].totalHours, 8);
   assert.deepEqual(result.employeeMonthly, []);
   assert.equal(result.lines[0].isSubcontractor, true);
+});
+
+test("Viktor's retained timesheet and resource labels confirm Ormitter status after HR deletion", async () => {
+  const { context, calls } = loadServer(call => call.params[4] === "fields_get" ? employeeFields : []);
+  const line = normalizedLine(context, 11, 12, "Viktor de Groote");
+  const correction = normalizedLine(context, 11, -2, "Viktor de Groote");
+  const other = normalizedLine(context, 12, 8, "Another person");
+  const slot = context.normalizePlanningSlot({ id: 5, allocated_hours: 20,
+    resource_id: [211, "Viktor de Groote"], role_id: [1, "Engineer"], project_id: [71, "Project A"],
+    start_datetime: "2026-10-01 09:00:00", end_datetime: "2026-10-01 17:00:00" });
+  const warnings = [];
+  await context.enrichEmployeeFunctions(...settings, [line, correction, other, slot], warnings);
+  for (const record of [line, correction, slot]) {
+    assert.equal(record.isSubcontractor, true);
+    assert.equal(record.subcontractorClassification, "named-override");
+  }
+  assert.equal(line.employeeFunction, "", "A local exception must not invent an Odoo function");
+  assert.equal(line.employeeFunctionSource, "");
+  assert.equal(slot.employeeFunction, "Engineer", "Keep a readable planning role intact");
+  assert.equal(slot.employeeFunctionSource, "planning.role_id");
+  assert.equal(slot.employeeId, null, "A resource identity must not become a fabricated employee ID");
+  assert.equal(slot.resourceId, 211);
+  assert.equal(other.isSubcontractor, false);
+  assert.equal(other.subcontractorClassification, "unknown");
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /unavailable for 1 record\(s\)/);
+  assert.doesNotMatch(warnings.join(" "), /planning role instead/);
+  assert.equal(context.buildMonthlyTimesheetSummary([line, correction, other])[0].totalHours, 18);
+  assert.equal(context.buildMonthlyTimesheetSummary([line, correction, other].filter(record => !record.isSubcontractor))[0].totalHours, 8);
+  assert.equal(context.buildMonthlyPlanningSummary([slot])[0].totalHours, 20);
+  assert.deepEqual(plain(context.buildMonthlyPlanningSummary([slot].filter(record => !record.isSubcontractor))), []);
+  assert.ok(calls.every(call => call.method === "execute_kw" && ["fields_get", "search_read"].includes(call.params[4])));
+});
+
+test("Viktor's explicit exception overrides conflicting HR functions without rewriting their evidence", async () => {
+  const { context } = metadataServer([
+    { id: 11, name: "Viktor de Groote", job_title: "Engineer", job_id: [1, "Researcher"] },
+    { id: 12, name: "Viktor de Groote", job_title: "Researcher", job_id: false }
+  ]);
+  const line = normalizedLine(context, 11, 8, "Viktor de Groote");
+  const metadataNamedLine = normalizedLine(context, 12, 4, "");
+  const warnings = [];
+  await context.enrichEmployeeFunctions(...settings, [line, metadataNamedLine], warnings);
+  for (const record of [line, metadataNamedLine]) {
+    assert.equal(record.isSubcontractor, true);
+    assert.equal(record.subcontractorClassification, "named-override");
+    assert.equal(record.employeeFunctionSource, "hr.employee.job_title");
+  }
+  assert.equal(line.employeeFunction, "Engineer");
+  assert.equal(metadataNamedLine.employeeFunction, "Researcher");
+  assert.equal(metadataNamedLine.employee, "Viktor de Groote");
+  assert.deepEqual(warnings, []);
+});
+
+test("the named Ormitter exception uses only the complete normalized name", async () => {
+  const { context } = loadServer(call => call.params[4] === "fields_get" ? employeeFields : []);
+  const matches = ["Viktor de Groote", "  VIKTOR\tde\nGroote  ", "Viktor\u00a0de\u00a0Groote", "Ｖｉｋｔｏｒ ｄｅ Ｇｒｏｏｔｅ"];
+  const misses = ["Victor de Groote", "Viktor de Groot", "Viktor", "de Groote", "Viktor de Groote Jr", "Dr Viktor de Groote", "Another person"];
+  const records = [...matches, ...misses].map((name, index) => normalizedLine(context, index + 1, 8, name));
+  records.at(-1).description = "Viktor de Groote";
+  const warnings = [];
+  await context.enrichEmployeeFunctions(...settings, records, warnings);
+  assert.deepEqual(records.map(record => record.isSubcontractor), [...matches.map(() => true), ...misses.map(() => false)]);
+  assert.ok(records.slice(0, matches.length).every(record => record.subcontractorClassification === "named-override"));
+  assert.ok(records.slice(matches.length).every(record => record.subcontractorClassification === "unknown"));
+  assert.match(warnings.join(" "), new RegExp(`unavailable for ${misses.length} record\\(s\\)`));
+});
+
+test("denied HR reads do not erase Viktor's known classification or conceal another person's uncertainty", async () => {
+  const { context, calls } = loadServer(() => { throw new Error("Access denied"); });
+  const line = normalizedLine(context, 11, 8, "Viktor de Groote");
+  const other = normalizedLine(context, 12, 4, "Another person");
+  const warnings = [];
+  await context.enrichEmployeeFunctions(...settings, [line, other], warnings);
+  assert.equal(line.isSubcontractor, true);
+  assert.equal(line.subcontractorClassification, "named-override");
+  assert.equal(line.employeeFunction, "");
+  assert.equal(line.employeeFunctionSource, "");
+  assert.equal(other.isSubcontractor, false);
+  assert.equal(other.subcontractorClassification, "unknown");
+  assert.equal(line.hours + other.hours, 12);
+  assert.match(warnings.join(" "), /hr.employee failed/);
+  assert.match(warnings.join(" "), /hr.employee.public failed/);
+  assert.match(warnings.join(" "), /unavailable for 1 record\(s\)/);
+  assert.equal(calls.length, 2);
+  assert.ok(calls.every(call => call.params[4] === "fields_get"), "The override must not introduce any new RPC operation");
 });

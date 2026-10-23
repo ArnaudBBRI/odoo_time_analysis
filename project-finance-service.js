@@ -1,5 +1,7 @@
 "use strict";
 
+const { loadPurchases, unavailablePurchases } = require("./project-purchase-service");
+
 // Fixed, project-scoped reads only. No Odoo actions or write operations are exposed.
 const MONEY_FIELDS = ["budget_amount", "achieved_amount", "committed_amount", "on_approval", "balance"];
 const PROJECT_NUMBERS = { conventionTotal: "total_budget_convention", personnelEuros: "budget_staffing_convention_euros", personnelHours: "budget_staffing_convention_hours", maxFunding: "max_funding" };
@@ -430,6 +432,7 @@ async function load(projectId, rpc, now = new Date()) {
     for (const line of budget.lines.filter(item => /^6/.test(item.accountCode || ""))) line.billDetails = unavailableBillDetails(line, "Les écritures facturées de cette ligne annuelle sont indisponibles.");
   }
   let lifetime = unavailableLifetime("Le compte analytique du projet est indisponible ; aucun périmètre financier n’est inventé.");
+  let purchases = unavailablePurchases(project.startDate, brusselsDate(now));
   const accountId = id(metadata.account_id);
   if (accountId !== null) {
     try {
@@ -511,9 +514,11 @@ async function load(projectId, rpc, now = new Date()) {
         for (const line of budget.lines.filter(item => /^6/.test(item.accountCode || ""))) line.billDetails = annualBillDetails(budget, line, rows, supplierNames, amountCurrencyField, descriptions, billSourceIssues, hourUnitIds);
       }
       lifetime = aggregateLifetime(rows, { ...project, ...projectCurrency }, today, hourUnitIds, lifetimeWarnings, amountCurrencyField, expenseWarnings);
+      try { purchases = await loadPurchases({ projectId, accountId, startDate: project.startDate, today, rows: raw, defs, amountCurrencyField, hourUnitIds, rpc, fields }); }
+      catch (_) { purchases = unavailablePurchases(project.startDate, today); }
     } catch (_) { lifetime = unavailableLifetime("Les coûts analytiques sont indisponibles ou le compte est partagé entre plusieurs projets ; aucun total non filtré n’est utilisé."); }
   }
-  return { ok: true, project, asOf: now.toISOString(), macro, conventions, annual, lifetime, warnings };
+  return { ok: true, project, asOf: now.toISOString(), macro, conventions, annual, lifetime, purchases, warnings };
 }
 
 module.exports = { load, normalizeBudget, aggregateLifetime, brusselsDate, annualExclusion, isBwPersonnelCategory };

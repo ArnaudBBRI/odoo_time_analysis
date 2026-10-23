@@ -1,0 +1,2861 @@
+{
+  "schemaVersion": 1,
+  "scope": {
+    "sourceKey": "https://odoo.buildwise.be|buildwiseprd",
+    "unitId": 206,
+    "unitName": "RESEARCH & DEVELOPMENT / DIGITAL CONSTRUCTION UNIT"
+  },
+  "scannedAt": "2026-10-22T08:26:50.529Z",
+  "tagDefinitions": {
+    "bim": {
+      "en": "BIM",
+      "fr": "BIM",
+      "nl": "BIM"
+    },
+    "computer-vision": {
+      "en": "Computer vision",
+      "fr": "Vision par ordinateur",
+      "nl": "Computervisie"
+    },
+    "machine-learning": {
+      "en": "Machine learning",
+      "fr": "Apprentissage automatique",
+      "nl": "Machinaal leren"
+    },
+    "large-language-models": {
+      "en": "Large language models (LLMs)",
+      "fr": "Grands modèles de langage (LLM)",
+      "nl": "Grote taalmodellen (LLM)"
+    },
+    "extended-reality": {
+      "en": "Extended reality (XR)",
+      "fr": "Réalité étendue (XR)",
+      "nl": "Extended reality (XR)"
+    },
+    "augmented-reality": {
+      "en": "Augmented reality",
+      "fr": "Réalité augmentée",
+      "nl": "Augmented reality"
+    },
+    "automated-quality-inspection": {
+      "en": "Automated quality inspection",
+      "fr": "Contrôle qualité automatisé",
+      "nl": "Geautomatiseerde kwaliteitscontrole"
+    },
+    "prefabricated-construction": {
+      "en": "Off-site / prefabricated construction",
+      "fr": "Construction hors site / préfabrication",
+      "nl": "Offsitebouw / prefabricage"
+    },
+    "erp-integration": {
+      "en": "ERP integration",
+      "fr": "Intégration ERP",
+      "nl": "ERP-integratie"
+    },
+    "data-interoperability": {
+      "en": "Data interoperability",
+      "fr": "Interopérabilité des données",
+      "nl": "Data-interoperabiliteit"
+    },
+    "product-configuration": {
+      "en": "Product configuration",
+      "fr": "Configuration de produits",
+      "nl": "Productconfiguratie"
+    },
+    "design-for-assembly": {
+      "en": "Design for Assembly (DfA)",
+      "fr": "Conception pour assemblage (DfA)",
+      "nl": "Design for Assembly (DfA)"
+    },
+    "hvac": {
+      "en": "HVAC",
+      "fr": "Génie climatique (HVAC)",
+      "nl": "HVAC"
+    },
+    "ventilation": {
+      "en": "Ventilation",
+      "fr": "Ventilation",
+      "nl": "Ventilatie"
+    },
+    "energy-efficiency": {
+      "en": "Energy efficiency",
+      "fr": "Efficacité énergétique",
+      "nl": "Energie-efficiëntie"
+    },
+    "hvac-commissioning": {
+      "en": "HVAC commissioning",
+      "fr": "Mise au point des systèmes HVAC",
+      "nl": "Inregeling van HVAC-systemen"
+    },
+    "artificial-intelligence": {
+      "en": "Artificial intelligence",
+      "fr": "Intelligence artificielle",
+      "nl": "Artificiële intelligentie"
+    },
+    "drones": {
+      "en": "Drones",
+      "fr": "Drones",
+      "nl": "Drones"
+    },
+    "reality-capture": {
+      "en": "Reality capture",
+      "fr": "Capture de la réalité",
+      "nl": "Reality capture"
+    },
+    "construction-progress-monitoring": {
+      "en": "Construction progress monitoring",
+      "fr": "Suivi de l’avancement de chantier",
+      "nl": "Werfvoortgangsopvolging"
+    },
+    "deviation-detection": {
+      "en": "Deviation detection",
+      "fr": "Détection des écarts",
+      "nl": "Afwijkingsdetectie"
+    },
+    "life-cycle-assessment": {
+      "en": "Life cycle assessment (LCA)",
+      "fr": "Analyse du cycle de vie (ACV)",
+      "nl": "Levenscyclusanalyse (LCA)"
+    },
+    "circular-construction": {
+      "en": "Circular construction",
+      "fr": "Construction circulaire",
+      "nl": "Circulair bouwen"
+    },
+    "environmental-impact-assessment": {
+      "en": "Environmental impact assessment",
+      "fr": "Évaluation de l’impact environnemental",
+      "nl": "Milieueffectbeoordeling"
+    },
+    "totem": {
+      "en": "TOTEM",
+      "fr": "TOTEM",
+      "nl": "TOTEM"
+    },
+    "model-based-systems-engineering": {
+      "en": "Model-Based Systems Engineering (MBSE)",
+      "fr": "Ingénierie système basée sur les modèles (MBSE)",
+      "nl": "Model-Based Systems Engineering (MBSE)"
+    },
+    "automated-compliance-checking": {
+      "en": "Automated compliance checking",
+      "fr": "Vérification automatisée de conformité",
+      "nl": "Geautomatiseerde conformiteitscontrole"
+    },
+    "planning-optimisation": {
+      "en": "Planning optimisation",
+      "fr": "Optimisation de la planification",
+      "nl": "Planningsoptimalisatie"
+    },
+    "engineering-workflow-automation": {
+      "en": "Engineering workflow automation",
+      "fr": "Automatisation des processus d’ingénierie",
+      "nl": "Automatisering van engineeringprocessen"
+    },
+    "digital-surveying": {
+      "en": "Digital surveying",
+      "fr": "Relevé numérique",
+      "nl": "Digitale opmeting"
+    },
+    "heat-pump-design": {
+      "en": "Heat pump design",
+      "fr": "Dimensionnement des pompes à chaleur",
+      "nl": "Warmtepompontwerp"
+    },
+    "energy-modelling": {
+      "en": "Energy modelling",
+      "fr": "Modélisation énergétique",
+      "nl": "Energiemodellering"
+    },
+    "in-situ-measurements": {
+      "en": "In-situ measurements",
+      "fr": "Mesures in situ",
+      "nl": "In-situmetingen"
+    },
+    "data-spaces": {
+      "en": "Data spaces",
+      "fr": "Espaces de données",
+      "nl": "Dataruimten"
+    },
+    "construction-product-data": {
+      "en": "Construction product data",
+      "fr": "Données des produits de construction",
+      "nl": "Bouwproductdata"
+    },
+    "data-governance": {
+      "en": "Data governance",
+      "fr": "Gouvernance des données",
+      "nl": "Datagovernance"
+    },
+    "data-standardisation": {
+      "en": "Data standardisation",
+      "fr": "Standardisation des données",
+      "nl": "Datastandaardisatie"
+    },
+    "natural-language-processing": {
+      "en": "Natural language processing (NLP)",
+      "fr": "Traitement automatique du langage (NLP)",
+      "nl": "Natuurlijke taalverwerking (NLP)"
+    },
+    "retrieval-augmented-generation": {
+      "en": "Retrieval-Augmented Generation (RAG)",
+      "fr": "Génération augmentée par recherche (RAG)",
+      "nl": "Retrieval-Augmented Generation (RAG)"
+    },
+    "semantic-requirements": {
+      "en": "Semantic requirements modelling",
+      "fr": "Modélisation sémantique des exigences",
+      "nl": "Semantische modellering van eisen"
+    },
+    "engineering-document-review": {
+      "en": "Engineering document review",
+      "fr": "Revue des documents d’ingénierie",
+      "nl": "Beoordeling van engineeringdocumenten"
+    },
+    "human-in-the-loop": {
+      "en": "Human-in-the-loop",
+      "fr": "Validation humaine dans la boucle",
+      "nl": "Menselijke validatie in de lus"
+    },
+    "federated-digital-twins": {
+      "en": "Federated digital twins",
+      "fr": "Jumeaux numériques fédérés",
+      "nl": "Gefedereerde digitale tweelingen"
+    },
+    "geospatial-modelling": {
+      "en": "Geospatial modelling",
+      "fr": "Modélisation géospatiale",
+      "nl": "Geospatiale modellering"
+    },
+    "subsurface-infrastructure": {
+      "en": "Subsurface infrastructure",
+      "fr": "Infrastructures souterraines",
+      "nl": "Ondergrondse infrastructuur"
+    },
+    "semantic-interoperability": {
+      "en": "Semantic interoperability",
+      "fr": "Interopérabilité sémantique",
+      "nl": "Semantische interoperabiliteit"
+    },
+    "co-simulation": {
+      "en": "Co-simulation",
+      "fr": "Co-simulation",
+      "nl": "Co-simulatie"
+    },
+    "digital-thread": {
+      "en": "Digital thread",
+      "fr": "Continuité numérique des données",
+      "nl": "Digitale datacontinuïteit"
+    },
+    "ontologies": {
+      "en": "Ontologies",
+      "fr": "Ontologies",
+      "nl": "Ontologieën"
+    },
+    "api-integration": {
+      "en": "API integration",
+      "fr": "Intégration par API",
+      "nl": "API-integratie"
+    },
+    "autonomous-robotics": {
+      "en": "Autonomous robotics",
+      "fr": "Robotique autonome",
+      "nl": "Autonome robotica"
+    },
+    "robot-motion-planning": {
+      "en": "Robot motion planning",
+      "fr": "Planification des mouvements robotiques",
+      "nl": "Robotbewegingsplanning"
+    },
+    "material-dispensing": {
+      "en": "Material dispensing",
+      "fr": "Dosage de matériaux",
+      "nl": "Materiaaldosering"
+    },
+    "masonry-and-tiling": {
+      "en": "Masonry and tiling",
+      "fr": "Maçonnerie et carrelage",
+      "nl": "Metselwerk en tegelwerk"
+    },
+    "whole-life-carbon": {
+      "en": "Whole-life carbon",
+      "fr": "Carbone sur le cycle de vie",
+      "nl": "CO2 over de volledige levenscyclus"
+    },
+    "digital-product-passports": {
+      "en": "Digital Product Passports (DPP)",
+      "fr": "Passeports numériques de produits (DPP)",
+      "nl": "Digitale productpaspoorten (DPP)"
+    },
+    "digital-building-logbooks": {
+      "en": "Digital Building Logbooks (DBL)",
+      "fr": "Carnets numériques des bâtiments (DBL)",
+      "nl": "Digitale gebouwlogboeken (DBL)"
+    },
+    "ifc": {
+      "en": "Industry Foundation Classes (IFC)",
+      "fr": "Industry Foundation Classes (IFC)",
+      "nl": "Industry Foundation Classes (IFC)"
+    },
+    "information-management": {
+      "en": "Information management",
+      "fr": "Gestion de l’information",
+      "nl": "Informatiemanagement"
+    },
+    "level-of-information-need": {
+      "en": "Level of Information Need",
+      "fr": "Niveau du besoin d’information",
+      "nl": "Niveau van informatiebehoefte"
+    },
+    "product-data-templates": {
+      "en": "Product data templates",
+      "fr": "Modèles de données produits",
+      "nl": "Productdatatemplates"
+    },
+    "construction-classification": {
+      "en": "Construction classification",
+      "fr": "Classification de la construction",
+      "nl": "Bouwclassificatie"
+    },
+    "field-data-capture": {
+      "en": "Field data capture",
+      "fr": "Collecte de données sur site",
+      "nl": "Datacaptatie op locatie"
+    },
+    "measurement-workflows": {
+      "en": "Measurement workflows",
+      "fr": "Processus de mesure",
+      "nl": "Meetwerkstromen"
+    },
+    "digital-work-instructions": {
+      "en": "Digital work instructions",
+      "fr": "Instructions de travail numériques",
+      "nl": "Digitale werkinstructies"
+    },
+    "workforce-training": {
+      "en": "Workforce training",
+      "fr": "Formation des travailleurs",
+      "nl": "Opleiding van medewerkers"
+    },
+    "workplace-assistance": {
+      "en": "Workplace assistance",
+      "fr": "Assistance sur le lieu de travail",
+      "nl": "Ondersteuning op de werkvloer"
+    },
+    "internet-of-things": {
+      "en": "Internet of Things (IoT)",
+      "fr": "Internet des objets (IoT)",
+      "nl": "Internet of Things (IoT)"
+    },
+    "moisture-monitoring": {
+      "en": "Moisture monitoring",
+      "fr": "Suivi de l’humidité",
+      "nl": "Vochtmonitoring"
+    },
+    "fire-safety": {
+      "en": "Fire safety",
+      "fr": "Sécurité incendie",
+      "nl": "Brandveiligheid"
+    },
+    "business-intelligence": {
+      "en": "Business intelligence",
+      "fr": "Informatique décisionnelle",
+      "nl": "Business intelligence"
+    },
+    "digital-transformation": {
+      "en": "Digital transformation",
+      "fr": "Transformation numérique",
+      "nl": "Digitale transformatie"
+    },
+    "building-renovation": {
+      "en": "Building renovation",
+      "fr": "Rénovation des bâtiments",
+      "nl": "Gebouwrenovatie"
+    },
+    "virtual-reality": {
+      "en": "Virtual reality",
+      "fr": "Réalité virtuelle",
+      "nl": "Virtual reality"
+    },
+    "robotics": {
+      "en": "Robotics",
+      "fr": "Robotique",
+      "nl": "Robotica"
+    },
+    "generative-ai": {
+      "en": "Generative AI",
+      "fr": "IA générative",
+      "nl": "Generatieve AI"
+    },
+    "data-visualisation": {
+      "en": "Data visualisation",
+      "fr": "Visualisation des données",
+      "nl": "Datavisualisatie"
+    },
+    "energy-renovation": {
+      "en": "Energy renovation",
+      "fr": "Rénovation énergétique",
+      "nl": "Energierenovatie"
+    },
+    "construction-industrialisation": {
+      "en": "Construction industrialisation",
+      "fr": "Industrialisation de la construction",
+      "nl": "Industrialisatie van de bouw"
+    },
+    "digital-twins": {
+      "en": "Digital twins",
+      "fr": "Jumeaux numériques",
+      "nl": "Digitale tweelingen"
+    },
+    "cybersecurity": {
+      "en": "Cybersecurity",
+      "fr": "Cybersécurité",
+      "nl": "Cyberbeveiliging"
+    },
+    "construction-specifications": {
+      "en": "Construction specifications",
+      "fr": "Cahiers des charges de construction",
+      "nl": "Bouwbestekken"
+    }
+  },
+  "projects": [
+    {
+      "id": 1891,
+      "code": "51232020",
+      "name": "[BIDZ B2 B] [51232020] EZ BIDZ B2 09/25-12/26",
+      "archived": false,
+      "tags": [],
+      "descriptionStatus": "missing-description",
+      "descriptionCharacterCount": 0,
+      "sourceVersionId": 2499,
+      "sourceVersionDate": "2026-03-31 08:58:15",
+      "sourceHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "template-empty",
+      "warnings": [
+        "template-instructions-removed"
+      ],
+      "olderVersionsChecked": 3,
+      "olderNonemptyVersions": 0,
+      "webEnrichment": {
+        "status": "ambiguous",
+        "publisher": "Buildwise",
+        "checkedAt": "2026-10-22T09:28:44.418Z",
+        "summary": "The possible BIDS predecessor establishes Belgian BIM information-delivery specifications compatible with European standards and supports interoperable information exchange through BIMids.",
+        "sources": [],
+        "tagEvidence": [],
+        "notes": [
+          "BIDS resembles local BIDZ, but no public source links it to the B2 phase, code 51232020 or the September 2025–December 2026 record. The 2023 annual report already reports BIDS results; the 2026 work programme mentions a continuing BIDS working group.",
+          "Do not apply predecessor or working-group tags to the exact local B2 grant without an identity bridge."
+        ]
+      }
+    },
+    {
+      "id": 1974,
+      "code": "51252062",
+      "name": "[NA BIM & Digital Construction 26] [51252062] NA 2026 BIM & Digital Construction 01/26 - 12/26",
+      "archived": false,
+      "tags": [
+        "bim",
+        "information-management",
+        "data-standardisation",
+        "data-interoperability",
+        "ifc",
+        "product-data-templates",
+        "level-of-information-need"
+      ],
+      "descriptionStatus": "missing-description",
+      "descriptionCharacterCount": 0,
+      "sourceVersionId": 1911,
+      "sourceVersionDate": "2026-01-22 14:09:39",
+      "sourceHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "template-empty",
+      "warnings": [
+        "template-instructions-removed"
+      ],
+      "olderVersionsChecked": 1,
+      "olderNonemptyVersions": 0,
+      "webEnrichment": {
+        "status": "verified",
+        "publisher": "Buildwise",
+        "checkedAt": "2026-10-22T09:28:44.418Z",
+        "summary": "The 2026 BIM and Digital Construction standards antenna helps Belgian construction professionals understand and apply standards for BIM information management, interoperable data exchange, product data templates and related digital processes.",
+        "sources": [
+          {
+            "url": "https://www.buildwise.be/media/nipnohqc/nabimdigitalconstruction_overviewcentc442_nl.pdf",
+            "title": "Normen-Antenne: BIM & Digital Construction — Normenoverzicht BIM & Digital Construction (CEN/TC 442), gepubliceerd en in ontwikkeling",
+            "kind": "official-document",
+            "retrievedAt": "2026-10-22T09:28:44.530Z",
+            "contentHash": "f11e74f9cadb1deb72b463b5138617ffc14965067965e94e4c3a3cf7204e83b7",
+            "hashBasis": "response-bytes",
+            "matchEvidence": "Official Buildwise publication has the exact programme name and is explicitly dated April 2026, matching the local annual Normen-Antenne BIM & Digital Construction 2026 record."
+          }
+        ],
+        "tagEvidence": [
+          {
+            "tagId": "bim",
+            "sourceUrls": [
+              "https://www.buildwise.be/media/nipnohqc/nabimdigitalconstruction_overviewcentc442_nl.pdf"
+            ],
+            "reason": "2026 PDF title and mission explicitly address BIM."
+          },
+          {
+            "tagId": "information-management",
+            "sourceUrls": [
+              "https://www.buildwise.be/media/nipnohqc/nabimdigitalconstruction_overviewcentc442_nl.pdf"
+            ],
+            "reason": "2026 PDF introduction names information management; its standards list covers ISO 19650."
+          },
+          {
+            "tagId": "data-standardisation",
+            "sourceUrls": [
+              "https://www.buildwise.be/media/nipnohqc/nabimdigitalconstruction_overviewcentc442_nl.pdf"
+            ],
+            "reason": "2026 PDF inventories published and developing CEN/TC 442 standards."
+          },
+          {
+            "tagId": "data-interoperability",
+            "sourceUrls": [
+              "https://www.buildwise.be/media/nipnohqc/nabimdigitalconstruction_overviewcentc442_nl.pdf"
+            ],
+            "reason": "2026 PDF mission addresses uniform interoperable digital data exchange."
+          },
+          {
+            "tagId": "ifc",
+            "sourceUrls": [
+              "https://www.buildwise.be/media/nipnohqc/nabimdigitalconstruction_overviewcentc442_nl.pdf"
+            ],
+            "reason": "2026 PDF explicitly lists EN ISO 16739-1 for IFC data sharing."
+          },
+          {
+            "tagId": "product-data-templates",
+            "sourceUrls": [
+              "https://www.buildwise.be/media/nipnohqc/nabimdigitalconstruction_overviewcentc442_nl.pdf"
+            ],
+            "reason": "2026 PDF introduction names data templates and lists ISO 23387 and EN 17549-2."
+          },
+          {
+            "tagId": "level-of-information-need",
+            "sourceUrls": [
+              "https://www.buildwise.be/media/nipnohqc/nabimdigitalconstruction_overviewcentc442_nl.pdf"
+            ],
+            "reason": "2026 PDF lists ISO 7817-1 and the ISO 7817-2 guidance work item."
+          }
+        ],
+        "notes": [
+          "Official Buildwise publication has the exact programme name and is explicitly dated April 2026, matching the local annual Normen-Antenne BIM & Digital Construction 2026 record.",
+          "Verified at programme/year level. Public evidence establishes the technical scope but does not expose the internal funding code or prove the administrative funding-record dates."
+        ]
+      }
+    },
+    {
+      "id": 1982,
+      "code": "56202061",
+      "name": "[Letslink] [56202061] RW GreenWin Développement d'un outil visant à faciliter l'accès au BIM (LetsLink) 01/22 - 12/26",
+      "archived": false,
+      "tags": [
+        "bim",
+        "information-management",
+        "data-interoperability"
+      ],
+      "descriptionStatus": "missing-description",
+      "descriptionCharacterCount": 0,
+      "sourceVersionId": 1893,
+      "sourceVersionDate": "2026-01-22 14:09:39",
+      "sourceHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "template-empty",
+      "warnings": [
+        "template-instructions-removed"
+      ],
+      "olderVersionsChecked": 1,
+      "olderNonemptyVersions": 0,
+      "webEnrichment": {
+        "status": "verified",
+        "publisher": "Buildwise",
+        "checkedAt": "2026-10-22T09:28:44.418Z",
+        "summary": "Letslink develops a collaborative hub that connects construction participants’ information with BIM during execution and supports delivery of a client-compliant as-built dossier.",
+        "sources": [
+          {
+            "url": "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/developpement-d-un-hub-digital-pour-centraliser-les-donnees-des-differentes-parties-prenantes-durant-la-phase-d-execution-d-un-projet-letslink/",
+            "title": "Développement d’un hub digital pour centraliser les données des différentes parties prenantes durant la phase d’exécution d’un projet - Letslink",
+            "kind": "showroom",
+            "retrievedAt": "2026-10-22T09:28:44.639Z",
+            "contentHash": "5e2903e6bccde0791a105ca268b7ca55d17482a248dd58d0f86c118d3cc65282",
+            "hashBasis": "response-bytes",
+            "matchEvidence": "Exact distinctive Letslink name and the BIM-access objective match the local expanded project title; the page identifies Cooperlink, Buildwise and ULiège-LUCID.",
+            "publishedProjectDates": {
+              "start": "2022-01-01",
+              "end": "2025-12-31"
+            }
+          }
+        ],
+        "tagEvidence": [
+          {
+            "tagId": "bim",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/developpement-d-un-hub-digital-pour-centraliser-les-donnees-des-differentes-parties-prenantes-durant-la-phase-d-execution-d-un-projet-letslink/"
+            ],
+            "reason": "The project explicitly makes BIM easier to use during execution."
+          },
+          {
+            "tagId": "information-management",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/developpement-d-un-hub-digital-pour-centraliser-les-donnees-des-differentes-parties-prenantes-durant-la-phase-d-execution-d-un-projet-letslink/"
+            ],
+            "reason": "The hub centralizes stakeholder information and supports the as-built dossier."
+          },
+          {
+            "tagId": "data-interoperability",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/developpement-d-un-hub-digital-pour-centraliser-les-donnees-des-differentes-parties-prenantes-durant-la-phase-d-execution-d-un-projet-letslink/"
+            ],
+            "reason": "The project addresses difficulties integrating BIM with specialized tools and harmonizes participant information."
+          }
+        ],
+        "notes": [
+          "Exact distinctive Letslink name and the BIM-access objective match the local expanded project title; the page identifies Cooperlink, Buildwise and ULiège-LUCID.",
+          "The public page does not expose the internal Odoo project code.",
+          "Date discrepancy: public showroom dates are 2022-01-01 to 2025-12-31; the local project name states \"01/22 - 12/26\". Retain the original local identity and dates."
+        ]
+      }
+    },
+    {
+      "id": 1987,
+      "code": "55222032",
+      "name": "[BIMUP] [55222032] VL COOCK BIM UP 03/23 - 02/26",
+      "archived": false,
+      "tags": [
+        "bim",
+        "information-management",
+        "workforce-training"
+      ],
+      "descriptionStatus": "missing-description",
+      "descriptionCharacterCount": 0,
+      "sourceVersionId": 2643,
+      "sourceVersionDate": "2026-05-15 09:41:25",
+      "sourceHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "template-empty",
+      "warnings": [
+        "template-instructions-removed"
+      ],
+      "olderVersionsChecked": 2,
+      "olderNonemptyVersions": 0,
+      "webEnrichment": {
+        "status": "verified",
+        "publisher": "Buildwise",
+        "checkedAt": "2026-10-22T09:28:44.418Z",
+        "summary": "BIMup supports wider and deeper BIM use through reusable workflows, templates, practical guidance and workshops for construction companies.",
+        "sources": [
+          {
+            "url": "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/vers-une-implementation-etendue-de-la-construction-digitale-bimup/",
+            "title": "Vers une implémentation étendue de la construction digitale - BIMup",
+            "kind": "showroom",
+            "retrievedAt": "2026-10-22T09:28:44.711Z",
+            "contentHash": "2eb0ee4e682c237c72d2a56b3ffcaa8b0d2414a3b2720ef73e004b53e0e73acf",
+            "hashBasis": "response-bytes",
+            "matchEvidence": "Exact unique BIMup and COOCK names match the local VL COOCK BIMUP record. The public project has the same BIM-adoption purpose.",
+            "publishedProjectDates": {
+              "start": "2023-01-01",
+              "end": "2025-12-31"
+            }
+          },
+          {
+            "url": "https://www.buildwise.be/nl/onderzoek-innovatie/onderzoeksprojecten/coock-bimup-bredere-en-diepere-implementatie-en-innovatie-voor-digitaal-bouwen/",
+            "title": "COOCK BIMup - Bredere en diepere implementatie en innovatie voor digitaal bouwen",
+            "kind": "showroom",
+            "retrievedAt": "2026-10-22T09:28:44.713Z",
+            "contentHash": "2cf403c6140cb7e68b48d672282b8c72094d2c67cb628f31c4bb60122cd09493",
+            "hashBasis": "response-bytes",
+            "matchEvidence": "Exact unique BIMup and COOCK names match the local VL COOCK BIMUP record. The public project has the same BIM-adoption purpose.",
+            "publishedProjectDates": {
+              "start": "2023-01-01",
+              "end": "2025-12-31"
+            }
+          },
+          {
+            "url": "https://www.buildwise.be/nl/onderzoek-innovatie/onderzoeksprojecten/coock-bimup-bredere-en-diepere-implementatie-en-innovatie-voor-digitaal-bouwen/bim-opleidingen/",
+            "title": "BIM opleidingen",
+            "kind": "showroom",
+            "retrievedAt": "2026-10-22T09:28:44.746Z",
+            "contentHash": "fbdd6e32394273bb33f006ec5419e22d013bb16db07574044cc1a4e498d31eed",
+            "hashBasis": "response-bytes",
+            "matchEvidence": "Exact unique BIMup and COOCK names match the local VL COOCK BIMUP record. The public project has the same BIM-adoption purpose."
+          }
+        ],
+        "tagEvidence": [
+          {
+            "tagId": "bim",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/vers-une-implementation-etendue-de-la-construction-digitale-bimup/",
+              "https://www.buildwise.be/nl/onderzoek-innovatie/onderzoeksprojecten/coock-bimup-bredere-en-diepere-implementatie-en-innovatie-voor-digitaal-bouwen/",
+              "https://www.buildwise.be/nl/onderzoek-innovatie/onderzoeksprojecten/coock-bimup-bredere-en-diepere-implementatie-en-innovatie-voor-digitaal-bouwen/bim-opleidingen/"
+            ],
+            "reason": "The primary project goal is broader and deeper BIM adoption."
+          },
+          {
+            "tagId": "information-management",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/vers-une-implementation-etendue-de-la-construction-digitale-bimup/",
+              "https://www.buildwise.be/nl/onderzoek-innovatie/onderzoeksprojecten/coock-bimup-bredere-en-diepere-implementatie-en-innovatie-voor-digitaal-bouwen/",
+              "https://www.buildwise.be/nl/onderzoek-innovatie/onderzoeksprojecten/coock-bimup-bredere-en-diepere-implementatie-en-innovatie-voor-digitaal-bouwen/bim-opleidingen/"
+            ],
+            "reason": "Project resources cover BIM collaboration, reusable processes and documentation."
+          },
+          {
+            "tagId": "workforce-training",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/vers-une-implementation-etendue-de-la-construction-digitale-bimup/",
+              "https://www.buildwise.be/nl/onderzoek-innovatie/onderzoeksprojecten/coock-bimup-bredere-en-diepere-implementatie-en-innovatie-voor-digitaal-bouwen/",
+              "https://www.buildwise.be/nl/onderzoek-innovatie/onderzoeksprojecten/coock-bimup-bredere-en-diepere-implementatie-en-innovatie-voor-digitaal-bouwen/bim-opleidingen/"
+            ],
+            "reason": "The project's BIM opleidingen child page explicitly describes two workshop tracks for contractors."
+          }
+        ],
+        "notes": [
+          "Exact unique BIMup and COOCK names match the local VL COOCK BIMUP record. The public project has the same BIM-adoption purpose.",
+          "Date discrepancy: public FR/NL showroom dates are 2023-01-01 to 2025-12-31; the local project name states \"03/23 - 02/26\". Retain the original local identity and dates."
+        ]
+      }
+    },
+    {
+      "id": 1989,
+      "code": "54222092",
+      "name": "[S-MonhumMA] [54222092] BXL S-MonhumMA 09/23 - 12/26",
+      "archived": false,
+      "tags": [
+        "in-situ-measurements",
+        "internet-of-things",
+        "moisture-monitoring"
+      ],
+      "descriptionStatus": "missing-description",
+      "descriptionCharacterCount": 0,
+      "sourceVersionId": 2653,
+      "sourceVersionDate": "2026-05-26 09:22:59",
+      "sourceHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "template-empty",
+      "warnings": [
+        "template-instructions-removed"
+      ],
+      "olderVersionsChecked": 2,
+      "olderNonemptyVersions": 0,
+      "webEnrichment": {
+        "status": "verified",
+        "publisher": "Buildwise",
+        "checkedAt": "2026-10-22T09:28:44.418Z",
+        "summary": "S-MonHuMa develops wireless in-material moisture sensors and remote IoT monitoring to guide drying, renovation and finishing decisions and check moisture-remediation performance.",
+        "sources": [
+          {
+            "url": "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/smart-monitoring-de-l-humidite-dans-les-materiaux-de-construction-s-monhuma/",
+            "title": "Smart monitoring de l’humidité dans les matériaux de construction - S-MonHuMa",
+            "kind": "showroom",
+            "retrievedAt": "2026-10-22T09:28:44.912Z",
+            "contentHash": "09c3b3a19eed29b6c651565334d87a4fddb91a385454b58a2ae61950dbf38496",
+            "hashBasis": "response-bytes",
+            "matchEvidence": "Distinctive near-identical acronym and Brussels research context match the local BXL record. The public name is S-MonHuMa; the local name S-MonhumMA contains a minor spelling variant with an additional m.",
+            "publishedProjectDates": {
+              "start": "2023-09-01",
+              "end": "2026-08-31"
+            }
+          }
+        ],
+        "tagEvidence": [
+          {
+            "tagId": "in-situ-measurements",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/smart-monitoring-de-l-humidite-dans-les-materiaux-de-construction-s-monhuma/"
+            ],
+            "reason": "Humidity is measured directly within construction materials and screeds."
+          },
+          {
+            "tagId": "internet-of-things",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/smart-monitoring-de-l-humidite-dans-les-materiaux-de-construction-s-monhuma/"
+            ],
+            "reason": "The project explicitly uses wireless measurements accessible remotely through an IoT system."
+          },
+          {
+            "tagId": "moisture-monitoring",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/smart-monitoring-de-l-humidite-dans-les-materiaux-de-construction-s-monhuma/"
+            ],
+            "reason": "Continuous material-moisture monitoring is the central project goal."
+          }
+        ],
+        "notes": [
+          "Distinctive near-identical acronym and Brussels research context match the local BXL record. The public name is S-MonHuMa; the local name S-MonhumMA contains a minor spelling variant with an additional m.",
+          "Minor acronym spelling variation is recorded explicitly. The public page does not expose the internal Odoo project code.",
+          "Date discrepancy: public showroom dates are 2023-09-01 to 2026-08-31; the local project name states \"09/23 - 12/26\". Retain the original local identity and dates."
+        ]
+      }
+    },
+    {
+      "id": 2017,
+      "code": "54232014",
+      "name": "[FireBIM] [54232014] BXL FireBIM 11/23-11/26",
+      "archived": false,
+      "tags": [
+        "bim",
+        "automated-compliance-checking",
+        "fire-safety"
+      ],
+      "descriptionStatus": "missing-description",
+      "descriptionCharacterCount": 0,
+      "sourceVersionId": 2502,
+      "sourceVersionDate": "2026-03-31 11:11:35",
+      "sourceHash": "e63964e2bbec61f36492a34cbc0051de857c0ae871ab05252850c14001d7bc0b",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "template-empty",
+      "warnings": [
+        "template-instructions-removed",
+        "links-only"
+      ],
+      "olderVersionsChecked": 4,
+      "olderNonemptyVersions": 0,
+      "webEnrichment": {
+        "status": "verified",
+        "publisher": "Buildwise",
+        "checkedAt": "2026-10-22T09:28:44.418Z",
+        "summary": "FireBIM integrates fire-safety rules from five European countries into an online open-source BIM platform that automatically checks building models for regulatory compliance.",
+        "sources": [
+          {
+            "url": "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/integration-et-harmonisation-de-la-securite-incendie-au-sein-d-une-plateforme-bim-firebim/",
+            "title": "Intégration et harmonisation de la sécurité incendie au sein d’une plateforme BIM - FireBIM",
+            "kind": "showroom",
+            "retrievedAt": "2026-10-22T09:28:45.021Z",
+            "contentHash": "65719571cf4638f969ed5666f708f9e4a2c994aad8cafafc21060370f725f4ad",
+            "hashBasis": "response-bytes",
+            "matchEvidence": "Exact distinctive FireBIM name and Buildwise involvement match the local research record; the public page identifies its multinational ITEA4 context.",
+            "publishedProjectDates": {
+              "start": "2024-01-01",
+              "end": "2026-12-31"
+            }
+          }
+        ],
+        "tagEvidence": [
+          {
+            "tagId": "bim",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/integration-et-harmonisation-de-la-securite-incendie-au-sein-d-une-plateforme-bim-firebim/"
+            ],
+            "reason": "The project integrates regulatory information into a BIM platform."
+          },
+          {
+            "tagId": "automated-compliance-checking",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/integration-et-harmonisation-de-la-securite-incendie-au-sein-d-une-plateforme-bim-firebim/"
+            ],
+            "reason": "The platform automatically checks building models against fire regulations."
+          },
+          {
+            "tagId": "fire-safety",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/integration-et-harmonisation-de-la-securite-incendie-au-sein-d-une-plateforme-bim-firebim/"
+            ],
+            "reason": "Harmonised fire-safety requirements from five countries are the project domain."
+          }
+        ],
+        "notes": [
+          "Exact distinctive FireBIM name and Buildwise involvement match the local research record; the public page identifies its multinational ITEA4 context.",
+          "The public page does not expose the internal Odoo project code.",
+          "Date discrepancy: public showroom dates are 2024-01-01 to 2026-12-31; the local project name states \"11/23-11/26\". Retain the original local identity and dates."
+        ]
+      }
+    },
+    {
+      "id": 2018,
+      "code": "54232022",
+      "name": "[HARPO] [54232022] BXL Human-centered Application for the Resource and Productivity Optimization of buildings - HARPO 10/23 - 03/2026 /25",
+      "archived": false,
+      "tags": [
+        "bim",
+        "machine-learning",
+        "information-management",
+        "business-intelligence"
+      ],
+      "descriptionStatus": "missing-description",
+      "descriptionCharacterCount": 0,
+      "sourceVersionId": 1862,
+      "sourceVersionDate": "2026-01-22 14:09:38",
+      "sourceHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "template-empty",
+      "warnings": [
+        "template-instructions-removed"
+      ],
+      "olderVersionsChecked": 1,
+      "olderNonemptyVersions": 0,
+      "webEnrichment": {
+        "status": "verified",
+        "publisher": "Buildwise",
+        "checkedAt": "2026-10-22T09:28:44.418Z",
+        "summary": "HARPO combines execution data with BIM models and learning algorithms to provide business intelligence for resource use, productivity and construction management.",
+        "sources": [
+          {
+            "url": "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/plateforme-collaborative-pour-la-gestion-des-ressources-et-la-rationalisation-des-processus-de-construction-harpo/",
+            "title": "Plateforme collaborative pour la gestion des ressources et la rationalisation des processus de construction - HARPO",
+            "kind": "showroom",
+            "retrievedAt": "2026-10-22T09:28:45.039Z",
+            "contentHash": "5cb3f580c772aec7a9fd331fc787067431c5102c48c434c4d474608ab5b6042c",
+            "hashBasis": "response-bytes",
+            "matchEvidence": "Exact acronym and complete expanded name Human-centered Application for the Resource and Productivity Optimization of buildings match the local title.",
+            "publishedProjectDates": {
+              "start": "2022-10-01",
+              "end": "2026-03-31"
+            }
+          }
+        ],
+        "tagEvidence": [
+          {
+            "tagId": "bim",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/plateforme-collaborative-pour-la-gestion-des-ressources-et-la-rationalisation-des-processus-de-construction-harpo/"
+            ],
+            "reason": "Execution data is integrated with 3D BIM models."
+          },
+          {
+            "tagId": "machine-learning",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/plateforme-collaborative-pour-la-gestion-des-ressources-et-la-rationalisation-des-processus-de-construction-harpo/"
+            ],
+            "reason": "The narrative explicitly mentions advanced learning algorithms."
+          },
+          {
+            "tagId": "information-management",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/plateforme-collaborative-pour-la-gestion-des-ressources-et-la-rationalisation-des-processus-de-construction-harpo/"
+            ],
+            "reason": "The platform integrates and centralizes execution data with BIM information."
+          },
+          {
+            "tagId": "business-intelligence",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/plateforme-collaborative-pour-la-gestion-des-ressources-et-la-rationalisation-des-processus-de-construction-harpo/"
+            ],
+            "reason": "The narrative explicitly describes an integrated Business Intelligence view for decisions."
+          }
+        ],
+        "notes": [
+          "Exact acronym and complete expanded name Human-centered Application for the Resource and Productivity Optimization of buildings match the local title.",
+          "The public page does not expose the internal Odoo project code.",
+          "Date discrepancy: public showroom dates are 2022-10-01 to 2026-03-31; the local date text is verbatim \"10/23 - 03/2026 /25\". The local end-date text is ambiguous. Retain the original local identity and date text."
+        ]
+      }
+    },
+    {
+      "id": 2019,
+      "code": "56232023",
+      "name": "[CdF] [56232023] RW Construction du Futur 02/24 - 01/26",
+      "archived": false,
+      "tags": [
+        "digital-transformation",
+        "workforce-training"
+      ],
+      "descriptionStatus": "missing-description",
+      "descriptionCharacterCount": 0,
+      "sourceVersionId": 2615,
+      "sourceVersionDate": "2026-04-24 09:22:56",
+      "sourceHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "template-empty",
+      "warnings": [
+        "template-instructions-removed"
+      ],
+      "olderVersionsChecked": 2,
+      "olderNonemptyVersions": 0,
+      "webEnrichment": {
+        "status": "verified",
+        "publisher": "Buildwise",
+        "checkedAt": "2026-10-22T09:28:44.418Z",
+        "summary": "Construction du Futur helps the construction value chain adopt digital tools through awareness activities, company support and large-scale training.",
+        "sources": [
+          {
+            "url": "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/construction-du-futur-un-ecosysteme-numerique-structurant/",
+            "title": "Construction du Futur: un écosystème numérique structurant",
+            "kind": "showroom",
+            "retrievedAt": "2026-10-22T09:28:45.219Z",
+            "contentHash": "20bdb4d6fd93fd18ceae99689dd2bcaa08d66d5b1be004992b9b0047e5985956",
+            "hashBasis": "response-bytes",
+            "matchEvidence": "Exact expanded project name Construction du Futur and the Walloon digital-construction programme context match the local RW title.",
+            "publishedProjectDates": {
+              "start": "2024-02-01",
+              "end": "2026-01-31"
+            }
+          }
+        ],
+        "tagEvidence": [
+          {
+            "tagId": "digital-transformation",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/construction-du-futur-un-ecosysteme-numerique-structurant/"
+            ],
+            "reason": "The project expressly accelerates sector digital transformation through company support and digital-tool adoption."
+          },
+          {
+            "tagId": "workforce-training",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/construction-du-futur-un-ecosysteme-numerique-structurant/"
+            ],
+            "reason": "Large-scale training is one of the project's three stated intervention areas."
+          }
+        ],
+        "notes": [
+          "Exact expanded project name Construction du Futur and the Walloon digital-construction programme context match the local RW title.",
+          "Do not infer specific technologies from the page's unrelated-publication links."
+        ]
+      }
+    },
+    {
+      "id": 2020,
+      "code": "55232032",
+      "name": "[DigiBuild] [55232032] VL Coock DigiBuild 01/24 - 12/26",
+      "archived": false,
+      "tags": [
+        "bim",
+        "erp-integration",
+        "data-interoperability",
+        "product-configuration",
+        "design-for-assembly",
+        "augmented-reality",
+        "prefabricated-construction"
+      ],
+      "descriptionStatus": "available",
+      "descriptionCharacterCount": 879,
+      "sourceVersionId": 2917,
+      "sourceVersionDate": "2026-07-20 12:02:27",
+      "sourceHash": "94c8aaa7b460937f64f7b115dcf03da86bd63e0eb6c8ce18d43032dce4238e5e",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "summary-section",
+      "warnings": [
+        "template-instructions-removed"
+      ]
+    },
+    {
+      "id": 2028,
+      "code": "56232072",
+      "name": "[Renolab] [56232072] RW Renolab – recherche associée aux équipements partagés destinés à l’industrialisation de la rénovation énergétique - Buildwise (mesure 21) 07/24 - 12/27",
+      "archived": false,
+      "tags": [
+        "prefabricated-construction",
+        "circular-construction",
+        "workforce-training",
+        "building-renovation"
+      ],
+      "descriptionStatus": "missing-description",
+      "descriptionCharacterCount": 0,
+      "sourceVersionId": 1964,
+      "sourceVersionDate": "2026-01-22 14:09:40",
+      "sourceHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "template-empty",
+      "warnings": [
+        "template-instructions-removed"
+      ],
+      "olderVersionsChecked": 1,
+      "olderNonemptyVersions": 0,
+      "webEnrichment": {
+        "status": "verified",
+        "publisher": "Buildwise",
+        "checkedAt": "2026-10-22T09:28:44.418Z",
+        "summary": "RENOLAB provides shared prefabrication, prototyping, testing and material-reuse facilities, plus training, to scale sustainable and circular renovation through off-site industrialisation.",
+        "sources": [
+          {
+            "url": "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/un-centre-de-services-pour-accelerer-lindustrialisation-off-site-des-entreprises-de-renovation-renolab/",
+            "title": "Un centre de services pour accélérer l'industrialisation off-site des entreprises de rénovation - RENOLAB",
+            "kind": "showroom",
+            "retrievedAt": "2026-10-22T09:28:45.218Z",
+            "contentHash": "048a414e404f25df80d21fea40bac87275e129ed822162f61e97fc999ead027f",
+            "hashBasis": "response-bytes",
+            "matchEvidence": "Exact RENOLAB acronym, Buildwise leadership, Walloon renovation, shared equipment and industrialisation objectives match the local expanded title.",
+            "publishedProjectDates": {
+              "start": "2024-07-01",
+              "end": "2027-12-31"
+            }
+          }
+        ],
+        "tagEvidence": [
+          {
+            "tagId": "prefabricated-construction",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/un-centre-de-services-pour-accelerer-lindustrialisation-off-site-des-entreprises-de-renovation-renolab/"
+            ],
+            "reason": "The project explicitly builds prefabrication and off-site industrialisation capacity."
+          },
+          {
+            "tagId": "circular-construction",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/un-centre-de-services-pour-accelerer-lindustrialisation-off-site-des-entreprises-de-renovation-renolab/"
+            ],
+            "reason": "The narrative explicitly targets circular renovation and material-reuse workshops."
+          },
+          {
+            "tagId": "workforce-training",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/un-centre-de-services-pour-accelerer-lindustrialisation-off-site-des-entreprises-de-renovation-renolab/"
+            ],
+            "reason": "Training programmes accompany the shared facilities."
+          },
+          {
+            "tagId": "building-renovation",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/un-centre-de-services-pour-accelerer-lindustrialisation-off-site-des-entreprises-de-renovation-renolab/"
+            ],
+            "reason": "Mass renovation of Walloon buildings is the central application."
+          }
+        ],
+        "notes": [
+          "Exact RENOLAB acronym, Buildwise leadership, Walloon renovation, shared equipment and industrialisation objectives match the local expanded title.",
+          "The public page describes sustainable and circular renovation broadly; it does not justify narrowing a new tag to energy renovation alone."
+        ]
+      }
+    },
+    {
+      "id": 2031,
+      "code": "55242009",
+      "name": "[TETRA Ventilatie] [55242009] TETRA Ventilatie - DIMPROVENT 10/24 - 09/26",
+      "archived": false,
+      "tags": [
+        "hvac",
+        "ventilation",
+        "energy-efficiency",
+        "hvac-commissioning"
+      ],
+      "descriptionStatus": "available",
+      "descriptionCharacterCount": 382,
+      "sourceVersionId": 2373,
+      "sourceVersionDate": "2026-03-09 14:39:33",
+      "sourceHash": "5fa70e337eef3433f56406b7ab7a5a4f1faadef46fdb44054d8e7dbbb338c139",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "summary-section",
+      "warnings": [
+        "template-instructions-removed"
+      ]
+    },
+    {
+      "id": 2034,
+      "code": "56242022",
+      "name": "[Indus4Builder] [56242022] RW Win4Collective Industrialisation du secteur construction : flexibilité des systèmes de production pour satisfaire à la demande de personnalisation en série dans la construction 02/25 - 01/27",
+      "archived": false,
+      "tags": [
+        "bim",
+        "prefabricated-construction",
+        "augmented-reality",
+        "artificial-intelligence",
+        "virtual-reality",
+        "robotics"
+      ],
+      "descriptionStatus": "missing-description",
+      "descriptionCharacterCount": 0,
+      "sourceVersionId": 1877,
+      "sourceVersionDate": "2026-01-22 14:09:39",
+      "sourceHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "template-empty",
+      "warnings": [
+        "template-instructions-removed"
+      ],
+      "olderVersionsChecked": 1,
+      "olderNonemptyVersions": 0,
+      "webEnrichment": {
+        "status": "verified",
+        "publisher": "Buildwise",
+        "checkedAt": "2026-10-22T09:28:44.418Z",
+        "summary": "Indus4Builder develops flexible prefabrication methods for customised housing, combining process proofs of concept with BIM, virtual and augmented reality, AI and robotics.",
+        "sources": [
+          {
+            "url": "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/industrialisation-et-personnalisation-de-la-prefabrication-pour-des-logements-durables-indus4builder/",
+            "title": "Industrialisation et personnalisation de la préfabrication pour des logements durables - INDUS4BUILDER",
+            "kind": "showroom",
+            "retrievedAt": "2026-10-22T09:28:45.343Z",
+            "contentHash": "84422fbb2b0a2fdbd8d4be24c29fd1f6991f0e6c0ab5b310eb3200db9c6a156a",
+            "hashBasis": "response-bytes",
+            "matchEvidence": "Exact distinctive acronym and the expanded objective of flexible industrial production for construction mass customisation match the local RW Win4Collective title.",
+            "publishedProjectDates": {
+              "start": "2025-02-01",
+              "end": "2027-01-31"
+            }
+          }
+        ],
+        "tagEvidence": [
+          {
+            "tagId": "bim",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/industrialisation-et-personnalisation-de-la-prefabrication-pour-des-logements-durables-indus4builder/"
+            ],
+            "reason": "BIM is explicitly listed among technologies used."
+          },
+          {
+            "tagId": "prefabricated-construction",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/industrialisation-et-personnalisation-de-la-prefabrication-pour-des-logements-durables-indus4builder/"
+            ],
+            "reason": "Flexible industrialised prefabrication for customised housing is the central objective."
+          },
+          {
+            "tagId": "augmented-reality",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/industrialisation-et-personnalisation-de-la-prefabrication-pour-des-logements-durables-indus4builder/"
+            ],
+            "reason": "Augmented reality is explicitly listed."
+          },
+          {
+            "tagId": "artificial-intelligence",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/industrialisation-et-personnalisation-de-la-prefabrication-pour-des-logements-durables-indus4builder/"
+            ],
+            "reason": "Artificial intelligence is explicitly listed."
+          },
+          {
+            "tagId": "virtual-reality",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/industrialisation-et-personnalisation-de-la-prefabrication-pour-des-logements-durables-indus4builder/"
+            ],
+            "reason": "Virtual reality is explicitly listed; it is distinct from augmented reality."
+          },
+          {
+            "tagId": "robotics",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/industrialisation-et-personnalisation-de-la-prefabrication-pour-des-logements-durables-indus4builder/"
+            ],
+            "reason": "Robotics is explicitly listed, with no autonomy claim."
+          }
+        ],
+        "notes": [
+          "Exact distinctive acronym and the expanded objective of flexible industrial production for construction mass customisation match the local RW Win4Collective title.",
+          "The public narrative says robotics without establishing autonomy; do not substitute the existing narrower autonomous-robotics tag."
+        ]
+      }
+    },
+    {
+      "id": 2035,
+      "code": "55242029",
+      "name": "[AI_werfopvolging] [55242029] VL COOCK AI werfopvolging 05/25 - 04/28",
+      "archived": false,
+      "tags": [
+        "artificial-intelligence",
+        "bim",
+        "drones",
+        "reality-capture",
+        "construction-progress-monitoring",
+        "deviation-detection"
+      ],
+      "descriptionStatus": "available",
+      "descriptionCharacterCount": 329,
+      "sourceVersionId": 2365,
+      "sourceVersionDate": "2026-03-09 13:06:36",
+      "sourceHash": "9ddce595474d2614f641189eb7ab1cdd8c39c715583006d3adc170e8bd50b21d",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "summary-section",
+      "warnings": []
+    },
+    {
+      "id": 2036,
+      "code": "55242030",
+      "name": "[AI CONSTRUCT] [55242030] VL COOCK AI Construct: Toekomstbestendige innovatie en verbetering in bouwinformatieprocessen met generatieve AI 01/25 - 12/27",
+      "archived": false,
+      "tags": [
+        "artificial-intelligence",
+        "generative-ai",
+        "engineering-document-review",
+        "engineering-workflow-automation"
+      ],
+      "descriptionStatus": "missing-description",
+      "descriptionCharacterCount": 0,
+      "sourceVersionId": 3084,
+      "sourceVersionDate": "2026-10-01 21:02:49",
+      "sourceHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "template-empty",
+      "warnings": [
+        "template-instructions-removed"
+      ],
+      "olderVersionsChecked": 2,
+      "olderNonemptyVersions": 0,
+      "webEnrichment": {
+        "status": "verified",
+        "publisher": "Buildwise",
+        "checkedAt": "2026-10-22T09:28:44.418Z",
+        "summary": "AI CONSTRUCT helps construction firms adopt generative AI through pilots addressing document analysis and repetitive workflows, then shares implementation methods and demonstrators.",
+        "sources": [
+          {
+            "url": "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/adoption-de-lia-generative-dans-les-processus-de-construction-ai-construct/",
+            "title": "Adoption de l’IA Générative dans les Processus de Construction - AI CONSTRUCT",
+            "kind": "showroom",
+            "retrievedAt": "2026-10-22T09:28:45.339Z",
+            "contentHash": "d83ff602c8b5896855048b252573746bcb94ad89490a88e61efeba81a25effdb",
+            "hashBasis": "response-bytes",
+            "matchEvidence": "Exact acronym and Flemish generative-AI construction-information objective match the Odoo title.",
+            "publishedProjectDates": {
+              "start": "2025-01-01",
+              "end": "2027-12-31"
+            }
+          }
+        ],
+        "tagEvidence": [
+          {
+            "tagId": "artificial-intelligence",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/adoption-de-lia-generative-dans-les-processus-de-construction-ai-construct/"
+            ],
+            "reason": "Generative AI is the named central technology."
+          },
+          {
+            "tagId": "generative-ai",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/adoption-de-lia-generative-dans-les-processus-de-construction-ai-construct/"
+            ],
+            "reason": "Explicit GenAI adoption objective."
+          },
+          {
+            "tagId": "engineering-document-review",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/adoption-de-lia-generative-dans-les-processus-de-construction-ai-construct/"
+            ],
+            "reason": "Construction dossiers, document checking and complex document analysis."
+          },
+          {
+            "tagId": "engineering-workflow-automation",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/adoption-de-lia-generative-dans-les-processus-de-construction-ai-construct/"
+            ],
+            "reason": "Automating repetitive tasks and construction information processes."
+          }
+        ],
+        "notes": [
+          "Exact acronym and Flemish generative-AI construction-information objective match the Odoo title.",
+          "Public showroom dates are 2025-01-01 to 2027-12-31, matching the local month/year range. The internal Odoo business code is not published."
+        ]
+      }
+    },
+    {
+      "id": 2077,
+      "code": "55252033",
+      "name": "[Coock DPD] [55252033] VL Coock+ DigitalProductData 01/26 - 12/28",
+      "archived": true,
+      "tags": [],
+      "descriptionStatus": "missing-description",
+      "descriptionCharacterCount": 0,
+      "sourceVersionId": 2151,
+      "sourceVersionDate": "2026-01-22 14:09:43",
+      "sourceHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "template-empty",
+      "warnings": [
+        "template-instructions-removed"
+      ],
+      "olderVersionsChecked": 1,
+      "olderNonemptyVersions": 0,
+      "webEnrichment": {
+        "status": "not-found",
+        "publisher": "Buildwise",
+        "checkedAt": "2026-10-22T09:28:44.418Z",
+        "sources": [],
+        "tagEvidence": [],
+        "notes": [
+          "No identity-verified project page found. General product-data regulation/charter material and differently named HARMONIX-GO cannot establish this archived project's identity."
+        ]
+      }
+    },
+    {
+      "id": 2083,
+      "code": "54252043",
+      "name": "[eXtRAI] [54252043] BXL eXtended Reality and Artificial Intelligence” for better quality controls in prefabricated construction 12/25 - 05/28",
+      "archived": false,
+      "tags": [
+        "computer-vision",
+        "machine-learning",
+        "bim",
+        "large-language-models",
+        "extended-reality",
+        "automated-quality-inspection",
+        "prefabricated-construction"
+      ],
+      "descriptionStatus": "available",
+      "descriptionCharacterCount": 1004,
+      "sourceVersionId": 2511,
+      "sourceVersionDate": "2026-03-31 12:44:04",
+      "sourceHash": "f56722545d10302c8f5a8dbfea7c6d04ffcb31664bb44bbc80544a507cc732d1",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "summary-section",
+      "warnings": []
+    },
+    {
+      "id": 2085,
+      "code": "55252050",
+      "name": "[DATA2TOTEM] [55252050] VL Living Labs BIM Totem 01/26 - 06/27",
+      "archived": false,
+      "tags": [
+        "bim",
+        "life-cycle-assessment",
+        "totem",
+        "circular-construction",
+        "environmental-impact-assessment",
+        "data-interoperability"
+      ],
+      "descriptionStatus": "available",
+      "descriptionCharacterCount": 877,
+      "sourceVersionId": 2731,
+      "sourceVersionDate": "2026-06-10 09:31:23",
+      "sourceHash": "777c6da6defd210c624b426bbac0b0f61dd2721dccaad1635e11a224f38b7c1f",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "summary-section",
+      "warnings": []
+    },
+    {
+      "id": 2086,
+      "code": "54252067",
+      "name": "[ Enginuity] [54252067] BXL ITEA4 Enginuity 01/26 - 12/28",
+      "archived": true,
+      "tags": [],
+      "descriptionStatus": "missing-description",
+      "descriptionCharacterCount": 0,
+      "sourceVersionId": 1837,
+      "sourceVersionDate": "2026-01-22 14:09:38",
+      "sourceHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "template-empty",
+      "warnings": [
+        "template-instructions-removed"
+      ],
+      "olderVersionsChecked": 1,
+      "olderNonemptyVersions": 0,
+      "webEnrichment": {
+        "status": "not-found",
+        "publisher": "Buildwise",
+        "checkedAt": "2026-10-22T09:28:44.418Z",
+        "sources": [],
+        "tagEvidence": [],
+        "notes": [
+          "No Buildwise project-specific page found. Do not infer tags from the acronym or transfer tags from unrelated engineering projects."
+        ]
+      }
+    },
+    {
+      "id": 2117,
+      "code": "54252097",
+      "name": "[Waffle Innoviris] [54252097] BXL Workflow Automation Framework For Logical Engineering - Innoviris 01/26 - 12/28",
+      "archived": false,
+      "tags": [
+        "artificial-intelligence",
+        "bim",
+        "model-based-systems-engineering",
+        "automated-compliance-checking",
+        "planning-optimisation",
+        "engineering-workflow-automation"
+      ],
+      "descriptionStatus": "available",
+      "descriptionCharacterCount": 1166,
+      "sourceVersionId": 2359,
+      "sourceVersionDate": "2026-03-09 10:48:11",
+      "sourceHash": "3ff94f04300160aa55338a04275387a382df2ad13f238b949fb52077cc0505ac",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "summary-section",
+      "warnings": [
+        "template-instructions-removed"
+      ]
+    },
+    {
+      "id": 2118,
+      "code": "55252098",
+      "name": "[Waffle Vlaio] [55252098] VL Workflow Automation Framework For Logical Engineering - Vlaio 01/26 - 12/28",
+      "archived": false,
+      "tags": [
+        "artificial-intelligence",
+        "bim",
+        "model-based-systems-engineering",
+        "automated-compliance-checking",
+        "planning-optimisation",
+        "engineering-workflow-automation"
+      ],
+      "descriptionStatus": "available",
+      "descriptionCharacterCount": 1166,
+      "sourceVersionId": 3058,
+      "sourceVersionDate": "2026-09-09 08:44:14",
+      "sourceHash": "3ff94f04300160aa55338a04275387a382df2ad13f238b949fb52077cc0505ac",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "summary-section",
+      "warnings": [
+        "template-instructions-removed"
+      ]
+    },
+    {
+      "id": 2120,
+      "code": "57202015",
+      "name": "[CLUSTER-DIGICONSTR] [57202015] Cluster DigitalConstruction",
+      "archived": false,
+      "tags": [
+        "bim",
+        "ifc",
+        "information-management",
+        "data-standardisation",
+        "construction-classification",
+        "workforce-training"
+      ],
+      "descriptionStatus": "missing-description",
+      "descriptionCharacterCount": 0,
+      "sourceVersionId": 2138,
+      "sourceVersionDate": "2026-01-22 14:09:43",
+      "sourceHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "template-empty",
+      "warnings": [
+        "template-instructions-removed"
+      ],
+      "olderVersionsChecked": 1,
+      "olderNonemptyVersions": 0,
+      "webEnrichment": {
+        "status": "verified",
+        "publisher": "Buildwise",
+        "checkedAt": "2026-10-22T09:28:44.418Z",
+        "summary": "The Cluster connects digital-construction practitioners and develops shared BIM information processes, open standards, classification references and training through specialist working groups.",
+        "sources": [
+          {
+            "url": "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/cluster-digital-construction/",
+            "title": "Cluster Digital Construction",
+            "kind": "showroom",
+            "retrievedAt": "2026-10-22T09:28:45.403Z",
+            "contentHash": "97a6b451c33e57719f488d95926a9c28d1e32ff91b8e62ea2d066182af45d67a",
+            "hashBasis": "response-bytes",
+            "matchEvidence": "Exact expanded name Cluster Digital Construction matches the Odoo project, with Buildwise and Belgian buildingSMART role confirmed.",
+            "publishedProjectDates": {
+              "start": "2021-03-01",
+              "end": "2030-03-01"
+            }
+          }
+        ],
+        "tagEvidence": [
+          {
+            "tagId": "bim",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/cluster-digital-construction/"
+            ],
+            "reason": "openBIM is central to the programme."
+          },
+          {
+            "tagId": "ifc",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/cluster-digital-construction/"
+            ],
+            "reason": "Classification working group explicitly structures IFC models."
+          },
+          {
+            "tagId": "information-management",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/cluster-digital-construction/"
+            ],
+            "reason": "Information-transfer specifications and ISO 19650 protocol documents."
+          },
+          {
+            "tagId": "data-standardisation",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/cluster-digital-construction/"
+            ],
+            "reason": "BIM standardisation working group."
+          },
+          {
+            "tagId": "construction-classification",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/cluster-digital-construction/"
+            ],
+            "reason": "Dedicated model-classification working group."
+          },
+          {
+            "tagId": "workforce-training",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/cluster-digital-construction/"
+            ],
+            "reason": "BIM and new-technology training working group."
+          }
+        ],
+        "notes": [
+          "Exact expanded name Cluster Digital Construction matches the Odoo project, with Buildwise and Belgian buildingSMART role confirmed.",
+          "Public initiative page does not publish an internal Odoo code."
+        ]
+      }
+    },
+    {
+      "id": 2127,
+      "code": "57252087",
+      "name": "[Digital Building Permit Process] [57252087] BW Digital Building Permit Process 1/26 - 12/29",
+      "archived": false,
+      "tags": [],
+      "descriptionStatus": "missing-description",
+      "descriptionCharacterCount": 0,
+      "sourceVersionId": 1816,
+      "sourceVersionDate": "2026-01-22 14:09:38",
+      "sourceHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "template-empty",
+      "warnings": [
+        "template-instructions-removed"
+      ],
+      "olderVersionsChecked": 1,
+      "olderNonemptyVersions": 0,
+      "webEnrichment": {
+        "status": "not-found",
+        "publisher": "Buildwise",
+        "checkedAt": "2026-10-22T09:28:44.418Z",
+        "sources": [],
+        "tagEvidence": [],
+        "notes": [
+          "No project-specific match found. General digital-permit strategy references and old building case studies do not identify the 2026–2029 internal project."
+        ]
+      }
+    },
+    {
+      "id": 2166,
+      "code": "55232065",
+      "name": "[DCC] [55232065] EFRO Data Connection Center 09/23 - 12/23",
+      "archived": false,
+      "tags": [
+        "field-data-capture",
+        "information-management",
+        "internet-of-things",
+        "data-visualisation"
+      ],
+      "descriptionStatus": "missing-description",
+      "descriptionCharacterCount": 0,
+      "sourceVersionId": 2161,
+      "sourceVersionDate": "2026-01-22 14:09:43",
+      "sourceHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "template-empty",
+      "warnings": [
+        "template-instructions-removed"
+      ],
+      "olderVersionsChecked": 1,
+      "olderNonemptyVersions": 0,
+      "webEnrichment": {
+        "status": "verified",
+        "publisher": "Buildwise",
+        "checkedAt": "2026-10-22T09:28:44.418Z",
+        "summary": "DCC is a construction-data demonstration control room that collects and visualises measurements from different sources to illustrate monitoring, IoT and process optimisation.",
+        "sources": [
+          {
+            "url": "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/data-connection-center-dcc/",
+            "title": "Data Connection Center - DCC",
+            "kind": "showroom",
+            "retrievedAt": "2026-10-22T09:28:45.401Z",
+            "contentHash": "384944201ae734e72c3c17538031fa34ed1bcd217a680a6a2b78252079332941",
+            "hashBasis": "response-bytes",
+            "matchEvidence": "Exact acronym and full Data Connection Center name match the Odoo title; the page describes the same Buildwise demonstration facility.",
+            "publishedProjectDates": {
+              "start": "2023-09-26",
+              "end": "2023-12-31"
+            }
+          }
+        ],
+        "tagEvidence": [
+          {
+            "tagId": "field-data-capture",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/data-connection-center-dcc/"
+            ],
+            "reason": "Collection and connection of captured measurements."
+          },
+          {
+            "tagId": "information-management",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/data-connection-center-dcc/"
+            ],
+            "reason": "Combining and aligning data from multiple applications."
+          },
+          {
+            "tagId": "internet-of-things",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/data-connection-center-dcc/"
+            ],
+            "reason": "IoT is explicitly named as a principal demonstrated technology."
+          },
+          {
+            "tagId": "data-visualisation",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/data-connection-center-dcc/"
+            ],
+            "reason": "The control room visualises collected data."
+          }
+        ],
+        "notes": [
+          "Exact acronym and full Data Connection Center name match the Odoo title; the page describes the same Buildwise demonstration facility.",
+          "Public showroom dates are 2023-09-26 to 2023-12-31, consistent with the local September–December 2023 range. The internal Odoo project code is not published."
+        ]
+      }
+    },
+    {
+      "id": 2168,
+      "code": "55242037",
+      "name": "[D4C] [55242037] VL EFRO Data4Construction 07/25 - 06/27",
+      "archived": false,
+      "tags": [
+        "field-data-capture",
+        "drones",
+        "reality-capture",
+        "internet-of-things",
+        "artificial-intelligence"
+      ],
+      "descriptionStatus": "missing-description",
+      "descriptionCharacterCount": 0,
+      "sourceVersionId": 2159,
+      "sourceVersionDate": "2026-01-22 14:09:43",
+      "sourceHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "template-empty",
+      "warnings": [
+        "template-instructions-removed"
+      ],
+      "olderVersionsChecked": 1,
+      "olderNonemptyVersions": 0,
+      "webEnrichment": {
+        "status": "verified",
+        "publisher": "Buildwise",
+        "checkedAt": "2026-10-22T09:28:44.418Z",
+        "summary": "Data4Construction supplies test infrastructure and repeatable construction cases for data capture, helping firms put site-data technologies into practice through demonstrations and workshops.",
+        "sources": [
+          {
+            "url": "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/sensibilisation-et-soutien-a-la-saisie-de-donnees-dans-le-secteur-de-la-construction-data4construction/",
+            "title": "Sensibilisation et soutien à la saisie de données dans le secteur de la construction - Data4Construction",
+            "kind": "showroom",
+            "retrievedAt": "2026-10-22T09:28:45.503Z",
+            "contentHash": "b3484f9a35c8783adba93a387bbfb3e3b92d536aa3fa74032cf20cc808131ad2",
+            "hashBasis": "response-bytes",
+            "matchEvidence": "Exact full project name Data4Construction matches the Odoo D4C title.",
+            "publishedProjectDates": {
+              "start": "2025-07-01",
+              "end": "2026-06-30"
+            }
+          }
+        ],
+        "tagEvidence": [
+          {
+            "tagId": "field-data-capture",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/sensibilisation-et-soutien-a-la-saisie-de-donnees-dans-le-secteur-de-la-construction-data4construction/"
+            ],
+            "reason": "Data capture is the explicit project objective."
+          },
+          {
+            "tagId": "drones",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/sensibilisation-et-soutien-a-la-saisie-de-donnees-dans-le-secteur-de-la-construction-data4construction/"
+            ],
+            "reason": "Drones are named among the relevant site-data technologies."
+          },
+          {
+            "tagId": "reality-capture",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/sensibilisation-et-soutien-a-la-saisie-de-donnees-dans-le-secteur-de-la-construction-data4construction/"
+            ],
+            "reason": "Scanning and 360-degree cameras are named."
+          },
+          {
+            "tagId": "internet-of-things",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/sensibilisation-et-soutien-a-la-saisie-de-donnees-dans-le-secteur-de-la-construction-data4construction/"
+            ],
+            "reason": "IoT equipment is named."
+          },
+          {
+            "tagId": "artificial-intelligence",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/sensibilisation-et-soutien-a-la-saisie-de-donnees-dans-le-secteur-de-la-construction-data4construction/"
+            ],
+            "reason": "AI applications are named in the project's data-driven construction context."
+          }
+        ],
+        "notes": [
+          "Exact full project name Data4Construction matches the Odoo D4C title.",
+          "Date discrepancy: the public Data4Construction page lists 1 July 2025–30 June 2026; the local funding record lists July 2025–June 2027. The exact named project and technical scope match; retain the local record and dates. Technology examples describe the project context rather than guaranteed deliverables."
+        ]
+      }
+    },
+    {
+      "id": 2169,
+      "code": "54242055",
+      "name": "[FEDER BIMPermis] [54242055] BXL FEDER BIMPermis 01/25 - 12/27",
+      "archived": true,
+      "tags": [],
+      "descriptionStatus": "missing-description",
+      "descriptionCharacterCount": 0,
+      "sourceVersionId": 2223,
+      "sourceVersionDate": "2026-02-06 09:44:25",
+      "sourceHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "template-empty",
+      "warnings": [
+        "template-instructions-removed"
+      ],
+      "olderVersionsChecked": 2,
+      "olderNonemptyVersions": 0,
+      "webEnrichment": {
+        "status": "not-found",
+        "publisher": "Buildwise",
+        "checkedAt": "2026-10-22T09:28:44.418Z",
+        "sources": [],
+        "tagEvidence": [],
+        "notes": [
+          "No identity-verified project page found. General BIM permit examples lack the named Brussels FEDER initiative and cannot safely be attached."
+        ]
+      }
+    },
+    {
+      "id": 2170,
+      "code": "56242089",
+      "name": "[ACCELERATE] [56242089] INTERREG Advanced Collaborative Capacities for Efficient production Lines in Envelope Renovation Accross Transregional Effort 01/26 - 12/28",
+      "archived": false,
+      "tags": [
+        "energy-renovation",
+        "energy-efficiency",
+        "planning-optimisation",
+        "construction-industrialisation"
+      ],
+      "descriptionStatus": "missing-description",
+      "descriptionCharacterCount": 0,
+      "sourceVersionId": 1801,
+      "sourceVersionDate": "2026-01-22 14:09:37",
+      "sourceHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "template-empty",
+      "warnings": [
+        "template-instructions-removed"
+      ],
+      "olderVersionsChecked": 1,
+      "olderNonemptyVersions": 0,
+      "webEnrichment": {
+        "status": "verified",
+        "publisher": "Buildwise",
+        "checkedAt": "2026-10-22T09:28:44.418Z",
+        "summary": "AcceleRATE aims to industrialise energy renovation through standard technical solutions and digital planning and coordination tools, improving delivery efficiency and energy performance.",
+        "sources": [
+          {
+            "url": "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/creation-d-un-accelerateur-de-renovation-energetique-accelerate/",
+            "title": "Création d’un accélérateur de rénovation énergétique - AcceleRATE",
+            "kind": "showroom",
+            "retrievedAt": "2026-10-22T09:28:45.492Z",
+            "contentHash": "ff1da5021bb4a96cfbce03e9cfbde1a30352af6c79a4c27d8daeb650f68c84ce",
+            "hashBasis": "response-bytes",
+            "matchEvidence": "Exact uncommon AcceleRATE name and industrialised energy-renovation objective agree with the expanded Odoo envelope-renovation title.",
+            "publishedProjectDates": {
+              "start": "2026-03-01",
+              "end": "2030-02-28"
+            }
+          }
+        ],
+        "tagEvidence": [
+          {
+            "tagId": "energy-renovation",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/creation-d-un-accelerateur-de-renovation-energetique-accelerate/"
+            ],
+            "reason": "Energy renovation is the explicit project domain."
+          },
+          {
+            "tagId": "energy-efficiency",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/creation-d-un-accelerateur-de-renovation-energetique-accelerate/"
+            ],
+            "reason": "Improved renovation energy performance is an objective."
+          },
+          {
+            "tagId": "planning-optimisation",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/creation-d-un-accelerateur-de-renovation-energetique-accelerate/"
+            ],
+            "reason": "Digital planning and coordination tools reduce execution times."
+          },
+          {
+            "tagId": "construction-industrialisation",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/creation-d-un-accelerateur-de-renovation-energetique-accelerate/"
+            ],
+            "reason": "Industrialising renovation is an explicit project aim."
+          }
+        ],
+        "notes": [
+          "Exact uncommon AcceleRATE name and industrialised energy-renovation objective agree with the expanded Odoo envelope-renovation title.",
+          "Date discrepancy: the public AcceleRATE page lists 1 March 2026–28 February 2030; the local INTERREG funding record lists January 2026–December 2028. The exact distinctive name and industrialised energy-renovation objective match; retain local identity and dates."
+        ]
+      }
+    },
+    {
+      "id": 2173,
+      "code": "59212066",
+      "name": "[EDIH CONNECT] [59212066] EU Digital Construction Innovation Hub (EDIH CONNECT) 11/22 - 02/26",
+      "archived": false,
+      "tags": [
+        "artificial-intelligence",
+        "internet-of-things",
+        "robotics",
+        "workforce-training",
+        "digital-transformation"
+      ],
+      "descriptionStatus": "missing-description",
+      "descriptionCharacterCount": 0,
+      "sourceVersionId": 1828,
+      "sourceVersionDate": "2026-01-22 14:09:38",
+      "sourceHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "template-empty",
+      "warnings": [
+        "template-instructions-removed"
+      ],
+      "olderVersionsChecked": 1,
+      "olderNonemptyVersions": 0,
+      "webEnrichment": {
+        "status": "verified",
+        "publisher": "Buildwise",
+        "checkedAt": "2026-10-22T09:28:44.418Z",
+        "summary": "EDIH CONNECT helps Walloon construction SMEs adopt digital technologies through testing, skills development and innovation support, explicitly covering AI, IoT and robotics.",
+        "sources": [
+          {
+            "url": "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/un-centre-europeen-dinnovation-numerique-pour-la-construction-edih-connect/",
+            "title": "Un Centre Européen d’Innovation Numérique pour la Construction - EDIH CONNECT",
+            "kind": "showroom",
+            "retrievedAt": "2026-10-22T09:28:45.546Z",
+            "contentHash": "28482b6a093a1be1c3a649de1989c191662c6ba1b72ad78a8bb7c49290fef945",
+            "hashBasis": "response-bytes",
+            "matchEvidence": "Exact EDIH CONNECT name and Buildwise-led Walloon construction digital-innovation hub match the Odoo title.",
+            "publishedProjectDates": {
+              "start": "2022-11-01",
+              "end": "2025-10-31"
+            }
+          }
+        ],
+        "tagEvidence": [
+          {
+            "tagId": "artificial-intelligence",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/un-centre-europeen-dinnovation-numerique-pour-la-construction-edih-connect/"
+            ],
+            "reason": "AI adoption is explicit."
+          },
+          {
+            "tagId": "internet-of-things",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/un-centre-europeen-dinnovation-numerique-pour-la-construction-edih-connect/"
+            ],
+            "reason": "IoT adoption is explicit."
+          },
+          {
+            "tagId": "robotics",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/un-centre-europeen-dinnovation-numerique-pour-la-construction-edih-connect/"
+            ],
+            "reason": "Robotics adoption is explicit; autonomy is not claimed."
+          },
+          {
+            "tagId": "workforce-training",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/un-centre-europeen-dinnovation-numerique-pour-la-construction-edih-connect/"
+            ],
+            "reason": "Skills and know-how development are a named pillar of the hub."
+          },
+          {
+            "tagId": "digital-transformation",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/un-centre-europeen-dinnovation-numerique-pour-la-construction-edih-connect/"
+            ],
+            "reason": "The hub's stated purpose is construction-sector digital transformation."
+          }
+        ],
+        "notes": [
+          "Exact EDIH CONNECT name and Buildwise-led Walloon construction digital-innovation hub match the Odoo title.",
+          "Date discrepancy: the public EDIH CONNECT page lists 1 November 2022–31 October 2025; the local funding record lists November 2022–February 2026. The public period is shorter. Retain the exact local funding identity and dates."
+        ]
+      }
+    },
+    {
+      "id": 2178,
+      "code": "59242091",
+      "name": "[Enginuity] [59242091] ITEA Enginuity 01/26 - 12/28",
+      "archived": true,
+      "tags": [],
+      "descriptionStatus": "missing-description",
+      "descriptionCharacterCount": 0,
+      "sourceVersionId": 1838,
+      "sourceVersionDate": "2026-01-22 14:09:38",
+      "sourceHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "template-empty",
+      "warnings": [
+        "template-instructions-removed"
+      ],
+      "olderVersionsChecked": 1,
+      "olderNonemptyVersions": 0,
+      "webEnrichment": {
+        "status": "not-found",
+        "publisher": "Buildwise",
+        "checkedAt": "2026-10-22T09:28:44.418Z",
+        "sources": [],
+        "tagEvidence": [],
+        "notes": [
+          "No Buildwise project-specific page found. The shared name and dates suggest the same initiative as Odoo 2086 but do not supply public technology evidence; keep both Odoo IDs separate."
+        ]
+      }
+    },
+    {
+      "id": 2180,
+      "code": "59252034",
+      "name": "[eDIH WallonIA Hub] [59252034] EU eDIH WallonIA Hub 03/26 - 02/29",
+      "archived": false,
+      "tags": [
+        "artificial-intelligence",
+        "bim",
+        "workforce-training",
+        "digital-transformation",
+        "digital-twins",
+        "internet-of-things",
+        "cybersecurity",
+        "information-management"
+      ],
+      "descriptionStatus": "short-description",
+      "descriptionCharacterCount": 76,
+      "sourceVersionId": 2626,
+      "sourceVersionDate": "2026-04-28 13:35:51",
+      "sourceHash": "d0621fbf733b55caaae5292a22afb4784d2903056db56f98f445d14ce1e3d3f9",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "summary-section",
+      "warnings": [
+        "template-instructions-removed"
+      ],
+      "olderVersionsChecked": 9,
+      "olderNonemptyVersions": 0,
+      "taggingNote": "Generic technical support only; no specific technology inferred.",
+      "webEnrichment": {
+        "status": "verified",
+        "publisher": "Buildwise",
+        "checkedAt": "2026-10-22T09:28:44.418Z",
+        "summary": "WallonIA supports digital adoption in construction and manufacturing through AI, BIM, digital twins, IoT, data management and cybersecurity, combined with demonstrations, investment testing and skills development.",
+        "sources": [
+          {
+            "url": "https://www.buildwise.be/nl/onderzoek-innovatie/onderzoeksprojecten/europees-digitaal-hub-voor-maakindustrie-en-bouw-in-wallonie-eu-edih-wallonia/",
+            "title": "Europees digitaal hub voor maakindustrie en bouw in Wallonië - EU EDIH WallonIA",
+            "kind": "showroom",
+            "retrievedAt": "2026-10-22T09:28:45.673Z",
+            "contentHash": "bb6fb54c3f8d9c0e23fb2be848b620fcb148f03a7edc944c50a3ed548c18486c",
+            "hashBasis": "response-bytes",
+            "matchEvidence": "Exact eDIH WallonIA programme acronym and expanded construction/manufacturing hub identity. Page distinguishes the current merged eDIH-Connect/WalHub initiative. Local grant dates and internal code are not published.",
+            "publishedProjectDates": {
+              "start": "2026-03-01",
+              "end": "2029-02-28"
+            }
+          }
+        ],
+        "tagEvidence": [
+          {
+            "tagId": "artificial-intelligence",
+            "sourceUrls": [
+              "https://www.buildwise.be/nl/onderzoek-innovatie/onderzoeksprojecten/europees-digitaal-hub-voor-maakindustrie-en-bouw-in-wallonie-eu-edih-wallonia/"
+            ],
+            "reason": "AI adoption support and an AI helpdesk are explicit programme services."
+          },
+          {
+            "tagId": "bim",
+            "sourceUrls": [
+              "https://www.buildwise.be/nl/onderzoek-innovatie/onderzoeksprojecten/europees-digitaal-hub-voor-maakindustrie-en-bouw-in-wallonie-eu-edih-wallonia/"
+            ],
+            "reason": "BIM is explicitly listed among the technologies addressed."
+          },
+          {
+            "tagId": "workforce-training",
+            "sourceUrls": [
+              "https://www.buildwise.be/nl/onderzoek-innovatie/onderzoeksprojecten/europees-digitaal-hub-voor-maakindustrie-en-bouw-in-wallonie-eu-edih-wallonia/"
+            ],
+            "reason": "Targeted competence development is a stated service."
+          },
+          {
+            "tagId": "digital-transformation",
+            "sourceUrls": [
+              "https://www.buildwise.be/nl/onderzoek-innovatie/onderzoeksprojecten/europees-digitaal-hub-voor-maakindustrie-en-bouw-in-wallonie-eu-edih-wallonia/"
+            ],
+            "reason": "The programme supports business digital transition."
+          },
+          {
+            "tagId": "digital-twins",
+            "sourceUrls": [
+              "https://www.buildwise.be/nl/onderzoek-innovatie/onderzoeksprojecten/europees-digitaal-hub-voor-maakindustrie-en-bouw-in-wallonie-eu-edih-wallonia/"
+            ],
+            "reason": "Digital twins are explicitly listed; federation is not asserted."
+          },
+          {
+            "tagId": "internet-of-things",
+            "sourceUrls": [
+              "https://www.buildwise.be/nl/onderzoek-innovatie/onderzoeksprojecten/europees-digitaal-hub-voor-maakindustrie-en-bouw-in-wallonie-eu-edih-wallonia/"
+            ],
+            "reason": "IoT is explicitly included in the programme's technology scope."
+          },
+          {
+            "tagId": "cybersecurity",
+            "sourceUrls": [
+              "https://www.buildwise.be/nl/onderzoek-innovatie/onderzoeksprojecten/europees-digitaal-hub-voor-maakindustrie-en-bouw-in-wallonie-eu-edih-wallonia/"
+            ],
+            "reason": "Cybersecurity support is expressly included."
+          },
+          {
+            "tagId": "information-management",
+            "sourceUrls": [
+              "https://www.buildwise.be/nl/onderzoek-innovatie/onderzoeksprojecten/europees-digitaal-hub-voor-maakindustrie-en-bouw-in-wallonie-eu-edih-wallonia/"
+            ],
+            "reason": "Data management and use are explicit scope."
+          }
+        ],
+        "notes": [
+          "Exact eDIH WallonIA programme acronym and expanded construction/manufacturing hub identity. Page distinguishes the current merged eDIH-Connect/WalHub initiative. Public showroom dates are 2026-03-01 to 2029-02-28, matching the local month/year range; the internal Odoo code is not published.",
+          "Dutch showroom read successfully; the corresponding French URL failed in the web reader.",
+          "Generic digital twins are not equated with the existing narrower federated-digital-twins tag."
+        ]
+      }
+    },
+    {
+      "id": 2181,
+      "code": "59252044",
+      "name": "[FAITH] [59252044] EU eDIH FAITH - Flanders AI and Technology Hub 01/26 - 12/28",
+      "archived": false,
+      "tags": [],
+      "descriptionStatus": "missing-description",
+      "descriptionCharacterCount": 0,
+      "sourceVersionId": 1845,
+      "sourceVersionDate": "2026-01-22 14:09:38",
+      "sourceHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "template-empty",
+      "warnings": [
+        "template-instructions-removed"
+      ],
+      "olderVersionsChecked": 1,
+      "olderNonemptyVersions": 0,
+      "webEnrichment": {
+        "status": "not-found",
+        "publisher": "Buildwise",
+        "checkedAt": "2026-10-22T09:28:44.418Z",
+        "summary": "No matching public Buildwise project description was verified.",
+        "sources": [],
+        "tagEvidence": [],
+        "notes": [
+          "No FAITH or Flanders AI and Technology Hub match in the FR/NL showroom URL inventory or Buildwise-targeted search. Earlier Flanders AI EDIH material cannot establish the current 2026–2028 project's scope."
+        ]
+      }
+    },
+    {
+      "id": 2248,
+      "code": "62004360",
+      "name": "[DC] [62004360] Innov DE DC - Digital Construction",
+      "archived": false,
+      "tags": [],
+      "descriptionStatus": "missing-description",
+      "descriptionCharacterCount": 0,
+      "sourceVersionId": 2160,
+      "sourceVersionDate": "2026-01-22 14:09:43",
+      "sourceHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "template-empty",
+      "warnings": [
+        "template-instructions-removed"
+      ],
+      "olderVersionsChecked": 1,
+      "olderNonemptyVersions": 0,
+      "webEnrichment": {
+        "status": "insufficient",
+        "publisher": "Buildwise",
+        "checkedAt": "2026-10-22T09:28:44.418Z",
+        "summary": "The generic internal title cannot be linked reliably to a particular public project.",
+        "sources": [],
+        "tagEvidence": [],
+        "notes": [
+          "Digital Construction matches a broad Buildwise topic and unit, which does not identify this internal project or its technical scope."
+        ]
+      }
+    },
+    {
+      "id": 2414,
+      "code": "77252041",
+      "name": "[SPEC] [77252041] SP Specifications",
+      "archived": false,
+      "tags": [
+        "bim",
+        "data-standardisation",
+        "construction-classification",
+        "data-interoperability",
+        "construction-specifications"
+      ],
+      "descriptionStatus": "missing-description",
+      "descriptionCharacterCount": 0,
+      "sourceVersionId": 1990,
+      "sourceVersionDate": "2026-01-22 14:09:41",
+      "sourceHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "template-empty",
+      "warnings": [
+        "template-instructions-removed"
+      ],
+      "olderVersionsChecked": 1,
+      "olderNonemptyVersions": 0,
+      "webEnrichment": {
+        "status": "verified",
+        "publisher": "Buildwise",
+        "checkedAt": "2026-10-22T09:28:44.418Z",
+        "summary": "SPEC develops a shared framework for future construction specifications, connecting standardised requirements and classification with digital data exchange and BIM; completed feasibility work informs a planned proof of concept.",
+        "sources": [
+          {
+            "url": "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/spec-systeme-de-specifications-du-futur/",
+            "title": "SPEC - Système de spécifications du futur",
+            "kind": "showroom",
+            "retrievedAt": "2026-10-22T09:28:45.725Z",
+            "contentHash": "c5e64bf721636e6311a42bd83f4bdad031255b6fb7313d8f8237db54daf223b3",
+            "hashBasis": "response-bytes",
+            "matchEvidence": "Exact SPEC acronym, Specifications title and Buildwise-owned specification-system initiative. The feasibility phase ran September 2025–September 2026; the internal code is not publicly shown.",
+            "publishedProjectDates": {
+              "start": "2025-09-01",
+              "end": "2027-12-31"
+            }
+          },
+          {
+            "url": "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/spec-systeme-de-specifications-du-futur/letude-de-faisabilite/",
+            "title": "L'étude de faisabilité",
+            "kind": "showroom",
+            "retrievedAt": "2026-10-22T09:28:45.707Z",
+            "contentHash": "6ce8d1cdc01d13a0c5125eeaa7a6f4a4252c5d8870854f16b0c106e60ae6d295",
+            "hashBasis": "response-bytes",
+            "matchEvidence": "Exact SPEC acronym, Specifications title and Buildwise-owned specification-system initiative. The feasibility phase ran September 2025–September 2026; the internal code is not publicly shown."
+          }
+        ],
+        "tagEvidence": [
+          {
+            "tagId": "bim",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/spec-systeme-de-specifications-du-futur/"
+            ],
+            "reason": "The project addresses connections between specifications and BIM tools."
+          },
+          {
+            "tagId": "data-standardisation",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/spec-systeme-de-specifications-du-futur/"
+            ],
+            "reason": "A shared standardised specification system is a stated objective."
+          },
+          {
+            "tagId": "construction-classification",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/spec-systeme-de-specifications-du-futur/"
+            ],
+            "reason": "A compatible classification system is a feasibility-study outcome."
+          },
+          {
+            "tagId": "data-interoperability",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/spec-systeme-de-specifications-du-futur/"
+            ],
+            "reason": "A data-exchange protocol is proposed for integration with digital tools."
+          },
+          {
+            "tagId": "construction-specifications",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/spec-systeme-de-specifications-du-futur/"
+            ],
+            "reason": "Construction specifications are the central subject."
+          }
+        ],
+        "notes": [
+          "Exact SPEC acronym, Specifications title and Buildwise-owned specification-system initiative. The feasibility phase ran September 2025–September 2026; the internal code is not publicly shown."
+        ]
+      }
+    },
+    {
+      "id": 2429,
+      "code": "55232030",
+      "name": "[ExpCenterBouw] [55232030] EFRO ExperienceCenterBouw",
+      "archived": false,
+      "tags": [
+        "digital-transformation",
+        "workforce-training",
+        "reality-capture",
+        "construction-progress-monitoring"
+      ],
+      "descriptionStatus": "missing-description",
+      "descriptionCharacterCount": 0,
+      "sourceVersionId": 2845,
+      "sourceVersionDate": "2026-07-02 12:44:01",
+      "sourceHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "template-empty",
+      "warnings": [
+        "template-instructions-removed"
+      ],
+      "olderVersionsChecked": 2,
+      "olderNonemptyVersions": 0,
+      "webEnrichment": {
+        "status": "verified",
+        "publisher": "Buildwise",
+        "checkedAt": "2026-10-22T09:28:44.418Z",
+        "summary": "ExperienceCenterBouw helps construction SMEs adopt digital tools through trade-specific demonstrations, a permanent centre, a mobile hub, implementation guidance and workshops. Its camera toolkit supports practical site capture and monitoring.",
+        "sources": [
+          {
+            "url": "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/experiencecenterbouw/",
+            "title": "ExperienceCenterBouw",
+            "kind": "showroom",
+            "retrievedAt": "2026-10-22T09:28:45.769Z",
+            "contentHash": "22ee2f5df50e76c563cb21b452f000244b788bf6cb7fc51e5891d14022c3b0db",
+            "hashBasis": "response-bytes",
+            "matchEvidence": "Exact distinctive ExperienceCenterBouw name. The Buildwise supplement explicitly identifies its toolkit initiative as part of that EFRO-funded project, matching the local EFRO title.",
+            "publishedProjectDates": {
+              "start": "2024-01-01",
+              "end": "2025-12-31"
+            }
+          },
+          {
+            "url": "https://www.buildwise.be/nl/persberichten/toolkit-360/",
+            "title": "40 Vlaamse bouw-kmo’s gaan drie maanden lang aan de slag met 360° camera",
+            "kind": "official-page",
+            "retrievedAt": "2026-10-22T09:28:45.778Z",
+            "contentHash": "a7940b9b1cc57e15d5bb004020415454550636ca963e7d602aea9629ec07f9f8",
+            "hashBasis": "response-bytes",
+            "matchEvidence": "Exact distinctive ExperienceCenterBouw name. The Buildwise supplement explicitly identifies its toolkit initiative as part of that EFRO-funded project, matching the local EFRO title."
+          }
+        ],
+        "tagEvidence": [
+          {
+            "tagId": "digital-transformation",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/experiencecenterbouw/"
+            ],
+            "reason": "Adoption of digital tools by construction SMEs is the project's core objective."
+          },
+          {
+            "tagId": "workforce-training",
+            "sourceUrls": [
+              "https://www.buildwise.be/fr/recherche-innovation/showroom-des-projets/experiencecenterbouw/"
+            ],
+            "reason": "Implementation guides, competence requirements, training and workshops are described."
+          },
+          {
+            "tagId": "reality-capture",
+            "sourceUrls": [
+              "https://www.buildwise.be/nl/persberichten/toolkit-360/"
+            ],
+            "reason": "Its 360-degree toolkit captures entire spaces for virtual site inspection."
+          },
+          {
+            "tagId": "construction-progress-monitoring",
+            "sourceUrls": [
+              "https://www.buildwise.be/nl/persberichten/toolkit-360/"
+            ],
+            "reason": "Digital site monitoring is a direct stated use of the toolkit."
+          }
+        ],
+        "notes": [
+          "Exact distinctive ExperienceCenterBouw name. The Buildwise supplement explicitly identifies its toolkit initiative as part of that EFRO-funded project, matching the local EFRO title."
+        ]
+      }
+    },
+    {
+      "id": 2430,
+      "code": "55252099",
+      "name": "[Heatwise] [55252099] VL Coock Digitale scantechnieken en procesflow voor een snel en correct datagedreven warmtepompontwerp",
+      "archived": false,
+      "tags": [
+        "digital-surveying",
+        "computer-vision",
+        "heat-pump-design",
+        "energy-modelling",
+        "in-situ-measurements"
+      ],
+      "descriptionStatus": "available",
+      "descriptionCharacterCount": 719,
+      "sourceVersionId": 2328,
+      "sourceVersionDate": "2026-03-03 12:22:28",
+      "sourceHash": "255c3e4cc80f33dade274abdb8a8ab8cf46ac5a542037225c6c33b67ecb49912",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "summary-section",
+      "warnings": [
+        "template-instructions-removed"
+      ]
+    },
+    {
+      "id": 2536,
+      "code": "51261787",
+      "name": "[PRNSPEC-A] [51261787] Cadre pour une méthode futurproof de spécification de construction en Belgique",
+      "archived": false,
+      "tags": [],
+      "descriptionStatus": "missing-description",
+      "descriptionCharacterCount": 0,
+      "sourceVersionId": 2168,
+      "sourceVersionDate": "2026-01-26 08:13:52",
+      "sourceHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "template-empty",
+      "warnings": [
+        "template-instructions-removed"
+      ],
+      "olderVersionsChecked": 2,
+      "olderNonemptyVersions": 0,
+      "webEnrichment": {
+        "status": "ambiguous",
+        "publisher": "Buildwise",
+        "checkedAt": "2026-10-22T09:28:44.418Z",
+        "summary": "SPEC is a plausible topical relation, but the public sources do not identify PRNSPEC-A.",
+        "sources": [],
+        "tagEvidence": [],
+        "notes": [
+          "Future construction specifications overlap with SPEC; neither the PRNSPEC-A acronym nor its internal code is mapped publicly. A separate related research activity must not inherit SPEC's tags without confirmation."
+        ]
+      }
+    },
+    {
+      "id": 2546,
+      "code": "55261797",
+      "name": "[HARMONIX-GO] [55261797] COOCK+ HARMONIX-GO",
+      "archived": false,
+      "tags": [
+        "data-spaces",
+        "construction-product-data",
+        "data-interoperability",
+        "data-governance",
+        "data-standardisation"
+      ],
+      "descriptionStatus": "available",
+      "descriptionCharacterCount": 1521,
+      "sourceVersionId": 2867,
+      "sourceVersionDate": "2026-07-03 13:25:37",
+      "sourceHash": "9b5499fe5b20b96bb6d4cee63b443acd4b31f031fc8aadbe3b1099fab083d735",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "summary-section",
+      "warnings": []
+    },
+    {
+      "id": 2552,
+      "code": "55261803",
+      "name": "[Scan2Val] [55261803] Scan2Val: Enriched BIM for value assessment",
+      "archived": false,
+      "tags": [],
+      "descriptionStatus": "missing-description",
+      "descriptionCharacterCount": 0,
+      "sourceVersionId": 2210,
+      "sourceVersionDate": "2026-02-04 14:32:14",
+      "sourceHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "template-empty",
+      "warnings": [
+        "template-instructions-removed"
+      ],
+      "olderVersionsChecked": 4,
+      "olderNonemptyVersions": 0,
+      "webEnrichment": {
+        "status": "not-found",
+        "publisher": "Buildwise",
+        "checkedAt": "2026-10-22T09:28:44.418Z",
+        "summary": "No matching public Buildwise project description was verified.",
+        "sources": [],
+        "tagEvidence": [],
+        "notes": [
+          "No Scan2Val or expanded enriched-BIM/value-assessment match in the FR/NL showroom inventory or targeted search."
+        ]
+      }
+    },
+    {
+      "id": 2562,
+      "code": "56261812",
+      "name": "[VERA] [56261812] Virtual Review Engineering Assistant",
+      "archived": true,
+      "tags": [
+        "natural-language-processing",
+        "retrieval-augmented-generation",
+        "semantic-requirements",
+        "engineering-document-review",
+        "human-in-the-loop",
+        "automated-compliance-checking"
+      ],
+      "descriptionStatus": "available",
+      "descriptionCharacterCount": 1294,
+      "sourceVersionId": 2367,
+      "sourceVersionDate": "2026-03-09 13:52:15",
+      "sourceHash": "1ca4a21ae4bbe9a4ee7924720ef7141613663a7cce9984ede4d6bc95230d7a7d",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "summary-section",
+      "warnings": [
+        "template-instructions-removed"
+      ]
+    },
+    {
+      "id": 2573,
+      "code": "51242050",
+      "name": "[NABim25] [51242050] NA 2025 BIM & Digital Construction 01/25 - 12/25",
+      "archived": false,
+      "tags": [],
+      "descriptionStatus": "missing-description",
+      "descriptionCharacterCount": 0,
+      "sourceVersionId": 2251,
+      "sourceVersionDate": "2026-02-14 07:38:13",
+      "sourceHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "template-empty",
+      "warnings": [
+        "template-instructions-removed"
+      ],
+      "olderVersionsChecked": 0,
+      "olderNonemptyVersions": 0,
+      "webEnrichment": {
+        "status": "ambiguous",
+        "publisher": "Buildwise",
+        "checkedAt": "2026-10-22T09:28:44.418Z",
+        "summary": "Buildwise's standing BIM standards programme is an exact programme-name match, but its current public page does not identify the 2025 annual project.",
+        "sources": [],
+        "tagEvidence": [],
+        "notes": [
+          "The public Normen-Antenne BIM & Digital Construction is the expanded NA programme name. It does not independently identify the 2025 grant period or internal code.",
+          "Fallback is an official standing programme page, not a year-specific showroom project description.",
+          "Do not imply that all standards mentioned on the current page were covered by the 2025 annual grant."
+        ]
+      }
+    },
+    {
+      "id": 2619,
+      "code": "56261846",
+      "name": "[ETWIN] [56261846] Federated Digital Twins for Subsurface Infrastructure Systems : Towards interactive digital twin ecosystems for subsurface infrastructures and their environment",
+      "archived": false,
+      "tags": [
+        "federated-digital-twins",
+        "bim",
+        "geospatial-modelling",
+        "subsurface-infrastructure",
+        "semantic-interoperability",
+        "co-simulation"
+      ],
+      "descriptionStatus": "available",
+      "descriptionCharacterCount": 1141,
+      "sourceVersionId": 2732,
+      "sourceVersionDate": "2026-06-10 11:16:43",
+      "sourceHash": "f547b0cafaf4a34c63d9e793d1706c727d6185a54be101f1a6458b9b4105d07a",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "summary-section",
+      "warnings": [
+        "template-instructions-removed"
+      ]
+    },
+    {
+      "id": 2622,
+      "code": "56261849",
+      "name": "[in-beTwin] [56261849] in-beTwin",
+      "archived": false,
+      "tags": [
+        "digital-thread",
+        "bim",
+        "erp-integration",
+        "data-interoperability",
+        "ontologies",
+        "api-integration",
+        "prefabricated-construction"
+      ],
+      "descriptionStatus": "available",
+      "descriptionCharacterCount": 1253,
+      "sourceVersionId": 2610,
+      "sourceVersionDate": "2026-04-23 09:49:30",
+      "sourceHash": "33a7198505312579750cba6e345b9542ab108411f7634f2eaea2ab4710f48455",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "summary-section",
+      "warnings": [
+        "template-instructions-removed"
+      ]
+    },
+    {
+      "id": 2631,
+      "code": "62261858",
+      "name": "[Autogrout] [62261858] Autogrout",
+      "archived": false,
+      "tags": [
+        "autonomous-robotics",
+        "computer-vision",
+        "robot-motion-planning",
+        "material-dispensing",
+        "automated-quality-inspection",
+        "masonry-and-tiling"
+      ],
+      "descriptionStatus": "available",
+      "descriptionCharacterCount": 451,
+      "sourceVersionId": 2694,
+      "sourceVersionDate": "2026-06-02 15:18:09",
+      "sourceHash": "6a9b6fbf4caea16d0546e2ced5c946f8011287f4f48bed0fd489ad8c74a511c0",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "summary-section",
+      "warnings": [
+        "template-instructions-removed"
+      ]
+    },
+    {
+      "id": 2634,
+      "code": "59261861",
+      "name": "[Carbonflow] [59261861] Carbonflow",
+      "archived": false,
+      "tags": [
+        "data-interoperability",
+        "bim",
+        "life-cycle-assessment",
+        "whole-life-carbon",
+        "digital-product-passports",
+        "digital-building-logbooks",
+        "api-integration"
+      ],
+      "descriptionStatus": "available",
+      "descriptionCharacterCount": 2182,
+      "sourceVersionId": 3017,
+      "sourceVersionDate": "2026-09-02 18:46:34",
+      "sourceHash": "06a66f0bb98a7759133908fbcde773d88a0fa99dda21c209db9144e87a5de5e3",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "summary-section",
+      "warnings": [
+        "template-instructions-removed"
+      ]
+    },
+    {
+      "id": 2659,
+      "code": "77261885",
+      "name": "[Harmonix] [77261885] Harmonix",
+      "archived": false,
+      "tags": [
+        "data-spaces",
+        "construction-product-data",
+        "data-standardisation",
+        "data-governance",
+        "data-interoperability"
+      ],
+      "descriptionStatus": "available",
+      "descriptionCharacterCount": 1074,
+      "sourceVersionId": 2911,
+      "sourceVersionDate": "2026-07-20 08:27:07",
+      "sourceHash": "b51c1bc02ade8f9276a7dcd0c232ff40aa48c0cbbc1512fecbc484351a94068c",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "summary-section",
+      "warnings": [
+        "template-instructions-removed"
+      ]
+    },
+    {
+      "id": 2684,
+      "code": "57261908",
+      "name": "[BW_Data_Platform_IS] [57261908] BW data platform IS",
+      "archived": false,
+      "tags": [],
+      "descriptionStatus": "missing-description",
+      "descriptionCharacterCount": 0,
+      "sourceVersionId": 3009,
+      "sourceVersionDate": "2026-08-28 08:36:08",
+      "sourceHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "template-empty",
+      "warnings": [
+        "template-instructions-removed"
+      ],
+      "olderVersionsChecked": 0,
+      "olderNonemptyVersions": 0,
+      "webEnrichment": {
+        "status": "insufficient",
+        "publisher": "Buildwise",
+        "checkedAt": "2026-10-22T09:28:44.418Z",
+        "summary": "No public source reliably identifies the internal Buildwise data-platform activity.",
+        "sources": [],
+        "tagEvidence": [],
+        "notes": [
+          "Generic platform references in Buildwise strategy material cannot establish this internal IS project's purpose or technologies."
+        ]
+      }
+    },
+    {
+      "id": 2694,
+      "code": "51261917",
+      "name": "[PRNSPEC-B] [51261917] Cadre pour une méthode futurproof de spécification de construction en Belgique",
+      "archived": false,
+      "tags": [],
+      "descriptionStatus": "missing-description",
+      "descriptionCharacterCount": 0,
+      "sourceVersionId": 3039,
+      "sourceVersionDate": "2026-09-04 10:58:35",
+      "sourceHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "template-empty",
+      "warnings": [
+        "template-instructions-removed"
+      ],
+      "olderVersionsChecked": 0,
+      "olderNonemptyVersions": 0,
+      "webEnrichment": {
+        "status": "ambiguous",
+        "publisher": "Buildwise",
+        "checkedAt": "2026-10-22T09:28:44.418Z",
+        "summary": "SPEC is a plausible topical relation, but the public sources do not identify PRNSPEC-B.",
+        "sources": [],
+        "tagEvidence": [],
+        "notes": [
+          "The title overlaps with SPEC, but PRNSPEC-B is a distinct local record and code with no explicit public mapping."
+        ]
+      }
+    },
+    {
+      "id": 2697,
+      "code": "51261920",
+      "name": "[NA 27 BIM & DC] [51261920] NA BIM & Digital Construction",
+      "archived": false,
+      "tags": [
+        "bim",
+        "ifc",
+        "information-management",
+        "level-of-information-need",
+        "product-data-templates",
+        "construction-classification",
+        "data-standardisation"
+      ],
+      "descriptionStatus": "available",
+      "descriptionCharacterCount": 875,
+      "sourceVersionId": 3051,
+      "sourceVersionDate": "2026-09-07 14:59:57",
+      "sourceHash": "366f810cf89317ef81f8242e8229f84e85b16869e8d4ee80ce020c01ff177d47",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "summary-section",
+      "warnings": [
+        "template-instructions-removed"
+      ]
+    },
+    {
+      "id": 2700,
+      "code": "63261923",
+      "name": "[63261923] De slimme meetkoffer (kennisdisffusie)",
+      "archived": false,
+      "tags": [
+        "digital-surveying",
+        "field-data-capture",
+        "measurement-workflows"
+      ],
+      "descriptionStatus": "available",
+      "descriptionCharacterCount": 1059,
+      "sourceVersionId": 3070,
+      "sourceVersionDate": "2026-09-10 15:45:30",
+      "sourceHash": "f55d9b014fbb18d8d478018c382c91ca272a1bebae648ccdd87586581037b418",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "summary-section",
+      "warnings": []
+    },
+    {
+      "id": 2702,
+      "code": "63261925",
+      "name": "[63261925] Werkbaar Werk (Kennisdiffusie)",
+      "archived": false,
+      "tags": [
+        "digital-work-instructions",
+        "workforce-training",
+        "workplace-assistance"
+      ],
+      "descriptionStatus": "available",
+      "descriptionCharacterCount": 547,
+      "sourceVersionId": 3073,
+      "sourceVersionDate": "2026-09-11 06:05:22",
+      "sourceHash": "7647e60ff5617fa0a94672cba6315ef37b74edb6700f31af902f7e0d038fdcb7",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "summary-section",
+      "warnings": [
+        "template-instructions-removed"
+      ]
+    },
+    {
+      "id": 2707,
+      "code": "57261930",
+      "name": "[Physical-AI] [57261930] Physical-AI",
+      "archived": false,
+      "tags": [],
+      "descriptionStatus": "missing-description",
+      "descriptionCharacterCount": 0,
+      "sourceVersionId": 3081,
+      "sourceVersionDate": "2026-09-18 13:22:27",
+      "sourceHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanCompleted": true,
+      "scannedAt": "2026-10-22T08:26:50.529Z",
+      "extraction": "template-empty",
+      "warnings": [
+        "template-instructions-removed"
+      ],
+      "olderVersionsChecked": 0,
+      "olderNonemptyVersions": 0,
+      "webEnrichment": {
+        "status": "not-found",
+        "publisher": "Buildwise",
+        "checkedAt": "2026-10-22T09:28:44.418Z",
+        "summary": "No matching public Buildwise project description was verified.",
+        "sources": [],
+        "tagEvidence": [],
+        "notes": [
+          "No exact Physical-AI project or internal-code match in the showroom inventory or Buildwise-targeted searches. Generic AI material cannot identify this activity."
+        ]
+      }
+    }
+  ],
+  "scanPolicy": {
+    "completedProjects": "Never automatically rescan, including missing and short descriptions.",
+    "shortDescriptionThreshold": 200,
+    "sourceSelection": "Latest exact-linked description version by date then ID.",
+    "templateHandling": "Use the project-summary section only; ignore bilingual prompts, placeholders and link-only sections.",
+    "taggingMethod": "Assistant-reviewed technical tags grounded in extracted project summaries; no title-only inference.",
+    "historicalAudit": {
+      "projectsChecked": 32,
+      "olderVersionsChecked": 51,
+      "nonemptyOlderVersions": 0
+    }
+  },
+  "webEnrichment": {
+    "publisher": "Buildwise",
+    "checkedAt": "2026-10-22T09:28:44.418Z",
+    "scope": "Manual enrichment of the 31 missing and one short completed Odoo description scans, explicitly requested by the user.",
+    "verified": 18,
+    "not-found": 8,
+    "ambiguous": 4,
+    "insufficient": 2
+  }
+}

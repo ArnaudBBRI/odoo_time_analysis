@@ -3,11 +3,11 @@ const test = require("node:test");
 const { mount, formatDate, formatBudget, nameParts, createTitle } = require("../project-card");
 const { domFixture } = require("./dom-fixture");
 
-function mountedCard(project) {
+function mountedCard(project, presentation = {}) {
   const container = domFixture(), doc = container.ownerDocument;
   const label = doc.createElement("label"), radio = doc.createElement("input"), name = doc.createElement("span");
   radio.type = "radio"; radio.value = String(project.id); radio.setAttribute("aria-label", project.name);
-  name.textContent = project.name; mount(label, radio, project, [name]); container.append(label);
+  name.textContent = project.name; mount(label, radio, project, [name], presentation); container.append(label);
   return { container, label, radio, back: label.querySelectorAll(".project-card-back")[0] };
 }
 
@@ -92,7 +92,7 @@ test("shared front titles show only the bold short project name with full-source
   assert.deepEqual(project, original);
 });
 
-test("flipped cards retain unbracketed project shorthand wherever it occurs in the source name", () => {
+test("the programme outline variant keeps unbracketed shorthand and native selection semantics", () => {
   for (const [name, shorthand] of [
     ["[Autogrout] Automated grouting research", "Autogrout"],
     ["54252043 · [Extrai] Research [2026]", "Extrai"],
@@ -100,21 +100,22 @@ test("flipped cards retain unbracketed project shorthand wherever it occurs in t
     ["Project without a shorthand", "Project without a shorthand"]
   ]) {
     const project = { id: 11, name, manager: { name: "Alex Example" } }, before = structuredClone(project);
-    const { back, radio, label } = mountedCard(project);
+    const { back, radio, label } = mountedCard(project, { variant: "programme" });
     assert.equal(back.querySelectorAll(".project-card-short-name")[0].textContent, shorthand);
     assert.equal(back.querySelectorAll(".project-card-manager-name")[0].textContent, "Alex Example");
     assert.equal(radio.getAttribute("aria-label"), name, "The accessible project identity retains the full source name");
-    assert.equal(label.children[0], radio, "The choice stays outside the rotating decorative faces");
+    assert.equal(label.children[0], radio, "The choice stays outside the decorative faces");
     assert.deepEqual(project, before);
   }
 });
 
-test("flipped cards keep the manager's bounded raster portrait and expose initials if that portrait fails", () => {
+test("both card variants keep a bounded raster manager portrait and expose initials if that portrait fails", () => {
+  for (const variant of ["project", "programme"]) {
   for (const mime of ["png", "jpeg", "webp"]) {
     const photoDataUrl = `data:image/${mime};base64,aW1hZ2U=`;
     const project = { id: 11, name: "[Autogrout] Full source name", manager: { name: "Alex Example", photoDataUrl },
       startDate: "2025-12-01", endDate: "2028-05-31", totalBudget: { amount: 75, currencyId: 1, currency: "EUR" } };
-    const original = structuredClone(project), { back, radio, label } = mountedCard(project);
+    const original = structuredClone(project), { back, radio, label } = mountedCard(project, { variant });
     const avatar = back.querySelectorAll(".project-card-mini-avatar")[0];
     const image = avatar.querySelectorAll(".project-card-mini-photo")[0];
     assert.equal(image.src, photoDataUrl); assert.equal(image.alt, "");
@@ -127,9 +128,10 @@ test("flipped cards keep the manager's bounded raster portrait and expose initia
     assert.match(descriptions[0].textContent, /Alex Example.*01\/12\/2025.*31\/05\/2028.*75,00 EUR/);
     assert.deepEqual(project, original);
   }
+  }
 });
 
-test("flipped identity treats project text literally and rejects remote, active, malformed and oversized portraits", () => {
+test("outline identity treats project text literally and rejects remote, active, malformed and oversized portraits", () => {
   const malicious = '[<img src=x onerror="PRIVATE_SCRIPT()">] Full project';
   for (const photoDataUrl of [
     "https://attacker.example/photo.png", "javascript:alert(1)", "data:image/svg+xml;base64,PHN2Zy8+",
@@ -176,7 +178,7 @@ test("a readable card amount discloses unconfirmed currency instead of assigning
   }
 });
 
-test("shared card backs render identity text literally while preserving date and budget metadata outside the visible face", () => {
+test("outline project cards render full identity and strict dates literally while retaining manager and budget metadata in one native description", () => {
   const container = domFixture(), doc = container.ownerDocument;
   const malicious = '<img src=x onerror="PRIVATE_SCRIPT()">';
   const project = { id: 11, name: malicious, startDate: "2025-12-01", endDate: "2028-05-31",
@@ -190,11 +192,15 @@ test("shared card backs render identity text literally while preserving date and
     const front = label.querySelectorAll(".project-card-front")[0], back = label.querySelectorAll(".project-card-back")[0];
     assert.equal(front.textContent, malicious);
     assert.equal(back.querySelectorAll(".project-card-short-name")[0].textContent, malicious);
-    assert.equal(back.querySelectorAll(".project-card-manager-name")[0].textContent, project.manager.name);
+    assert.equal(back.querySelectorAll(".project-card-manager-name").length, 0);
+    assert.equal(back.querySelectorAll(".project-card-back-full-name")[0].textContent, malicious);
     assert.equal(back.querySelectorAll(".project-card-field").length, 0);
-    assert.equal(back.querySelectorAll(".project-card-date").length, 0);
+    assert.equal(back.querySelectorAll(".project-card-date").length, 2);
+    assert.deepEqual(back.querySelectorAll(".project-card-date-value").map(value => value.textContent), ["01/12/2025", "31/05/2028"]);
+    assert.deepEqual(back.querySelectorAll(".project-card-date-label").map(value => value.textContent), ["Début", "Fin"]);
     assert.equal(back.querySelectorAll(".project-card-budget").length, 0);
-    assert.doesNotMatch(back.textContent, /Début01\/12\/2025|Fin31\/05\/2028|Budget total/);
+    assert.match(back.textContent, /Début01\/12\/2025Fin31\/05\/2028/);
+    assert.ok(!back.textContent.includes(project.manager.name)); assert.ok(!back.textContent.includes("75,00"));
     assert.ok(label.title.startsWith(`${project.name}\n`));
     assert.match(label.title, /Début : 01\/12\/2025\nFin : 31\/05\/2028\nBudget total : 75,00/);
     assert.ok(back.textContent.includes(malicious));
@@ -203,7 +209,7 @@ test("shared card backs render identity text literally while preserving date and
     assert.equal(radio.getAttribute("aria-describedby"), description.id); descriptions.push(description.id);
     assert.ok(description.textContent.includes(project.manager.name)); assert.ok(description.textContent.includes(malicious));
     assert.equal(radio.getAttribute("aria-label"), project.name, "Card mounting preserves the radio's project identity");
-    assert.equal(radio.listeners.size, 0, "A CSS flip adds no interception of the native choice interaction");
+    assert.equal(radio.listeners.size, 0, "Decorative card presentation does not intercept the native choice interaction");
   }
   assert.equal(new Set(descriptions).size, 2, "Descriptions remain distinct even if display names match");
   assert.equal(container.querySelectorAll("img").length, 0); assert.equal(container.querySelectorAll("script").length, 0);
@@ -218,11 +224,89 @@ test("missing card identity and metadata remain selectable without invented proj
   container.append(label);
   const back = label.querySelectorAll(".project-card-back")[0];
   assert.equal(back.querySelectorAll(".project-card-back-number")[0].textContent, "");
-  assert.equal(back.querySelectorAll(".project-card-manager-name")[0].textContent, "Responsable indisponible");
-  assert.equal(back.querySelectorAll(".project-card-back-full-name")[0].textContent, "");
+  assert.equal(back.querySelectorAll(".project-card-manager-name").length, 0);
+  assert.equal(back.querySelectorAll(".project-card-back-full-name")[0].textContent, "Projet 55");
+  assert.deepEqual(back.querySelectorAll(".project-card-date-value").map(value => value.textContent), ["Indisponible", "Indisponible"]);
   assert.equal(back.querySelectorAll(".project-card-field-value").length, 0);
   assert.match(label.title, /Début : Indisponible\nFin : Indisponible\nBudget total : Indisponible/);
   assert.match(label.querySelectorAll(".project-card-sr-only")[0].textContent,
     /Responsable indisponible.*Début : Indisponible.*Fin : Indisponible.*Budget total : Indisponible/);
   assert.equal(radio.value, "55"); assert.equal(radio.type, "radio"); assert.notEqual(radio.disabled, true);
+});
+
+test("default outline cards expose source number, complete name and dates without altering an already selected native radio", () => {
+  const container = domFixture(), doc = container.ownerDocument;
+  const project = { id: 11, name: "[Autogrout] [54252043] Full research title [phase two]", manager: { name: "Alex Example" },
+    startDate: "2024-02-29", endDate: "2999-12-31", totalBudget: { amount: 1500, currencyId: 1, currency: "EUR" } };
+  const before = structuredClone(project), label = doc.createElement("label"), input = doc.createElement("input");
+  input.type = "radio"; input.name = "source-projects"; input.value = "11"; input.checked = true;
+  input.setAttribute("aria-label", project.name); const select = () => {}; input.addEventListener("change", select);
+  const sourceTitle = createTitle(doc, project);
+  mount(label, input, project, [sourceTitle]); container.append(label);
+  assert.ok(label.className.split(/\s+/).includes("project-card-outline"));
+  assert.ok(!label.className.split(/\s+/).includes("project-card-flip"));
+  assert.equal(label.children[0], input); assert.equal(input.checked, true); assert.equal(input.name, "source-projects"); assert.equal(input.value, "11");
+  assert.equal(input.listeners.get("change"), select); assert.equal(input.listeners.size, 1);
+  assert.equal(label.querySelectorAll(".project-card-back-number")[0].textContent, "54252043");
+  assert.equal(label.querySelectorAll(".project-card-back-full-name")[0].textContent, "Full research title [phase two]");
+  assert.deepEqual(label.querySelectorAll(".project-card-date-value").map(value => value.textContent), ["29/02/2024", "31/12/2999"]);
+  assert.equal(label.querySelectorAll(".project-card-manager-name").length, 0); assert.equal(label.querySelectorAll(".project-card-budget").length, 0);
+  assert.equal(label.querySelectorAll(".project-card-orb").length, 0);
+  const border = label.querySelectorAll(".project-card-outline-border")[0];
+  assert.equal(border.getAttribute("aria-hidden"), "true"); assert.equal(border.getAttribute("focusable"), "false");
+  const description = label.querySelectorAll(".project-card-sr-only"); assert.equal(description.length, 1);
+  assert.equal(input.getAttribute("aria-describedby"), description[0].id);
+  assert.match(description[0].textContent, /Alex Example.*29\/02\/2024.*31\/12\/2999.*1[\s\u202f]?500,00 EUR/);
+  assert.deepEqual(project, before);
+});
+
+test("outline visible dates reject missing, impossible and timestamp values without substituting the other endpoint", () => {
+  for (const [startDate, endDate, expected] of [
+    ["2026-02-29", "2026-12-31", ["Indisponible", "31/12/2026"]],
+    ["2026-01-01", "2026-12-31T00:00:00Z", ["01/01/2026", "Indisponible"]],
+    [null, undefined, ["Indisponible", "Indisponible"]],
+    ["<script>date</script>", "0000-01-01", ["Indisponible", "Indisponible"]]
+  ]) {
+    const { label, container } = mountedCard({ id: 11, name: "[Short] Full source title", startDate, endDate });
+    assert.deepEqual(label.querySelectorAll(".project-card-date-value").map(value => value.textContent), expected);
+    assert.equal(container.querySelectorAll("script").length, 0);
+    assert.equal(label.querySelectorAll(".project-card-back-number")[0].textContent, "");
+  }
+});
+
+test("project outline dates and generated names follow the current language while genuine source names stay literal", () => {
+  const I18n = require("../i18n");
+  try {
+    I18n.setLanguage("nl");
+    const marked = { id: 11, name: "Project 11", nameMessageKey: "identity.project", startDate: "2026-08-01", endDate: null };
+    const original = structuredClone(marked), card = mountedCard(marked);
+    assert.equal(card.label.querySelectorAll(".project-card-back-full-name")[0].textContent, "Project 11");
+    assert.deepEqual(card.label.querySelectorAll(".project-card-date-label").map(value => value.textContent), ["Start", "Einde"]);
+    assert.deepEqual(card.label.querySelectorAll(".project-card-date-value").map(value => value.textContent), ["01/08/2026", "Niet beschikbaar"]);
+    assert.match(card.label.querySelectorAll(".project-card-sr-only")[0].textContent, /Projectverantwoordelijke niet beschikbaar.*Einde : Niet beschikbaar/);
+    I18n.setLanguage("fr"); const french = mountedCard(marked);
+    assert.equal(french.label.querySelectorAll(".project-card-back-full-name")[0].textContent, "Projet 11");
+    const genuine = mountedCard({ ...marked, nameMessageKey: undefined });
+    assert.equal(genuine.label.querySelectorAll(".project-card-back-full-name")[0].textContent, "Project 11");
+    assert.deepEqual(marked, original);
+  } finally { I18n.setLanguage("fr"); }
+});
+
+test("the programme variant shares the decorative outline while retaining its own identity and excluding project dates", () => {
+  const { label, back } = mountedCard({ id: 1, name: "[DC1] Backbone", manager: { name: "Pauline Dewez" },
+    startDate: "2026-01-01", endDate: "2026-12-31", totalBudget: { amount: 10, currencyId: 1, currency: "EUR" } },
+  { variant: "programme", badge: "Structurer", fullName: "Backbone" });
+  assert.ok(label.className.split(/\s+/).includes("project-card-outline"));
+  assert.ok(!label.className.split(/\s+/).includes("project-card-flip"));
+  assert.equal(label.querySelectorAll(".project-card-orb").length, 0);
+  const borders = label.querySelectorAll(".project-card-outline-border");
+  assert.equal(borders.length, 1);
+  assert.equal(borders[0].getAttribute("aria-hidden"), "true");
+  assert.equal(borders[0].getAttribute("focusable"), "false");
+  assert.equal(borders[0].querySelectorAll("rect").length, 1);
+  assert.equal(label.querySelectorAll(".project-card-dates").length, 0);
+  assert.equal(back.querySelectorAll(".project-card-manager-name")[0].textContent, "Pauline Dewez");
+  assert.equal(back.querySelectorAll(".project-card-back-number")[0].textContent, "Structurer");
+  assert.equal(back.querySelectorAll(".project-card-back-full-name")[0].textContent, "Backbone");
+  assert.ok(!back.textContent.includes("01/01/2026")); assert.ok(!back.textContent.includes("31/12/2026"));
 });

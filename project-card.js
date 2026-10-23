@@ -52,6 +52,7 @@
 
   function mount(label, input, project, frontChildren, presentation = {}) {
     const doc = label.ownerDocument;
+    const programme = presentation.variant === "programme";
     const node = (tag, className, text) => {
       const element = doc.createElement(tag);
       element.className = className;
@@ -59,13 +60,12 @@
       return element;
     };
     label.classList.add("project-card");
+    label.classList.add("project-card-outline");
     const inner = node("span", "project-card-inner");
     const front = node("span", "project-card-front"); front.setAttribute("aria-hidden", "true");
     front.append(...frontChildren);
     const back = node("span", "project-card-back"); back.setAttribute("aria-hidden", "true");
     const parts = nameParts(project);
-    const ambient = node("span", "project-card-ambient");
-    for (const color of ["teal", "blue", "yellow"]) ambient.append(node("span", `project-card-orb project-card-orb-${color}`));
     const content = node("span", "project-card-back-content");
     const identity = node("span", "project-card-identity");
     const shortName = node("strong", "project-card-short-name", parts.shortName);
@@ -82,16 +82,27 @@
       photo.width = 24; photo.height = 24;
       photo.addEventListener("error", () => { photo.hidden = true; }); avatar.append(photo);
     }
-    const number = node("span", "project-card-back-number", typeof presentation.badge === "string" ? presentation.badge : parts.number);
+    const number = node("span", "project-card-back-number", programme && typeof presentation.badge === "string" ? presentation.badge : parts.number);
     identity.append(avatar, number);
-    const manager = node("span", "project-card-manager-name", project.manager?.name || t("common.managerUnavailable"));
-    const fullName = node("em", "project-card-back-full-name", typeof presentation.fullName === "string" ? presentation.fullName : parts.fullName);
-    content.append(identity, shortName, manager, fullName); back.append(ambient, content);
+    const fullName = node("em", "project-card-back-full-name", programme ?
+      typeof presentation.fullName === "string" ? presentation.fullName : parts.fullName : parts.fullName || parts.shortName);
     const fields = [
       [t("common.start"), formatDate(project.startDate), "project-card-date"],
       [t("common.end"), formatDate(project.endDate), "project-card-date"],
       [t("common.totalBudget"), formatBudget(project.totalBudget), "project-card-budget"]
     ];
+    if (programme) {
+      const manager = node("span", "project-card-manager-name", project.manager?.name || t("common.managerUnavailable"));
+      content.append(identity, shortName, fullName, manager); back.append(content);
+    } else {
+      const dates = node("span", "project-card-dates");
+      fields.slice(0, 2).forEach(([name, value], index) => {
+        const field = node("span", `project-card-date ${index === 0 ? "is-start" : "is-end"}`);
+        field.append(node("span", "project-card-date-label", name), node("span", "project-card-date-value", value));
+        dates.append(field);
+      });
+      content.append(identity, shortName, fullName, dates); back.append(content);
+    }
     label.title = typeof presentation.tooltip === "string" ? presentation.tooltip :
       `${parts.sourceName}\n${fields.map(([name, value]) => `${name} : ${value}`).join("\n")}`;
     const description = node("span", "project-card-sr-only",
@@ -99,7 +110,16 @@
         `${project.manager?.name ? t("common.managerNameSentence", { p0: project.manager.name }) : t("common.managerUnavailableSentence")}${fields.map(([name, value]) => `${name} : ${value}.`).join(" ")}`);
     description.id = `project-card-description-${++descriptionId}`;
     input.setAttribute("aria-describedby", description.id);
-    inner.append(front, back); label.append(input, inner, description);
+    inner.append(front, back); label.append(input, inner);
+    const border = doc.createElementNS("http://www.w3.org/2000/svg", "svg");
+    border.setAttribute("class", "project-card-outline-border");
+    // Keep the path in viewport pixels: scaling a viewBox together with a
+    // non-scaling stroke can truncate the normalized dash on wide cards.
+    border.setAttribute("aria-hidden", "true"); border.setAttribute("focusable", "false");
+    const outline = doc.createElementNS("http://www.w3.org/2000/svg", "rect");
+    for (const [name, value] of Object.entries({ pathLength: "1", x: "0", y: "0", width: "100%", height: "100%", rx: "4" })) outline.setAttribute(name, value);
+    border.append(outline); label.append(border);
+    label.append(description);
     return label;
   }
 

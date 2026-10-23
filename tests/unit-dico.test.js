@@ -454,6 +454,75 @@ test("Unit overview adds a monthly area chart and accessible table under the cal
   assert.deepEqual(data, original); assert.equal(container.ownerDocument.listeners.size, 0);
 });
 
+test("Unit and programme count areas follow the selected chart palette without replacing interactive state", () => {
+  const palette = require("../chart-palette"), previousPalette = palette.current();
+  const container = domFixture(), data = { ...fixture(), projects: [project(1, "Span", "2026-01-01", "2026-03-31")] };
+  try {
+    for (const options of [{}, { concurrencyHeading: "Programmes / Projets simultanés" }]) {
+      palette.set("dico-vibes"); render(container, data, { now: "2026-02-15", ...options });
+      const section = find(container, ".unit-dico-concurrency"), line = find(section, "[data-unit-concurrency-line]");
+      const stops = section.querySelectorAll("stop"), area = find(section, "[data-unit-concurrency-area]");
+      const buttons = section.querySelectorAll("[data-unit-concurrency-month]"), svg = find(section, "svg");
+      const details = find(section, ".unit-dico-concurrency-details"), table = find(details, "table");
+      const tooltip = find(section, ".unit-dico-concurrency-tooltip"), calendarBars = container.querySelectorAll(".unit-dico-timeline-bar");
+      const originalBars = calendarBars.map(bar => find(bar, ".unit-dico-timeline-fill").style.backgroundColor);
+      const geometry = [svg.getAttribute("viewBox"), line.getAttribute("d"), area.getAttribute("d"), table.textContent];
+      details.open = true; buttons[1].focus(); buttons[1].dispatch("click");
+      const tooltipText = tooltip.textContent;
+      assert.equal(line.getAttribute("stroke").toLowerCase(), "#f89700");
+      assert.deepEqual(stops.map(stop => stop.getAttribute("stop-opacity")), ["0.55", "0.08"]);
+      for (const selected of ["classic", "dico-vibes", "classic"]) {
+        palette.set(selected);
+        assert.equal(line.getAttribute("stroke"), palette.color(0));
+        assert.ok(stops.every(stop => stop.getAttribute("stop-color") === palette.color(0)));
+        assert.equal(find(container, ".unit-dico-concurrency"), section);
+        assert.equal(find(section, "[data-unit-concurrency-line]"), line);
+        assert.equal(find(section, "svg"), svg);
+        assert.deepEqual(section.querySelectorAll("[data-unit-concurrency-month]"), buttons);
+        assert.equal(find(details, "table"), table); assert.equal(details.open, true);
+        assert.equal(container.ownerDocument.activeElement, buttons[1]);
+        buttons[1].dispatch("pointerleave"); assert.equal(tooltip.hidden, false); assert.equal(tooltip.textContent, tooltipText);
+        assert.deepEqual([svg.getAttribute("viewBox"), line.getAttribute("d"), area.getAttribute("d"), table.textContent], geometry);
+        assert.deepEqual(calendarBars.map(bar => find(bar, ".unit-dico-timeline-fill").style.backgroundColor), originalBars);
+      }
+      cleanup(container);
+    }
+  } finally { cleanup(container); palette.set(previousPalette); }
+});
+
+test("count-area palette subscriptions retire on rerender, unavailable data and timeline cleanup", () => {
+  const filename = require.resolve("../unit-dico"), originalRequire = require("node:module").createRequire(filename);
+  const listeners = new Set(), callbacks = [];
+  let selectedColor = "#F89700";
+  const palette = { color() { return selectedColor; }, subscribe(callback) {
+    callbacks.push(callback); listeners.add(callback); return () => listeners.delete(callback);
+  } };
+  const context = { module: { exports: {} }, require(id) { return id === "./chart-palette" ? palette : originalRequire(id); } };
+  require("node:vm").runInNewContext(require("node:fs").readFileSync(filename, "utf8"), context, { filename });
+  const browser = context.module.exports, container = domFixture(), now = "2026-02-15";
+  const data = { ...fixture(), projects: [project(1, "Span", "2026-01-01", "2026-03-31")] };
+  const change = color => { selectedColor = color; [...listeners].forEach(callback => callback()); };
+  try {
+    browser.render(container, data, { now }); assert.equal(listeners.size, 1);
+    const firstLine = find(container, "[data-unit-concurrency-line]");
+    browser.render(container, data, { now }); assert.equal(listeners.size, 1);
+    const currentLine = find(container, "[data-unit-concurrency-line]");
+    change("#f7909f"); callbacks[0]();
+    assert.equal(firstLine.getAttribute("stroke"), "#F89700", "Retired chart callbacks cannot recolour detached content");
+    assert.equal(currentLine.getAttribute("stroke"), "#f7909f");
+    browser.render(container, { ...data, projects: [] }, { now }); assert.equal(listeners.size, 0);
+    change("#F89700"); callbacks.forEach(callback => callback());
+    assert.equal(currentLine.getAttribute("stroke"), "#f7909f");
+    browser.render(container, data, { now }); assert.equal(listeners.size, 1);
+    const finalLine = find(container, "[data-unit-concurrency-line]");
+    browser.renderTimeline(container, data.projects, { now }); assert.equal(listeners.size, 0);
+    change("#f7909f"); callbacks.forEach(callback => callback());
+    assert.equal(finalLine.getAttribute("stroke"), "#F89700");
+    browser.render(container, data, { now }); assert.equal(listeners.size, 1);
+    browser.cleanup(container); browser.cleanup(container); assert.equal(listeners.size, 0);
+  } finally { browser.cleanup(container); }
+});
+
 test("monthly controls expose pointer and tap details with local roving keyboard navigation and Escape dismissal", () => {
   const container = domFixture(), data = { ...fixture(), projects: [project(1, "Span", "2026-01-01", "2026-03-31")] };
   render(container, data, { now: "2026-02-15" });
@@ -524,7 +593,7 @@ test("an unavailable or excluded Unit count chart shows a notice without a numer
   assert.match(find(container, ".unit-dico-concurrency").textContent, /Période trop longue.*2\s?400 mois/);
 });
 
-test("Unit DiCo cards show a manager chip and short front title, with project and manager details on the back", () => {
+test("Unit DiCo outline cards show source identity and dates with native manager and budget metadata access", () => {
   const container = domFixture(), data = fixture(), selections = [];
   data.projects[0].name = "54252043 · [Autogrout] Automated grouting research";
   data.projects[0].totalBudget = { amount: 12345.67, currencyId: 1, currency: "EUR" };
@@ -532,15 +601,17 @@ test("Unit DiCo cards show a manager chip and short front title, with project an
   render(container, data, { onSelect: id => selections.push(id), focusProjectId: 101 });
   const choice = container.querySelectorAll("[data-unit-project-choice]").find(radio => radio.value === "101");
   const label = choice.parentElement, front = find(label, ".project-card-front"), back = find(label, ".project-card-back");
-  assert.equal(label.children[0], choice, "The native radio stays outside the visual rotation");
+  assert.equal(label.children[0], choice, "The native radio stays outside decorative outline content");
+  assert.ok(label.className.split(/\s+/).includes("project-card-outline"));
+  assert.equal(label.querySelectorAll(".project-card-ambient").length, 0);
   assert.equal(front.querySelectorAll("img").length, 1); assert.equal(back.querySelectorAll("img").length, 1);
   assert.equal(find(back, ".project-card-short-name").textContent, "Autogrout");
   assert.equal(find(back, ".project-card-back-number").textContent, "54252043");
-  assert.equal(find(back, ".project-card-manager-name").textContent, "Alex Example");
+  assert.equal(back.querySelectorAll(".project-card-manager-name").length, 0);
   assert.equal(find(back, ".project-card-back-full-name").textContent, "Automated grouting research");
-  const backOrder = ["54252043", "Autogrout", "Alex Example", "Automated grouting research"]
+  const backOrder = ["54252043", "Autogrout", "Automated grouting research", "01/12/2025", "31/05/2028"]
     .map(value => back.textContent.indexOf(value));
-  assert.deepEqual(backOrder, [...backOrder].sort((a, b) => a - b), "Back content follows number, short title, manager, full title order");
+  assert.deepEqual(backOrder, [...backOrder].sort((a, b) => a - b), "Source identity precedes the project start/end dates");
   assert.equal(find(back, ".project-card-mini-photo").src, photo);
   const title = find(front, ".unit-dico-project-name");
   assert.deepEqual(title.children.map(row => [row.tagName, row.className, row.textContent]), [
@@ -549,9 +620,9 @@ test("Unit DiCo cards show a manager chip and short front title, with project an
   assert.equal(title.title, data.projects[0].name); assert.ok(label.title.startsWith(`${data.projects[0].name}\n`));
   assert.equal(choice.getAttribute("aria-label"), data.projects[0].name);
   assert.doesNotMatch(front.textContent, /54252043|Automated grouting research/);
-  assert.equal(back.querySelectorAll(".project-card-date").length, 0);
+  assert.deepEqual(back.querySelectorAll(".project-card-date-value").map(value => value.textContent), ["01/12/2025", "31/05/2028"]);
   assert.equal(back.querySelectorAll(".project-card-budget").length, 0);
-  assert.doesNotMatch(back.textContent, /12345|01\/12\/2025|31\/05\/2028/);
+  assert.doesNotMatch(back.textContent, /12345|Alex Example/);
   assert.match(label.title, /Début : 01\/12\/2025\nFin : 31\/05\/2028/);
   assert.match(label.title.replace(/\s/g, ""), /Budgettotal:12345,67EUR/);
   assert.equal(front.getAttribute("aria-hidden"), "true"); assert.equal(back.getAttribute("aria-hidden"), "true");
@@ -564,7 +635,7 @@ test("Unit DiCo cards show a manager chip and short front title, with project an
   assert.deepEqual(data, original);
 });
 
-test("Unit DiCo cards move source numbers and full names to the back without treating the Odoo ID as a number", () => {
+test("Unit DiCo outline cards retain source numbers and complete name without treating the Odoo ID as a source number", () => {
   for (const [name, values] of [
     ["[MiXeD] [54252043] Full title [2026] (ID 99999999)", ["MiXeD", "54252043", "Full title [2026] (ID 99999999)"]],
     ["[54252043] Full title", ["Full title", "54252043", ""]],
@@ -581,8 +652,9 @@ test("Unit DiCo cards move source numbers and full names to the back without tre
     assert.deepEqual(title.children.map(row => row.textContent), [values[0]], name);
     const back = find(label, ".project-card-back");
     assert.deepEqual(["project-card-short-name", "project-card-back-number", "project-card-back-full-name"]
-      .map(className => find(back, `.${className}`).textContent), values, name);
-    assert.equal(find(back, ".project-card-manager-name").textContent, "Responsable indisponible");
+      .map(className => find(back, `.${className}`).textContent), [values[0], values[1], values[2] || values[0]], name);
+    assert.equal(back.querySelectorAll(".project-card-manager-name").length, 0);
+    assert.deepEqual(back.querySelectorAll(".project-card-date-value").map(value => value.textContent), ["Indisponible", "Indisponible"]);
     assert.equal(title.title, name); assert.ok(label.title.startsWith(`${name}\n`)); assert.equal(choice.getAttribute("aria-label"), name);
     assert.equal(container.querySelectorAll("img").length, 0); assert.equal(container.querySelectorAll("script").length, 0);
     assert.deepEqual(data, original);

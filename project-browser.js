@@ -2,10 +2,11 @@
   const commonJs = typeof module === "object" && module.exports;
   const i18n = commonJs ? require("./i18n") : root.DashboardI18n;
   if (commonJs) require("./i18n-project-messages");
-  const api = factory(commonJs ? require("./project-card") : root.ProjectCard, i18n);
+  const api = factory(commonJs ? require("./project-card") : root.ProjectCard, i18n,
+    commonJs ? require("./chart-palette") : root.ChartPalette);
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.ProjectBrowser = api;
-})(typeof globalThis !== "undefined" ? globalThis : this, function (ProjectCard, I18n) {
+})(typeof globalThis !== "undefined" ? globalThis : this, function (ProjectCard, I18n, ChartPalette) {
   "use strict";
 
   const t = (key, params) => I18n.t(key, params);
@@ -17,6 +18,7 @@
   const employeeColors = new Map(), assignedEmployeeColors = new Set();
   const employeePalette = ["#008bab", "#1c9c8c", "#6368ae", "#cd8747", "#b65c7b", "#488c62", "#5b88b4", "#8865a5", "#bc7057", "#86933f", "#448d8d", "#637d94"];
   let extraEmployeeColor = 0;
+  const monthlyEmployeeColorSlots = new Map();
   const monthlyLifecycles = new WeakMap(), budgetLifecycles = new WeakMap(), revealedMonthlyProjects = new Map();
   const timelineLifecycles = new WeakMap();
 
@@ -37,6 +39,12 @@
     employeeColors.set(key, color);
     assignedEmployeeColors.add(color);
     return color;
+  }
+
+  function monthlyEmployeeColor(id) {
+    const key = String(id);
+    if (!monthlyEmployeeColorSlots.has(key)) monthlyEmployeeColorSlots.set(key, monthlyEmployeeColorSlots.size);
+    return ChartPalette.color(monthlyEmployeeColorSlots.get(key));
   }
 
   function numeric(value) {
@@ -183,17 +191,23 @@
     }
     section.append(metrics);
     const comparisons = node("div", "project-planning-info-comparisons");
-    for (const [key, reference, status, difference] of [
-      ["planning", t("project.browser.auPlanningDate.1bfzva0"), info.plannedToDateStatus, info.planningToDateDifference],
-      ["convention", t("project.browser.aLaConventionInterpolationLineaire.1kz6grd"), info.conventionToDateStatus, info.conventionToDateDifference]
+    const personal = info.personalToDate;
+    for (const [key, title, available, difference] of [
+      ["personal", t("project.browser.usagePersonalPlanning"), personal?.status === "available"
+        && personal.actualStatus === "available" && personal.plannedStatus === "available", personal?.difference],
+      ["planning", t("project.browser.usageTotalPlanning"), info.plannedToDateStatus === "available" && info.actualStatus === "available", info.planningToDateDifference],
+      ["convention", t("project.browser.usageTotalConvention"), info.conventionToDateStatus === "available" && info.actualStatus === "available", info.conventionToDateDifference]
     ]) {
-      const delta = status === "available" && info.actualStatus !== "unavailable" ? numeric(difference) : null;
+      const delta = available ? numeric(difference) : null;
       const rounded = delta === null ? null : Math.abs(delta) <= 0.005 ? 0 : delta;
-      const text = rounded === null ? t("project.browser.comparaisonACeJourIndisponible.b2dtvz", { p0: reference }) : rounded === 0
-        ? t("project.browser.aCeJourLesHeuresPointeesCorrespondent.1c2iw00", { p0: reference })
-        : t("project.browser.aCeJourPointeesParRapport.gpdblq", { p0: formatHours(Math.abs(rounded)), p1: rounded > 0 ? t("project.browser.enTrop.15cor83") : t("project.browser.enMoins.1tga3fu"), p2: reference });
-      const sentence = node("p", `project-planning-info-comparison${rounded > 0 ? " is-over" : ""}`, text);
-      sentence.setAttribute("data-planning-to-date-comparison", key); comparisons.append(sentence);
+      const direction = rounded === null ? "unknown" : rounded > 0 ? "over" : rounded < 0 ? "under" : "balanced";
+      const text = t(rounded === null ? "project.browser.usageUnavailable" : rounded === 0 ? "project.browser.usageBalanced"
+        : rounded > 0 ? "project.browser.usageOver" : "project.browser.usageUnder", { hours: formatHours(Math.abs(rounded || 0)) });
+      const sentence = node("p", `project-planning-info-comparison${rounded > 0 ? " is-over" : ""}`);
+      sentence.setAttribute("data-planning-to-date-comparison", key);
+      sentence.setAttribute("data-planning-to-date-direction", direction);
+      sentence.append(node("strong", "project-planning-usage-caption", title), node("span", "project-planning-usage-text", text));
+      comparisons.append(sentence);
     }
     section.append(comparisons);
     notes.append(node("p", "project-planning-info-note", t("project.browser.ecartProjeteHeuresDejaPresteesHeuresRestantes.194yuth")));
@@ -276,10 +290,117 @@
       .map(part => Array.from(part)[0]).join("").toLocaleUpperCase(I18n.locale()) || "?";
   }
 
-  function monthlyGeometry(data, requestedWidth = 800, employeeId = null) {
-    const width = Math.max(280, Math.min(1200, numeric(requestedWidth) || 800));
-    const height = width < 520 ? 300 : 340;
-    const plot = { left: 55, top: 28, width: width - 75, height: height - 93 };
+  function monthlyMilestones(data, source) {
+    const start = projectDate(data?.startDate), through = projectDate(data?.throughDate);
+    if (source?.available !== true || !Array.isArray(source.milestones) || !start || !through || start.value > through.value) return [];
+    const keys = new Set((Array.isArray(data.months) ? data.months : []).map(month => month?.key));
+    return source.milestones.flatMap(milestone => {
+      const date = projectDate(milestone?.date);
+      if (!date || date.value.startsWith("0000") || date.value < start.value || date.value > through.value || !keys.has(date.value.slice(0, 7))) return [];
+      return [{ id: milestone.id, name: String(milestone.name || t("project.browser.milestoneName", { id: milestone.id || "" })),
+        date: date.value, label: date.label, monthKey: date.value.slice(0, 7) }];
+    }).sort((a, b) => a.date.localeCompare(b.date) || String(a.id).localeCompare(String(b.id), undefined, { numeric: true }));
+  }
+
+  function milestoneAxisGeometry(milestones, width, plot, baseHeight, measureLabel) {
+    if (!milestones.length) return { height: baseHeight, axisCaptionY: baseHeight - 8, milestoneAxis: null };
+    const angle = -30, fontSize = 9, lineHeight = 10.5, spacing = 6;
+    const radians = Math.abs(angle) * Math.PI / 180, cosine = Math.cos(radians), sine = Math.sin(radians);
+    const estimate = text => Array.from(text).reduce((sum, character) => sum +
+      (/[^\u0000-\u024f]/.test(character) ? 11 : /[MW@#%]/.test(character) ? 10 : /[ilI.,' :;!|]/.test(character) ? 3.5 : 7), 0) * fontSize / 11;
+    const measure = text => Math.max(0, numeric(measureLabel?.(text)) ?? estimate(text));
+    const labelLimit = width < 520 ? 90 : 105;
+    const shorten = text => {
+      if (measure(text) <= labelLimit) return text;
+      const characters = Array.from(text);
+      let low = 0, high = characters.length;
+      while (low < high) {
+        const middle = Math.ceil((low + high) / 2);
+        if (measure(`${characters.slice(0, middle).join("")}…`) <= labelLimit) low = middle;
+        else high = middle - 1;
+      }
+      return `${characters.slice(0, low).join("")}…`;
+    };
+    const lanes = [];
+    for (const milestone of milestones) {
+      const fullText = milestone.name.replace(/\s+/g, " ").trim();
+      const words = fullText.split(" ");
+      let parts = [fullText];
+      if (words.length > 1) {
+        let split = 1, bestWidth = Infinity;
+        for (let index = 1; index < words.length; index++) {
+          const candidateWidth = Math.max(measure(words.slice(0, index).join(" ")), measure(words.slice(index).join(" ")));
+          if (candidateWidth < bestWidth) { bestWidth = candidateWidth; split = index; }
+        }
+        parts = [words.slice(0, split).join(" "), words.slice(split).join(" ")];
+      } else if (measure(fullText) > labelLimit) {
+        const characters = Array.from(fullText);
+        const split = Math.ceil(characters.length / 2);
+        parts = [characters.slice(0, split).join(""), characters.slice(split).join("")];
+      }
+      const labelLines = parts.map(shorten), labelText = labelLines.join(" ");
+      const lineWidths = labelLines.map(measure), labelWidth = Math.max(...lineWidths);
+      const labelLocalBottom = (labelLines.length - 1) * lineHeight + fontSize / 4;
+      const bounds = { left: Infinity, right: -Infinity, top: Infinity, bottom: -Infinity };
+      lineWidths.forEach((lineWidth, index) => {
+        for (const x of [-lineWidth, 0]) for (const y of [index * lineHeight - fontSize, index * lineHeight + fontSize / 4]) {
+          const rotatedX = x * cosine + y * sine, rotatedY = -x * sine + y * cosine;
+          bounds.left = Math.min(bounds.left, rotatedX); bounds.right = Math.max(bounds.right, rotatedX);
+          bounds.top = Math.min(bounds.top, rotatedY); bounds.bottom = Math.max(bounds.bottom, rotatedY);
+        }
+      });
+      const placement = lane => {
+        let left = 10, best = null;
+        const consider = right => {
+          const minimumX = left - bounds.left, maximumX = right - bounds.right;
+          if (minimumX > maximumX) return;
+          const x = Math.max(minimumX, Math.min(milestone.x, maximumX)), distance = Math.abs(x - milestone.x);
+          if (!best || distance < best.distance) best = { x, distance };
+        };
+        for (const occupied of lane.items) {
+          consider(occupied.labelX + occupied.labelLocalBounds.left - spacing);
+          left = occupied.labelX + occupied.labelLocalBounds.right + spacing;
+        }
+        consider(width - 10);
+        return best;
+      };
+      let lane = null, position = null, laneIndex = 0;
+      for (; laneIndex < lanes.length; laneIndex++) {
+        position = placement(lanes[laneIndex]);
+        if (position) { lane = lanes[laneIndex]; break; }
+      }
+      if (!lane) {
+        lane = { items: [] }; lanes.push(lane); position = placement(lane);
+      }
+      Object.assign(milestone, { labelText, labelLines, labelWidth, labelLocalBottom, labelX: position.x,
+        labelLane: laneIndex, labelLocalBounds: bounds });
+      lane.items.push(milestone);
+      lane.items.sort((a, b) => a.labelX + a.labelLocalBounds.left - b.labelX - b.labelLocalBounds.left);
+    }
+    const y = plot.top + plot.height + 38;
+    let labelTop = y + 9, lastLabelBottom = labelTop;
+    lanes.forEach(lane => {
+      const top = Math.min(...lane.items.map(item => item.labelLocalBounds.top));
+      const bottom = Math.max(...lane.items.map(item => item.labelLocalBounds.bottom));
+      for (const milestone of lane.items) {
+        milestone.labelY = labelTop - top;
+        milestone.labelBounds = { left: milestone.labelX + milestone.labelLocalBounds.left,
+          right: milestone.labelX + milestone.labelLocalBounds.right, top: milestone.labelY + milestone.labelLocalBounds.top,
+          bottom: milestone.labelY + milestone.labelLocalBounds.bottom };
+      }
+      lastLabelBottom = labelTop + bottom - top;
+      labelTop = lastLabelBottom + spacing;
+    });
+    const axisCaptionY = lastLabelBottom + 14;
+    return { height: Math.max(baseHeight, axisCaptionY + 12), axisCaptionY,
+      milestoneAxis: { y, angle, fontSize, lineHeight, spacing } };
+  }
+
+  function monthlyGeometry(data, requestedWidth = 800, employeeId = null, milestoneSource = null, measureLabel = null, maxWidth = 1200) {
+    const widthLimit = Math.max(280, Math.min(4096, numeric(maxWidth) ?? 1200));
+    const width = Math.max(280, Math.min(widthLimit, numeric(requestedWidth) || 800));
+    const baseHeight = width < 520 ? 300 : 340;
+    const plot = { left: 55, top: 28, width: width - 75, height: baseHeight - 93 };
     const months = Array.isArray(data?.months) ? data.months : [];
     const values = input => months.map((_, index) => numeric(input?.[index]) ?? 0);
     const series = [], positive = months.map(() => 0), negative = months.map(() => 0);
@@ -348,7 +469,21 @@
         area.path = top.length ? `M${top.join(" L")} L${bottom.join(" L")} Z` : "";
       }
     }
-    return { width, height, plot, min, max, ticks, x, monthIndices, series, positive, negative,
+    const milestones = monthlyMilestones(data, milestoneSource).map(milestone => {
+      const index = months.findIndex(month => month.key === milestone.monthKey);
+      const left = index === 0 ? plot.left : (x[index - 1] + x[index]) / 2;
+      const right = index === months.length - 1 ? plot.left + plot.width : (x[index] + x[index + 1]) / 2;
+      const monthStart = Date.parse(`${milestone.monthKey}-01T00:00:00Z`);
+      const nextMonth = new Date(monthStart); nextMonth.setUTCMonth(nextMonth.getUTCMonth() + 1);
+      const first = Math.max(monthStart, Date.parse(`${data.startDate}T00:00:00Z`));
+      const afterLast = Math.min(nextMonth.getTime(), Date.parse(`${data.throughDate}T00:00:00Z`) + 864e5);
+      // Monthly points represent whole-month buckets. Place each dated marker
+      // inside its bucket, including a partial first/last or single month.
+      const fraction = (Date.parse(`${milestone.date}T00:00:00Z`) + 432e5 - first) / (afterLast - first);
+      return { ...milestone, x: left + fraction * (right - left) };
+    });
+    const { height, axisCaptionY, milestoneAxis } = milestoneAxisGeometry(milestones, width, plot, baseHeight, measureLabel);
+    return { width, height, baseHeight, axisCaptionY, milestoneAxis, plot, min, max, ticks, x, monthIndices, series, positive, negative, milestones,
       hasNegative: selectedEmployee ? series.some(item => item.values.some(value => value < 0)) : negative.some(value => value < 0),
       selectedEmployeeId: selectedEmployee ? String(selectedEmployee.id) : null };
   }
@@ -368,7 +503,8 @@
     heading.id = `${id}-monthly`;
     section.setAttribute("aria-labelledby", heading.id);
     section.append(heading);
-    let toggle = null, observer = null, resizeObserver = null, fallbackListener = null, outsidePointer = null, outsideFocus = null, stopped = false;
+    let toggle = null, observer = null, resizeObserver = null, resizeFrame = null, pendingResizeWidth = null;
+    let fallbackListener = null, outsidePointer = null, outsideFocus = null, stopped = false, unsubscribePalette = null;
     const controls = node("div", "project-monthly-controls");
     if (data.hasOrmitters === true) {
       const label = node("label", "project-hours-ormitters-toggle");
@@ -400,8 +536,11 @@
     };
     const cleanup = () => {
       stopped = true; observer?.disconnect(); resizeObserver?.disconnect();
+      unsubscribePalette?.(); unsubscribePalette = null;
+      const host = doc.defaultView || (typeof window === "object" ? window : null);
+      if (resizeFrame !== null) host?.cancelAnimationFrame?.(resizeFrame);
+      resizeFrame = null; pendingResizeWidth = null;
       if (fallbackListener) {
-        const host = doc.defaultView || (typeof window === "object" ? window : null);
         host?.removeEventListener?.("scroll", fallbackListener); host?.removeEventListener?.("resize", fallbackListener);
       }
       if (outsidePointer) doc.removeEventListener?.("pointerdown", outsidePointer);
@@ -448,6 +587,7 @@
       t("project.browser.duAuHorsPeriodeSelectionnee.1wfzy2l", { p0: start.label, p1: through.label, p2: data.includeOrmitters ? t("project.browser.ormittersInclus.1vjemeq") : t("project.browser.horsOrmitters.v90iw6") }) : t("project.browser.periodeDuProjetHorsPeriodeSelectionnee.1p9kbnx"));
     section.append(period);
     const months = summary.months;
+    const milestones = monthlyMilestones(summary, data.milestones);
     const currentKey = isPlanned ? null : summary.throughDate?.slice(0, 7);
     const monthLabel = month => `${projectDate(`${month.key}-01`) ? I18n.formatDate(`${month.key}-01T00:00:00Z`, { month: "long", year: "numeric" }) : month.label || month.key}${month.key === currentKey ? t("project.browser.auMoisEnCours.qadwma", { p0: through?.label || summary.throughDate }) : ""}`;
     section.append(node("p", "project-monthly-note", isPlanned ?
@@ -455,6 +595,13 @@
       t("project.browser.duDebutDuProjetAAujourdHui.f4nku2", { p0: selectedEmployee.label, p1: cumulative ? t("project.browser.heuresCumulees.1bn48vi") : t("project.browser.heuresDeChaqueMois.1aczx4h") }) : cumulative ?
       t("project.browser.heuresCumuleesMoisApresMoisDepuisLe.1f94wm5") :
       t("project.browser.heuresDeChaqueMoisDuDebutDu.1sd24c4")));
+    if (isPlanned) {
+      const conventionState = Array.isArray(summary.convention) ? "available" : summary.budgetStatus === "empty" ? "empty" : "unavailable";
+      const note = node("p", "project-monthly-note", t(conventionState === "available" ?
+        cumulative ? "project.browser.plannedConventionCumulative" : "project.browser.plannedConventionMonthly" :
+        conventionState === "empty" ? "project.browser.plannedConventionEmpty" : "project.browser.plannedConventionUnavailable"));
+      note.setAttribute("data-planned-convention", conventionState); section.append(note);
+    }
     if (selectedEmployee && !isPlanned) {
       const planning = node("p", "project-monthly-note", plannedAvailable ?
         t("project.browser.planningTotalDeSurTouteLaDuree.1ch5rh8", { p0: selectedEmployee.label, p1: formatHours(selectedEmployee.plannedHours), p2: numeric(selectedEmployee.plannedHours) === 0 ? t("project.browser.aucuneHeurePlanifiee.1pavted") : "." }) :
@@ -482,6 +629,7 @@
     const legend = node("ul", "project-monthly-legend"); legend.setAttribute("aria-label", t("project.browser.choisirUnEmployeOuAfficherTousLes.1gq4dq5"));
     const legendItem = (key, label, kind, color, employee) => {
       const item = node("li", "project-monthly-legend-item"); item.setAttribute("data-monthly-legend", key);
+      if (kind === "employee" || kind === "employee-planned") item.setAttribute("data-monthly-palette-id", String(employee?.id ?? selectedEmployee.id));
       let content = item;
       if (employee) {
         const isSelected = selectedEmployee && String(selectedEmployee.id) === String(employee.id);
@@ -497,26 +645,39 @@
       if (kind === "employee" && selectedEmployee && !isPlanned) sample.classList.add("is-line");
       sample.setAttribute("aria-hidden", "true");
       content.append(sample);
-      if (employee) content.append(makeAvatar(employee));
+      if (employee) content.append(makeAvatar(employee, color));
       content.append(node("span", "project-monthly-legend-name", label), node("span", "project-browser-sr-only", kind === "convention" || kind === "employee-planned" ? t("project.browser.courbePointillee.1lgkiks") : kind === "total" ? t("project.browser.courbePleineEpaisse.jxmab0") : kind === "planning" || selectedEmployee && !isPlanned ? t("project.browser.courbePleine.shngv4") : t("project.browser.aireEmpilee.2stcmz")));
       if (employee?.isSubcontractor) content.append(node("span", "project-hours-employee-tag", t("project.browser.ormitter.1aqkj5")));
       legend.append(item);
       return item;
     };
-    employees.forEach(employee => legendItem(String(employee.id), employee.label, "employee", employeeColor(employee.id), employee));
+    employees.forEach(employee => legendItem(String(employee.id), employee.label, "employee", monthlyEmployeeColor(employee.id), employee));
     if (selectedEmployee && !isPlanned) {
-      if (plannedAvailable) legendItem(`planned:${selectedEmployee.id}`, plannedLabel, "employee-planned", employeeColor(selectedEmployee.id)).title = planningPeriod;
+      if (plannedAvailable) legendItem(`planned:${selectedEmployee.id}`, plannedLabel, "employee-planned", monthlyEmployeeColor(selectedEmployee.id)).title = planningPeriod;
     } else {
       legendItem("total", totalLabel, "total", "#183b53");
       if (Array.isArray(summary.convention)) legendItem("convention", conventionLabel, "convention", "#8496a2");
     }
     if (datedPlanningAvailable) legendItem("planning", datedPlanningLabel, "planning", "#cf3347");
-    section.append(legend);
+    const plot = node("div", "project-monthly-plot");
     const chart = node("div", "project-monthly-chart-wrap");
     const svg = doc.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("class", "project-monthly-chart"); svg.setAttribute("data-monthly-chart", "");
     svg.setAttribute("role", "group"); svg.setAttribute("aria-label", t("project.browser.deEtEnHeuresEtIndependammentDe.1uh3hr", { p0: cumulative ? t("project.browser.evolutionCumulee.11wbt3u") : t("project.browser.evolutionMensuelle.2rp778"), p1: isPlanned ? t("project.browser.duPlanning.157l591") : "", p2: selectedEmployee ? selectedEmployee.label : selected.name, p3: selectedEmployee && !isPlanned ? t("project.browser.realiseEtPrevuEnLignes.1o8okhe") : t("project.browser.enAiresEmpilees.gk119g"), p4: isPlanned ? t("project.browser.surTouteLaDureeDuProjet.1d8ne0n") : t("project.browser.depuisLeDebutDuProjet.f544wl") }));
-    chart.append(svg); section.append(chart);
+    chart.append(svg); plot.append(legend, chart); section.append(plot);
+    if (milestones.length) {
+      const details = node("details", "project-monthly-milestones"); details.setAttribute("data-monthly-milestones", "");
+      details.append(node("summary", "", t("project.browser.milestonesLegend", { count: milestones.length })));
+      const list = node("ul", "");
+      for (const milestone of milestones) {
+        const item = node("li", "");
+        item.append(node("span", "project-monthly-milestone-date", milestone.label), node("span", "", milestone.name)); list.append(item);
+      }
+      details.append(list); section.append(details);
+    } else if (data.milestones?.available === false) {
+      const note = node("p", "project-monthly-note", t("project.browser.milestonesUnavailable"));
+      note.setAttribute("data-monthly-milestones-unavailable", ""); section.append(note);
+    }
     const tooltip = node("div", "project-monthly-tooltip"); tooltip.id = `${id}-monthly-tooltip`;
     tooltip.setAttribute("role", "tooltip"); tooltip.setAttribute("data-monthly-tooltip", ""); tooltip.hidden = true; section.append(tooltip);
     tooltip.setAttribute("data-monthly-pinned", "false"); tooltip.setAttribute("tabindex", "-1");
@@ -536,20 +697,29 @@
       const list = node("ul", "project-monthly-tooltip-values");
       const valueItem = (key, label, value, kind, color) => {
         const row = node("li", `project-monthly-tooltip-value is-${kind}`); row.setAttribute("data-monthly-value", key);
+        if (kind === "employee" || kind === "employee-actual" || kind === "employee-planned") row.setAttribute("data-monthly-palette-id", kind === "employee-planned" ? String(selectedEmployee.id) : key);
         const dot = node("span", "project-monthly-value-dot"); dot.style.backgroundColor = color; dot.setAttribute("aria-hidden", "true");
         row.append(dot, node("span", "", label), node("strong", "", formatHours(value))); list.append(row);
       };
       if (selectedEmployee && !isPlanned) {
-        if (numeric(selectedEmployee.values?.[index]) !== 0) valueItem(String(selectedEmployee.id), t("project.browser.realise.9jp52q", { p0: selectedEmployee.label, p1: cumulative ? t("project.browser.cumule.k6ftxa") : "" }), selectedEmployee.values?.[index], "employee-actual", employeeColor(selectedEmployee.id));
-        valueItem(`planned:${selectedEmployee.id}`, plannedLabel, plannedValues?.[index], "employee-planned", employeeColor(selectedEmployee.id));
+        if (numeric(selectedEmployee.values?.[index]) !== 0) valueItem(String(selectedEmployee.id), t("project.browser.realise.9jp52q", { p0: selectedEmployee.label, p1: cumulative ? t("project.browser.cumule.k6ftxa") : "" }), selectedEmployee.values?.[index], "employee-actual", monthlyEmployeeColor(selectedEmployee.id));
+        valueItem(`planned:${selectedEmployee.id}`, plannedLabel, plannedValues?.[index], "employee-planned", monthlyEmployeeColor(selectedEmployee.id));
       } else {
         valueItem("total", totalLabel, shownTotal?.[index], "total", "#183b53");
         if (Array.isArray(summary.convention)) valueItem("convention", cumulative ? t("project.browser.conventionCumulee.13mnilu") : t("project.browser.convention.1b9uycy"), summary.convention[index], "convention", "#8496a2");
         visibleEmployees.filter(employee => isPlanned || numeric(employee.values?.[index]) !== 0)
-          .forEach(employee => valueItem(String(employee.id), employee.label, employee.values?.[index], "employee", employeeColor(employee.id)));
+          .forEach(employee => valueItem(String(employee.id), employee.label, employee.values?.[index], "employee", monthlyEmployeeColor(employee.id)));
       }
       if (!isPlanned) valueItem("planning", datedPlanningLabel, datedPlanningAvailable ? scheduledPlanning[index] : null, "planning", "#cf3347");
-      tooltip.append(list); tooltip.hidden = false;
+      tooltip.append(list);
+      const monthMilestones = milestones.filter(milestone => milestone.monthKey === months[index].key);
+      if (monthMilestones.length) {
+        const milestoneList = node("ul", "project-monthly-tooltip-milestones");
+        milestoneList.setAttribute("aria-label", t("project.browser.milestones"));
+        for (const milestone of monthMilestones) milestoneList.append(node("li", "", `${milestone.label} · ${milestone.name}`));
+        tooltip.append(milestoneList);
+      }
+      tooltip.hidden = false;
       cursor.setAttribute("x1", geometry.x[index]); cursor.setAttribute("x2", geometry.x[index]); cursor.setAttribute("visibility", "visible");
       const bounds = section.getBoundingClientRect(), chartBounds = svg.getBoundingClientRect(), own = tooltip.getBoundingClientRect();
       const x = Number.isFinite(event?.clientX) ? event.clientX - bounds.left : chartBounds.left - bounds.left + geometry.x[index];
@@ -595,10 +765,18 @@
       if (text != null) element.textContent = text; return element;
     };
     let measuredWidth = 0;
+    const chartWidthLimit = () => {
+      const layout = section.closest?.("[data-project-hours-project]");
+      return layout?.getAttribute("data-project-hours-project") === String(selected.id) &&
+        layout.closest?.('[data-project-panel="hours"]') && layout.closest?.('[data-project-hours-superwide="true"]') ? 4096 : 1200;
+    };
     const draw = width => {
       const focusKey = section.contains(doc.activeElement) ? doc.activeElement?.getAttribute?.("data-monthly-month") : null;
       if (section.getAttribute("data-monthly-reveal") === "running") section.setAttribute("data-monthly-reveal", "complete");
-      geometry = monthlyGeometry(summary, width, selectedEmployee?.id); measuredWidth = geometry.width; targets = [];
+      const context = doc.createElement("canvas").getContext?.("2d");
+      if (context) context.font = `9px ${view?.getComputedStyle?.(svg)?.fontFamily || "sans-serif"}`;
+      geometry = monthlyGeometry(summary, width, selectedEmployee?.id, data.milestones,
+        context ? text => context.measureText(text).width : null, chartWidthLimit()); measuredWidth = geometry.width; targets = [];
       svg.setAttribute("viewBox", `0 0 ${geometry.width} ${geometry.height}`); svg.replaceChildren();
       const { plot } = geometry;
       svg.append(svgNode("text", { x: plot.left, y: 15, class: "project-monthly-axis-title" }, cumulative ? t("project.browser.heuresCumulees.15h9vda") : t("project.browser.heuresParMois.1ha1m2e")));
@@ -616,14 +794,15 @@
         svg.append(svgNode("line", { x1: geometry.x[index], x2: geometry.x[index], y1: lastY, y2: lastY + 5, class: "project-monthly-axis" }));
         svg.append(svgNode("text", { x: geometry.x[index], y: lastY + 23, "text-anchor": index === 0 ? "start" : index === months.length - 1 ? "end" : "middle", class: "project-monthly-axis-label" }, `${text}${month.key === currentKey ? "*" : ""}`));
       }
-      svg.append(svgNode("text", { x: plot.left + plot.width, y: geometry.height - 8, "text-anchor": "end", class: "project-monthly-axis-title" }, isPlanned ? t("project.browser.mois.s4y96t") : t("project.browser.moisEnCours.1xh7y3r")));
+      svg.append(svgNode("text", { x: plot.left + plot.width, y: geometry.axisCaptionY, "text-anchor": "end", class: "project-monthly-axis-title", "data-monthly-axis-caption": "" }, isPlanned ? t("project.browser.mois.s4y96t") : t("project.browser.moisEnCours.1xh7y3r")));
       const definitions = svgNode("defs"), clip = svgNode("clipPath", { id: `${id}-monthly-clip`, clipPathUnits: "userSpaceOnUse" });
       const reveal = svgNode("rect", { x: plot.left - 4, y: plot.top - 5, width: plot.width + 8, height: plot.height + 10, class: "project-monthly-reveal-window" });
       reveal.addEventListener("animationend", () => section.setAttribute("data-monthly-reveal", "complete")); clip.append(reveal); definitions.append(clip); svg.append(definitions);
       const lines = svgNode("g", { "clip-path": `url(#${id}-monthly-clip)`, "data-monthly-lines": "" });
       for (const item of geometry.series) {
-        const color = item.kind === "planning" ? "#cf3347" : item.id ? employeeColor(item.id) : item.kind === "total" ? "#183b53" : "#8496a2";
+        const color = item.kind === "planning" ? "#cf3347" : item.id ? monthlyEmployeeColor(item.id) : item.kind === "total" ? "#183b53" : "#8496a2";
         const group = svgNode("g", { "data-monthly-series": item.kind, ...(item.id ? { "data-monthly-employee-id": item.id } : {}) });
+        if (item.id) group.setAttribute("data-monthly-palette-id", String(item.id));
         if (item.kind === "employee") {
           for (const area of item.areas) group.append(svgNode("path", { d: area.path, fill: color, stroke: color,
             "fill-opacity": 0.78, "stroke-width": 0.6, "stroke-linejoin": "round", "data-monthly-area": area.sign }));
@@ -636,6 +815,29 @@
         lines.append(group);
       }
       svg.append(lines);
+      for (const milestone of geometry.milestones) svg.append(svgNode("line", {
+        x1: milestone.x, x2: milestone.x, y1: plot.top, y2: lastY, class: "project-monthly-milestone",
+        "data-monthly-milestone": String(milestone.id ?? ""), "data-milestone-date": milestone.date,
+        stroke: "#000", "stroke-dasharray": "none", "aria-hidden": "true", "pointer-events": "none"
+      }));
+      if (geometry.milestoneAxis) {
+        const { y, angle, lineHeight } = geometry.milestoneAxis;
+        const axis = svgNode("g", { "data-monthly-milestone-axis": "", role: "group", "aria-label": t("project.browser.milestones"), "pointer-events": "none" });
+        axis.append(svgNode("line", { x1: plot.left, x2: plot.left + plot.width, y1: y, y2: y, class: "project-monthly-milestone-axis" }));
+        for (const milestone of geometry.milestones) {
+          axis.append(svgNode("line", { x1: milestone.x, x2: milestone.x, y1: y - 4, y2: y + 4, class: "project-monthly-milestone-axis" }),
+            svgNode("line", { x1: milestone.x, x2: milestone.labelX, y1: y + 4, y2: milestone.labelY - 8, class: "project-monthly-milestone-leader" }));
+          const label = svgNode("text", { x: milestone.labelX, y: milestone.labelY, "text-anchor": "end",
+            transform: `rotate(${angle} ${milestone.labelX} ${milestone.labelY})`, class: "project-monthly-milestone-label", fill: "#000",
+            "data-monthly-milestone-label": String(milestone.id ?? ""), "data-milestone-date": milestone.date,
+            "aria-label": `${milestone.label} · ${milestone.name}`, "pointer-events": "auto" });
+          milestone.labelLines.forEach((text, index) => label.append(svgNode("tspan", {
+            x: milestone.labelX, y: milestone.labelY + index * lineHeight
+          }, text)));
+          label.append(svgNode("title", {}, milestone.name)); axis.append(label);
+        }
+        svg.append(axis);
+      }
       cursor = svgNode("line", { y1: plot.top, y2: lastY, class: "project-monthly-cursor", visibility: "hidden", "aria-hidden": "true" }); svg.append(cursor);
       months.forEach((month, index) => {
         const left = index === 0 ? plot.left : (geometry.x[index - 1] + geometry.x[index]) / 2;
@@ -662,6 +864,11 @@
         targets.push(target); svg.append(target);
       });
       if (focusKey) targets.find(target => target.getAttribute("data-monthly-month") === focusKey)?.focus();
+    };
+    const flushResize = () => {
+      resizeFrame = null;
+      const width = pendingResizeWidth; pendingResizeWidth = null;
+      if (!stopped && width > 0 && Math.abs(Math.max(280, Math.min(chartWidthLimit(), width)) - measuredWidth) > 1) draw(width);
     };
     const mount = () => {
       draw(chart.getBoundingClientRect().width || 800);
@@ -693,10 +900,32 @@
         resizeObserver = new view.ResizeObserver(entries => {
           if (stopped) return;
           const width = entries[0]?.contentRect?.width || chart.getBoundingClientRect().width;
-          if (width > 0 && Math.abs(Math.max(280, Math.min(1200, width)) - measuredWidth) > 1) draw(width);
+          if (!(width > 0)) return;
+          pendingResizeWidth = width;
+          if (resizeFrame !== null) return;
+          if (Math.abs(Math.max(280, Math.min(chartWidthLimit(), width)) - measuredWidth) <= 1) { pendingResizeWidth = null; return; }
+          if (typeof view.requestAnimationFrame === "function") resizeFrame = view.requestAnimationFrame(flushResize);
+          else flushResize();
         }); resizeObserver.observe(chart);
       }
     };
+    unsubscribePalette = ChartPalette.subscribe(() => {
+      if (stopped) return;
+      for (const target of section.querySelectorAll("[data-monthly-palette-id]")) {
+        const color = monthlyEmployeeColor(target.getAttribute("data-monthly-palette-id"));
+        if (target.getAttribute("data-monthly-legend") !== null) {
+          const sample = target.querySelectorAll(".project-monthly-legend-line")[0];
+          sample.style.borderTopColor = color;
+          if (sample.style.backgroundColor) sample.style.backgroundColor = color;
+          const avatar = target.querySelectorAll(".project-hours-employee-avatar")[0];
+          if (avatar) avatar.style.borderColor = color;
+        } else if (target.getAttribute("data-monthly-value") !== null) target.querySelectorAll(".project-monthly-value-dot")[0].style.backgroundColor = color;
+        else for (const shape of [...target.querySelectorAll("path"), ...target.querySelectorAll("circle")]) {
+          if (shape.getAttribute("fill") && shape.getAttribute("fill") !== "none") shape.setAttribute("fill", color);
+          if (shape.getAttribute("stroke")) shape.setAttribute("stroke", color);
+        }
+      }
+    });
     return { section, toggle, modeInputs, employeeButtons, employeeReset, cleanup, mount,
       focus(key) { (targets.find(target => target.getAttribute("data-monthly-month") === key) || targets.at(-1))?.focus(); }, tableToggle };
   }
@@ -724,6 +953,7 @@
       .sort((a, b) => String(a.name).localeCompare(String(b.name), I18n.locale(), { numeric: true }) || Number(a.id) - Number(b.id));
     const selected = options.selectedId == null ? null : projects.find(project => String(project.id) === String(options.selectedId));
     const priorBudget = budgetLifecycles.get(container);
+    const focusedBeforeBudgetCleanup = doc.activeElement;
     const closedBudgetTrigger = priorBudget?.renderer?.cleanup?.(priorBudget.host, false) || null;
     budgetLifecycles.delete(container);
     const content = node("div", "project-browser");
@@ -735,9 +965,9 @@
       const hadHeadingFocus = Array.from(previous?.querySelectorAll(".project-browser-title") || []).includes(doc.activeElement);
       const hadBackFocus = Array.from(previous?.querySelectorAll("[data-project-back]") || []).includes(doc.activeElement);
       const focusedPanel = previous?.contains(doc.activeElement) ? doc.activeElement?.getAttribute?.("data-project-view") : null;
-      const focusedBudgetControl = (previous?.contains(doc.activeElement) ?
-        ["data-budget-convention-choice", "data-budget-details", "data-budget-retry", "data-budget-exclude-ormitter-costs", "data-budget-show-bw-personnel-costs", "data-budget-code-detail"].map(attribute =>
-          ({ attribute, value: doc.activeElement?.getAttribute?.(attribute) })).find(control => control.value !== null) : null) ||
+      const focusedBudgetControl = (previous?.contains(focusedBeforeBudgetCleanup) ?
+        ["data-budget-convention-choice", "data-budget-details", "data-budget-retry", "data-budget-exclude-ormitter-costs", "data-budget-show-bw-personnel-costs", "data-budget-code-detail", "data-purchase-flow-control"].map(attribute =>
+          ({ attribute, value: focusedBeforeBudgetCleanup?.getAttribute?.(attribute) })).find(control => control.value !== null) : null) ||
         (closedBudgetTrigger && String(priorBudget.projectId) === String(selected.id) && options.panel === "budget"
           ? { attribute: "data-budget-code-detail", value: closedBudgetTrigger } : null);
       const hadRetryFocus = Array.from(previous?.querySelectorAll(".project-hours-retry") || []).includes(doc.activeElement);
@@ -770,6 +1000,7 @@
       heading.setAttribute("tabindex", "-1");
       header.append(back, heading);
       const budgetMode = options.panel === "budget";
+      detail.setAttribute("data-project-panel", budgetMode ? "budget" : "hours");
       if (budgetMode) header.append(node("span", "project-hours-period", t("project.browser.dureeTotaleDuProjet.1egner8")));
       detail.append(header);
       const switcher = node("div", "project-view-switch");
@@ -829,9 +1060,9 @@
         pinnedEmployee = null;
         employeeTooltip.hidden = true;
       };
-      const employeeAvatar = employee => {
+      const employeeAvatar = (employee, color = employeeColor(employee.id)) => {
         const avatar = node("span", "project-hours-employee-avatar");
-        avatar.style.borderColor = employeeColor(employee.id);
+        avatar.style.borderColor = color;
         const fallback = node("span", "project-hours-employee-initials", initials(employee.name));
         fallback.setAttribute("aria-hidden", "true");
         avatar.append(fallback);
@@ -909,6 +1140,8 @@
           toggle.append(includeToggle, node("span", "", t("project.browser.inclureLesHeuresDesOrmitters.4nxxt6")));
           comparison.append(toggle);
         }
+        const plot = node("div", "project-hours-plot"), chart = node("div", "project-hours-chart");
+        plot.append(chart); comparison.append(plot);
         if (!summary) {
           const skeleton = node("div", "project-hours-skeleton");
           skeleton.setAttribute("aria-hidden", "true");
@@ -919,7 +1152,7 @@
           }
           const status = node("p", "project-hours-unavailable", data.loading ? t("project.browser.chargementDesHeures.zt1p2v") : t("project.browser.heuresIndisponibles.1snb9vs"));
           status.setAttribute("role", "status");
-          comparison.append(skeleton, status);
+          chart.append(skeleton, status);
         } else {
           const plan = numeric(summary.planned), actual = numeric(summary.actual);
           const missingBudget = lifetime && !(plan > 0);
@@ -934,7 +1167,7 @@
               t("project.browser.budgetPersonnelBWNonRenseigneDemandezAu.3gj8ma"));
             message.setAttribute("data-convention-missing", "");
             message.setAttribute("data-convention-status", budgetStatus);
-            comparison.append(message);
+            chart.append(message);
           }
           const employees = key !== "personal" && Array.isArray(summary.employees) ? summary.employees
             .filter(employee => employee && employee.id != null && numeric(employee.actual) !== null && numeric(employee.actual) !== 0)
@@ -949,7 +1182,8 @@
           const ignoredIds = key === "project" && typeof data.ignoredEmployeeIds !== "string" &&
             typeof data.ignoredEmployeeIds?.[Symbol.iterator] === "function" ? new Set(Array.from(data.ignoredEmployeeIds, String)) : new Set();
           const ignoredEmployees = employees.filter(employee => ignoredIds.has(String(employee.id)));
-          const activeEmployees = employees.filter(employee => !ignoredIds.has(String(employee.id)));
+          const activeEmployees = employees.filter(employee => !ignoredIds.has(String(employee.id)))
+            .sort((a, b) => b.actual - a.actual);
           const hasIgnored = ignoredEmployees.length > 0;
           const ignoredActual = ignoredEmployees.reduce((sum, employee) => sum + Math.round(employee.actual * 100), 0) / 100;
           const countedActual = hasIgnored ? reconciled ? activeEmployees.reduce((sum, employee) => sum + Math.round(employee.actual * 100), 0) / 100 : null : actual;
@@ -1058,7 +1292,7 @@
             }
           }
           pair.append(labels, tracks);
-          comparison.append(pair);
+          chart.append(pair);
           const note = missingBudget ? t("project.browser.repartitionDuRealiseSansEchelleConventionnelle.sr6hjd") : lifetime ?
             t("project.browser.conventionBudgetPersonnelBWRepartiLineairementSur.2yukvi") :
             geometry.scaleAvailable ? hasCalendarScope ? validCalendarScope ?
@@ -1067,13 +1301,13 @@
               t("project.browser.prevuRepartiLineairementSurLaPeriodeSelectionnee.8eubvq") :
             geometry.unplanned ? t("project.browser.horsPlanningAucuneHeurePrevueSurLa.1qfh1gb") : plan === null ? t("project.browser.planningIndisponibleEchelleDeComparaisonIndisponible.1ik4cue") :
               plan < 0 ? t("project.browser.planningNetNegatifApresCorrectionsEchelleDe.2qpgbq") : t("project.browser.aucuneHeurePrevueEchelleDeComparaisonIndisponible.xg8t6k");
-          comparison.append(node("p", "project-hours-scale-note", note));
-          if (lifetime && !validDates) comparison.append(node("p", "project-hours-date-warning", t("project.browser.datesDuProjetAbsentesOuInvalidesLe.1yvf6os")));
-          if (!lifetime && hasCalendarScope && !validCalendarScope) comparison.append(node("p", "project-hours-date-warning",
+          chart.append(node("p", "project-hours-scale-note", note));
+          if (lifetime && !validDates) chart.append(node("p", "project-hours-date-warning", t("project.browser.datesDuProjetAbsentesOuInvalidesLe.1yvf6os")));
+          if (!lifetime && hasCalendarScope && !validCalendarScope) chart.append(node("p", "project-hours-date-warning",
             t("project.browser.repereDuJourIndisponibleDatesDuProjet.1qrayht")));
           if (key !== "personal" && employees.length) {
-            if (negativeContributions) comparison.append(node("p", "project-hours-breakdown-note", t("project.browser.laBarreMontreLeRealiseNetLes.3bekl1")));
-            else if (!reconciled) comparison.append(node("p", "project-hours-breakdown-note", t("project.browser.leDetailParEmployeNeSeReconcilie.tdwzu2")));
+            if (negativeContributions) chart.append(node("p", "project-hours-breakdown-note", t("project.browser.laBarreMontreLeRealiseNetLes.3bekl1")));
+            else if (!reconciled) chart.append(node("p", "project-hours-breakdown-note", t("project.browser.leDetailParEmployeNeSeReconcilie.tdwzu2")));
             const legend = node("ul", "project-hours-employees");
             legend.setAttribute("aria-label", t("project.browser.heuresRealiseesParEmploye.wvx7lw"));
             employees.forEach(employee => {
@@ -1103,7 +1337,8 @@
             const detailedTotal = node("p", "project-hours-employees-total", hasIgnored && reconciled ?
               t("project.browser.heuresCompteesHeuresIgnoreesTotalRealiseLe.1d88zcp", { p0: formatHours(countedActual), p1: formatHours(ignoredActual), p2: formatHours(employeeTotal) }) : t("project.browser.totalRealiseDetaille.1v5vh3e", { p0: formatHours(employeeTotal) }));
             detailedTotal.setAttribute("data-employee-total", String(employeeTotal));
-            comparison.append(legend, detailedTotal);
+            const legendArea = node("div", "project-hours-legend");
+            legendArea.append(legend, detailedTotal); plot.append(legendArea); plot.classList.add("has-employee-legend");
           }
           const baseline = lifetime ? t("project.browser.deLaConvention.984x34") : t("project.browser.duPrevu.q9w2za");
           const appendComparisonBadge = (className, text) => {
@@ -1137,12 +1372,16 @@
       const overview = node("section", "project-browser-section project-browser-overview");
       const overviewTitle = node("h3", "project-browser-section-title", t("project.browser.projets01VueDEnsemble.qczmgn")); overviewTitle.id = `${id}-overview`;
       const planningInfo = planningInfoView(node, data, id, openPlanningDetails, planningInfoOpen);
-      overview.setAttribute("aria-labelledby", overviewTitle.id); overview.append(overviewTitle, planningInfo.section, comparisons); detail.append(overview);
-      detail.append(employeeTooltip);
+      overview.setAttribute("aria-labelledby", overviewTitle.id); overview.append(overviewTitle, planningInfo.section);
       const monthly = monthlyView(doc, node, selected, data, options, employeeAvatar, id, focusedMonthlyKind === "actual" ? focusedMonth : null, tableOpen("actual"));
       const plannedMonthly = Object.hasOwn(data, "plannedMonthly") ? monthlyView(doc, node, selected, data, options, employeeAvatar, id,
         focusedMonthlyKind === "planned" ? focusedMonth : null, tableOpen("planned"), "planned") : null;
-      detail.append(monthly.section); if (plannedMonthly) detail.append(plannedMonthly.section);
+      const hoursLayout = node("div", "project-hours-layout"), graphs = node("div", "project-hours-graphs");
+      const monthlyCharts = node("div", "project-hours-monthly");
+      hoursLayout.setAttribute("data-project-hours-project", String(selected.id));
+      monthlyCharts.append(monthly.section); if (plannedMonthly) monthlyCharts.append(plannedMonthly.section);
+      graphs.append(comparisons, monthlyCharts);
+      hoursLayout.append(overview, graphs); detail.append(employeeTooltip, hoursLayout);
       monthlyLifecycles.set(container, () => { monthly.cleanup(); plannedMonthly?.cleanup(); planningInfo.cleanup(); });
       const focusedMonthlyView = focusedMonthlyKind === "planned" ? plannedMonthly || monthly : monthly;
       let retryButton = null;

@@ -164,6 +164,52 @@ function projectFixture(options = {}) {
   };
 }
 
+test("programme map reuses the fixed references and selected-programme identity rules without RPC", async () => {
+  const rpc = projectFixture(), original = structuredClone(rpc.rows);
+  const map = service.createProjectMap(rpc.rows);
+  assert.equal(rpc.calls.length, 0);
+  assert.equal(map.status, "available");
+  assert.deepEqual(map.programmes.map(p => [p.id, p.code, p.subtitle, p.projectIds.length]), [
+    ["DC1", "DC1", "Backbone", 10], ["DC2", "DC2", "Insight", 8], ["DC3", "DC3", "Manufacturing", 5]
+  ]);
+  for (const programme of map.programmes) {
+    const result = await service.loadProjects(programme.id, rpc);
+    assert.deepEqual(programme.projectIds, result.projects.map(project => project.id).sort((a, b) => a - b));
+  }
+  assert.deepEqual(rpc.rows, original);
+  assert.ok(map.programmes.every(p => Object.keys(p).sort().join(",") === "code,id,projectIds,subtitle"));
+  assert.doesNotMatch(JSON.stringify(map), /Fictional project|manager|responsible|references|\d{8}/);
+});
+
+test("programme map intersects only supplied identities and returns detached empty and populated lists", () => {
+  const visible = [{ id: 12, name: "eXtRAI", display_name: "[54252043] eXtRAI" },
+    { id: 11, name: "54232014 - FireBIM", privateValue: "private-project-metadata" },
+    { id: 31, name: "[54222092] S-MonHuMa" }, { id: 41, name: "Unassigned project without a code" }];
+  const original = structuredClone(visible), map = service.createProjectMap(visible);
+  assert.deepEqual(map.programmes.map(p => p.projectIds), [[11], [31], [12]]);
+  map.programmes[0].projectIds.push(999); map.programmes[1].subtitle = "Changed"; map.programmes.pop();
+  assert.deepEqual(service.createProjectMap(visible).programmes.map(p => p.projectIds), [[11], [31], [12]]);
+  assert.deepEqual(visible, original);
+  const empty = service.createProjectMap([]);
+  assert.equal(empty.status, "available"); assert.equal(empty.programmes.length, 3);
+  assert.ok(empty.programmes.every(p => p.projectIds.length === 0));
+  for (const input of [null, {}, "invalid"]) assert.deepEqual(service.createProjectMap(input), { status: "unavailable", programmes: [] });
+  assert.doesNotMatch(JSON.stringify(service.createProjectMap(visible)), /private-project-metadata|Unassigned|999/);
+});
+
+test("programme map excludes ambiguous, contradictory and incidental codes rather than inventing membership", () => {
+  const map = service.createProjectMap([
+    null, { id: "1", name: "[54252043] Wrong ID type" }, { id: -1, name: "[54252043] Wrong ID" },
+    { id: 1, name: "[54252043] First identity" }, { id: 2, name: "[54252043] Second identity" },
+    { id: 3, name: "[56232072] Conflict", display_name: "[56242022] Conflict" },
+    { id: 4, name: "[55242030] One source name" }, { id: 4, name: "[55242030] Another source name" },
+    { id: 5, name: "Reference 55242029 incidentally" }, { id: 6, name: "[1552520980] Longer number" },
+    { id: 7, name: "[51252062] Unique reference" }, { id: 7, name: "[51252062] Unique reference" },
+    { id: 8, name: "[62261858] Unique reference" }
+  ]);
+  assert.deepEqual(map.programmes.map(p => p.projectIds), [[7], [], [8]]);
+});
+
 test("programme project membership uses exactly the fixed 10/8/5 numeric references without a unit or year filter", async () => {
   for (const programmeId of ["DC1", "DC2", "DC3"]) {
     const rpc = projectFixture(), original = structuredClone(rpc.rows);

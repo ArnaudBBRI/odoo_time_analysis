@@ -4,6 +4,7 @@
 node_modules
 config.local.json
 .config-language-*.tmp
+.local/
 tests
 npm-debug.log
 Dockerfile

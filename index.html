@@ -9,8 +9,10 @@
   <link rel="stylesheet" href="/project-card.css">
   <link rel="stylesheet" href="/project-browser.css">
   <link rel="stylesheet" href="/unit-dico.css">
+  <link rel="stylesheet" href="/project-similarity.css">
   <link rel="stylesheet" href="/programme-browser.css">
   <link rel="stylesheet" href="/project-budget.css">
+  <link rel="stylesheet" href="/project-purchase-flow.css">
   <style>
     :root {
       --bg: #f7f7f7;
@@ -1518,6 +1520,22 @@
     .language-status { flex-basis: 100%; font-size: .72rem; color: var(--muted); text-align: right; }
     .language-status:empty { display: none; }
     .language-status[data-state="warning"] { color: #b45309; }
+    .toolbar-settings { position: relative; font-size: .8rem; }
+    .toolbar-settings[open] { z-index: 120; }
+    .toolbar-settings > summary { display: flex; align-items: center; gap: 7px; min-height: 36px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 5px; background: white; cursor: pointer; list-style: none; }
+    .toolbar-settings > summary::-webkit-details-marker { display: none; }
+    .toolbar-settings > summary svg { width: 17px; height: 17px; flex: none; }
+    .toolbar-settings[open] > summary { border-color: var(--teal); background: var(--panel-soft); }
+    .toolbar-settings > summary:focus-visible, .chart-palette-option:focus-within { outline: 2px solid var(--teal); outline-offset: 3px; }
+    .toolbar-settings-panel { position: absolute; z-index: 100; top: calc(100% + 8px); right: 0; width: min(320px, calc(100vw - 32px)); padding: 16px; border: 1px solid var(--line); border-radius: 8px; background: white; box-shadow: var(--shadow); }
+    .toolbar-settings-panel fieldset { display: grid; gap: 9px; min-width: 0; padding: 0; margin: 0; border: 0; }
+    .toolbar-settings-panel legend { padding: 0 0 12px; font-size: .86rem; font-weight: 700; }
+    .chart-palette-option { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 7px 10px; padding: 10px; border: 1px solid var(--line); border-radius: 5px; cursor: pointer; }
+    .chart-palette-option:has(input:checked) { border-color: var(--teal); background: var(--panel-soft); }
+    .chart-palette-option input { margin: 0; accent-color: var(--teal); }
+    .chart-palette-option-name { font-weight: 700; }
+    .chart-palette-preview { display: flex; grid-column: 2; overflow: hidden; height: 10px; border-radius: 3px; }
+    .chart-palette-preview span { flex: 1; min-width: 0; }
     [hidden] { display: none !important; }
   </style>
 </head>
@@ -1526,7 +1544,28 @@
     <div class="header-inner">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap">
         <a href="https://www.buildwise.be/fr/"><img src="/assets/buildwise-logo.svg" alt="Buildwise" width="235" height="27"></a>
-        <div class="account-controls" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap"><span id="signedInEmail"></span><label class="language-control"><span data-i18n="shell.language.label">Langue</span><select id="languageSelect" aria-label="Langue" data-i18n-aria-label="shell.language.label"><option value="fr">FR</option><option value="nl">NL</option></select></label><button id="logoutButton" class="secondary-button" type="button"><span data-i18n="shell.se_deconnecter_ea36fa">Se déconnecter</span></button><span id="languageStatus" class="language-status" role="status" aria-live="polite"></span></div>
+        <div class="account-controls" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+          <div id="personalTimeLayoutControl" class="personal-layout-control">
+            <label class="personal-layout-switch">
+              <input id="personalTimeLayoutMode" type="checkbox" role="switch" aria-label="Affichage large" data-i18n-aria-label="personal.layout.switchLabel" aria-describedby="personalTimeLayoutStatus">
+              <span class="personal-layout-track" aria-hidden="true"><span class="personal-layout-thumb"></span><span class="personal-layout-dots">···</span></span>
+              <span class="personal-layout-labels" aria-hidden="true"><span class="personal-layout-normal" data-i18n="personal.layout.standard">Normal</span><span class="personal-layout-wide" data-i18n="personal.layout.wide">Large</span></span>
+            </label>
+            <span id="personalTimeLayoutStatus" class="personal-layout-status" role="status" aria-live="polite"></span>
+          </div>
+          <details id="toolbarSettings" class="toolbar-settings">
+            <summary id="toolbarSettingsToggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true" focusable="false"><path d="m9.4 3-.6 2.3-2 .9-2.1-.6L2.8 8.9l1.6 1.7v2.8l-1.6 1.7 1.9 3.3 2.1-.6 2 .9.6 2.3h5.2l.6-2.3 2-.9 2.1.6 1.9-3.3-1.6-1.7v-2.8l1.6-1.7-1.9-3.3-2.1.6-2-.9-.6-2.3z"/><circle cx="12" cy="12" r="3.2"/></svg><span data-i18n="shell.settings.label">Paramètres</span></summary>
+            <div id="toolbarSettingsPanel" class="toolbar-settings-panel">
+              <fieldset>
+                <legend data-i18n="shell.settings.chartPalette">Couleurs des courbes et aires</legend>
+                <label class="chart-palette-option"><input id="chartPaletteDicoVibes" type="radio" name="chartPalette" value="dico-vibes" checked><span class="chart-palette-option-name" data-i18n="shell.settings.paletteDicoVibes">Dico vibes</span><span class="chart-palette-preview" data-chart-palette-preview="dico-vibes" aria-hidden="true"></span></label>
+                <label class="chart-palette-option"><input id="chartPaletteClassic" type="radio" name="chartPalette" value="classic"><span class="chart-palette-option-name" data-i18n="shell.settings.paletteClassic">Classique</span><span class="chart-palette-preview" data-chart-palette-preview="classic" aria-hidden="true"></span></label>
+                <label class="chart-palette-option"><input id="chartPaletteVibrantEmotions" type="radio" name="chartPalette" value="vibrant-emotions"><span class="chart-palette-option-name" data-i18n="shell.settings.paletteVibrantEmotions">Vibrant Emotions</span><span class="chart-palette-preview" data-chart-palette-preview="vibrant-emotions" aria-hidden="true"></span></label>
+              </fieldset>
+            </div>
+          </details>
+          <span id="signedInEmail"></span><label class="language-control"><span data-i18n="shell.language.label">Langue</span><select id="languageSelect" aria-label="Langue" data-i18n-aria-label="shell.language.label"><option value="fr">FR</option><option value="nl">NL</option></select></label><button id="logoutButton" class="secondary-button" type="button"><span data-i18n="shell.se_deconnecter_ea36fa">Se déconnecter</span></button><span id="languageStatus" class="language-status" role="status" aria-live="polite"></span>
+        </div>
       </div>
       <div>
         <h1><span data-i18n="shell.mon_temps_d78df9">Mon temps</span></h1>
@@ -1554,11 +1593,11 @@
     </div>
   </header>
 
-  <main>
+  <main id="dashboardMain">
     <section class="dashboard-menu" aria-label="Navigation et période" data-i18n-aria-label="shell.aria.navigationPeriod">
     <nav id="pilotage-nav" class="pilotage-nav" aria-label="Navigation du dashboard" data-i18n-aria-label="shell.aria.navigation">
       <button type="button" data-view="time" aria-current="page"><span data-i18n="shell.mon_temps_d78df9">Mon temps</span></button>
-      <button type="button" data-view="projects"><span data-i18n="shell.projets_b1e8cd">Projets</span></button>
+      <button type="button" data-view="projects"><span data-i18n="shell.projets_b1e8cd">Mes Projets</span></button>
       <button type="button" data-view="unit-dico"><span data-i18n="shell.unite_dico_8d3ce6">Unité DiCo</span></button>
       <button type="button" data-view="programmes"><span data-i18n="shell.programmes_e3cbcd">Programmes</span></button>
       <button type="button" data-view="unit" disabled><span data-i18n="shell.pilotage_dico_72f092">Pilotage DiCo</span></button>
@@ -1638,9 +1677,11 @@
         </form>
       </div>
       <p id="personalTimeStatus" role="status" aria-live="polite"><span data-i18n="shell.chargement_de_mes_heures_c9425f">Chargement de mes heures…</span></p>
-      <div id="personalTimeRecommendations" hidden></div>
-      <div id="personalTimeCapacity" hidden></div>
-      <div id="personalTimeContent"></div>
+      <div id="personalTimeLayout" class="personal-time-layout">
+        <div id="personalTimeRecommendations" hidden></div>
+        <div id="personalTimeCapacity" hidden></div>
+        <div id="personalTimeContent"></div>
+      </div>
     </section>
     <p id="statusText" class="portfolio-message" role="alert" hidden></p>
     <p id="timesheetDebugStatus" class="portfolio-message" role="status" aria-live="polite" hidden></p>
@@ -1741,14 +1782,17 @@
   <script src="/i18n-project-messages.js"></script>
   <script src="/i18n-timeline-messages.js"></script>
   <script src="/language-client.js"></script>
+  <script src="/chart-palette.js"></script>
   <script src="/personal-time.js"></script>
   <script src="/work-capacity.js"></script>
   <script src="/personal-capacity.js"></script>
   <script src="/project-monthly.js"></script>
   <script src="/project-planning.js"></script>
+  <script src="/project-purchase-flow.js"></script>
   <script src="/project-budget.js"></script>
   <script src="/project-card.js"></script>
   <script src="/project-browser.js"></script>
+  <script src="/project-similarity.js"></script>
   <script src="/unit-dico.js"></script>
   <script src="/programme-browser.js"></script>
   <script>
@@ -1791,6 +1835,7 @@
 
       const state = {
         dashboardView: "time",
+        personalTimeLayout: "standard",
         personalTimeResult: null,
         personalTimeLoading: false,
         personalTimeError: "",
@@ -1817,6 +1862,7 @@
         focusPersonalProjectId: null,
         personalProjectHoursCache: new Map(),
         personalProjectHoursGeneration: 0,
+        personalProjectMilestonesCache: new Map(),
         personalProjectFinanceCache: new Map(),
         personalProjectFinanceGeneration: 0,
         personalProjectView: new Map(),
@@ -1862,6 +1908,17 @@
       };
 
       const els = {
+        dashboardMain: document.getElementById("dashboardMain"),
+        personalTimeMacro: document.getElementById("personalTimeMacro"),
+        personalTimeLayoutControl: document.getElementById("personalTimeLayoutControl"),
+        personalTimeLayoutMode: document.getElementById("personalTimeLayoutMode"),
+        personalTimeLayoutStatus: document.getElementById("personalTimeLayoutStatus"),
+        toolbarSettings: document.getElementById("toolbarSettings"),
+        toolbarSettingsToggle: document.getElementById("toolbarSettingsToggle"),
+        toolbarSettingsPanel: document.getElementById("toolbarSettingsPanel"),
+        chartPaletteDicoVibes: document.getElementById("chartPaletteDicoVibes"),
+        chartPaletteClassic: document.getElementById("chartPaletteClassic"),
+        chartPaletteVibrantEmotions: document.getElementById("chartPaletteVibrantEmotions"),
         personalTimeContent: document.getElementById("personalTimeContent"),
         personalTimeRecommendations: document.getElementById("personalTimeRecommendations"),
         personalTimeCapacity: document.getElementById("personalTimeCapacity"),
@@ -1928,6 +1985,10 @@
         emptyState: document.getElementById("emptyState")
       };
 
+      let personalTimeLayoutInitialized = false, personalTimeLayoutQueries = null;
+      let chartPaletteSettingsInitialized = false;
+      const legacyLineColorIndexes = new Map(), legacyLineRepaints = new Map();
+      initializeChartPaletteSettings();
       const originalFetch = window.fetch.bind(window);
       window.fetch = async (...args) => {
         const response = await originalFetch(...args);
@@ -1943,18 +2004,22 @@
         fetchPersonalTime();
       });
       initializeCustomDateRangeControls();
+      initializePersonalTimeLayout();
       window.addEventListener("dashboard:viewchange", handleDashboardViewChange);
       window.addEventListener("dashboard:languagechange", applyDashboardLanguage);
 
       function applyDashboardLanguage() {
         window.DashboardLanguage?.applyStatic();
+        applyPersonalTimeLayout();
+        applyChartPaletteSettings();
         // Only application status/error nodes participate in message resolution.
         // Repaint existing feedback without validating or applying a date scope.
         for (const element of [els.customDateError, els.timesheetDebugStatus, els.statusText]) {
           if (element) element.textContent = I18n.message(element.textContent);
         }
         const title = state.dashboardView === "time" ? t("common.myTime") :
-          I18n.message(({ projects: "Projets", "unit-dico": "Unité DiCo", programmes: "Programmes" })[state.dashboardView] || "Pilotage DiCo");
+          state.dashboardView === "projects" ? t("shell.projets_b1e8cd") :
+          I18n.message(({ "unit-dico": "Unité DiCo", programmes: "Programmes" })[state.dashboardView] || "Pilotage DiCo");
         document.title = `${title} · ${t("shell.page.dashboard")}`;
         renderYearFilters();
         renderPersonalTimeMacro();
@@ -1962,11 +2027,135 @@
         renderPersonalProjects();
       }
 
+      function applyChartPaletteSettings() {
+        if (typeof window !== "object") return;
+        const palette = window.ChartPalette?.current();
+        if (!palette) return;
+        if (els.chartPaletteDicoVibes) els.chartPaletteDicoVibes.checked = palette === "dico-vibes";
+        if (els.chartPaletteClassic) els.chartPaletteClassic.checked = palette === "classic";
+        if (els.chartPaletteVibrantEmotions) els.chartPaletteVibrantEmotions.checked = palette === "vibrant-emotions";
+        if (els.toolbarSettings?.open) positionToolbarSettings();
+      }
+
+      function positionToolbarSettings() {
+        if (!els.toolbarSettings?.open || !els.toolbarSettingsPanel) return;
+        const anchor = els.toolbarSettings.getBoundingClientRect?.();
+        const panel = els.toolbarSettingsPanel.getBoundingClientRect?.();
+        const width = Number(window.innerWidth);
+        if (!anchor || !panel || !Number.isFinite(width)) return;
+        const left = Math.max(16, Math.min(anchor.left, width - panel.width - 16));
+        els.toolbarSettingsPanel.style.left = `${left - anchor.left}px`;
+        els.toolbarSettingsPanel.style.right = "auto";
+      }
+
+      function initializeChartPaletteSettings() {
+        if (chartPaletteSettingsInitialized || typeof window !== "object" || !window.ChartPalette) return;
+        chartPaletteSettingsInitialized = true;
+        window.ChartPalette.initialize();
+        const choices = [els.chartPaletteDicoVibes, els.chartPaletteClassic, els.chartPaletteVibrantEmotions].filter(Boolean);
+        for (const input of choices) input.addEventListener("change", () => {
+          if (input.checked) window.ChartPalette.set(input.value);
+        });
+        for (const preview of els.toolbarSettings?.querySelectorAll("[data-chart-palette-preview]") || []) {
+          const swatches = window.ChartPalette.colors(preview.getAttribute("data-chart-palette-preview")).map(color => {
+            const swatch = document.createElement("span"); swatch.style.backgroundColor = color; return swatch;
+          });
+          preview.replaceChildren(...swatches);
+        }
+        window.ChartPalette.subscribe(applyChartPaletteSettings);
+        window.ChartPalette.subscribe(repaintLegacyLineCharts);
+        els.toolbarSettings?.addEventListener("toggle", () => {
+          if (els.toolbarSettings.open) positionToolbarSettings();
+        });
+        document.addEventListener("keydown", event => {
+          if (event.key !== "Escape" || !els.toolbarSettings?.open) return;
+          els.toolbarSettings.open = false;
+          els.toolbarSettingsToggle?.focus();
+          event.preventDefault();
+        });
+        document.addEventListener("pointerdown", event => {
+          if (els.toolbarSettings?.open && !els.toolbarSettings.contains(event.target)) els.toolbarSettings.open = false;
+        });
+        window.addEventListener("resize", positionToolbarSettings);
+        applyChartPaletteSettings();
+      }
+
+      function chartLineColor(key, fallback = CHART_COLORS[0]) {
+        if (typeof window !== "object" || !window.ChartPalette) return fallback;
+        if (!legacyLineColorIndexes.has(key)) legacyLineColorIndexes.set(key, legacyLineColorIndexes.size);
+        return window.ChartPalette.color(legacyLineColorIndexes.get(key));
+      }
+
+      function repaintLegacyLineCharts() {
+        for (const [element, paint] of legacyLineRepaints) {
+          if (element.isConnected === false) legacyLineRepaints.delete(element);
+          else paint();
+        }
+      }
+
       function setProjectCalendarView(view) {
         if (!["full", "near"].includes(view) || view === state.projectCalendarView) return;
         state.projectCalendarView = view;
         state.focusCalendarView = view;
         renderPersonalProjects();
+      }
+
+      function isPersonalProjectHoursView() {
+        return state.dashboardView === "projects" && state.selectedPersonalProjectId != null &&
+          (state.personalProjectView.get(String(state.selectedPersonalProjectId)) || "hours") === "hours";
+      }
+
+      function applyPersonalTimeLayout() {
+        if (typeof window === "undefined") return;
+        const mode = state.personalTimeLayout;
+        const width = Number(window.innerWidth);
+        const minimum = personalTimeLayoutQueries?.minimum?.matches ?? (Number.isFinite(width) && width >= 1600);
+        const projectHours = isPersonalProjectHoursView();
+        const active = mode === "wide" && minimum;
+        const personalActive = state.dashboardView === "time" && active, projectActive = projectHours && active;
+        els.dashboardMain?.setAttribute("data-personal-superwide", String(personalActive));
+        els.personalTimeMacro?.setAttribute("data-personal-superwide", String(personalActive));
+        els.dashboardMain?.setAttribute("data-project-hours-superwide", String(projectActive));
+        els.personalProjectsContent?.setAttribute("data-project-hours-superwide", String(projectActive));
+        els.personalTimeMacro?.setAttribute("data-personal-layout", mode);
+        if (els.personalTimeLayoutControl) els.personalTimeLayoutControl.hidden = false;
+        if (els.personalTimeLayoutMode) els.personalTimeLayoutMode.checked = mode === "wide";
+        const supported = state.dashboardView === "time" || projectHours;
+        const key = mode === "standard" ? "standardHint" : !supported ? "unavailableHint" : active ? "wideActive" : "wideHint";
+        const context = projectHours && mode !== "standard" ? "project.layout" : "personal.layout";
+        if (els.personalTimeLayoutStatus) els.personalTimeLayoutStatus.textContent = t(`${context}.${key}`,
+          { width: I18n.formatNumber(1600) });
+      }
+
+      function setPersonalTimeLayout(mode) {
+        if (!["standard", "wide"].includes(mode)) return;
+        state.personalTimeLayout = mode;
+        try { window.localStorage?.setItem("odoo-time-analysis.mon-temps.layout", mode); }
+        catch (_) { /* Layout remains usable when browser storage is blocked. */ }
+        applyPersonalTimeLayout();
+      }
+
+      function initializePersonalTimeLayout() {
+        if (personalTimeLayoutInitialized) return;
+        personalTimeLayoutInitialized = true;
+        try {
+          const saved = window.localStorage?.getItem("odoo-time-analysis.mon-temps.layout");
+          if (saved === "auto") state.personalTimeLayout = "wide";
+          else if (["standard", "wide"].includes(saved)) state.personalTimeLayout = saved;
+        } catch (_) { /* The first visit and unavailable storage keep Standard. */ }
+        els.personalTimeLayoutMode?.addEventListener("change", () => setPersonalTimeLayout(els.personalTimeLayoutMode.checked ? "wide" : "standard"));
+        try {
+          if (typeof window.matchMedia === "function") personalTimeLayoutQueries = {
+            minimum: window.matchMedia("(min-width: 1600px)")
+          };
+        } catch (_) { /* Fall back to available viewport width. */ }
+        if (personalTimeLayoutQueries) {
+          for (const query of Object.values(personalTimeLayoutQueries)) {
+            if (query.addEventListener) query.addEventListener("change", applyPersonalTimeLayout);
+            else query.addListener?.(applyPersonalTimeLayout);
+          }
+        } else window.addEventListener?.("resize", applyPersonalTimeLayout);
+        applyPersonalTimeLayout();
       }
 
       function setPersonalProjectEmployeeInclusion(employeeId, included) {
@@ -1993,6 +2182,7 @@
         }
         if (event.detail.view === "projects" && state.dashboardView !== "projects") state.selectedPersonalProjectId = null;
         state.dashboardView = event.detail.view;
+        applyPersonalTimeLayout();
         els.filterBar.hidden = !["time", "projects"].includes(state.dashboardView);
         els.hoursInclusionControl.hidden = true;
         els.hoursScopeControl.hidden = true;
@@ -2107,6 +2297,7 @@
           state.personalTimeResult = result;
           state.personalProjectHoursGeneration += 1;
           state.personalProjectHoursCache.clear();
+          state.personalProjectMilestonesCache.clear();
           state.personalProjectFinanceGeneration += 1;
           state.personalProjectFinanceCache.clear();
           state.hoursScope = "me";
@@ -2328,6 +2519,7 @@
           if (force && state.dashboardView === "programmes" && state.selectedProgrammeId === id) {
             state.personalProjectHoursGeneration += 1;
             state.personalProjectHoursCache.clear();
+            state.personalProjectMilestonesCache.clear();
             state.personalProjectFinanceGeneration += 1;
             state.personalProjectFinanceCache.clear();
           }
@@ -2386,6 +2578,7 @@
           if (force) {
             state.personalProjectHoursGeneration += 1;
             state.personalProjectHoursCache.clear();
+            state.personalProjectMilestonesCache.clear();
             state.personalProjectFinanceGeneration += 1;
             state.personalProjectFinanceCache.clear();
           }
@@ -2414,7 +2607,10 @@
         const programme = programmeView ? window.ProgrammeBrowser?.PROGRAMMES.find(row => row.id === state.selectedProgrammeId) : null;
         const catalogue = programmeView ? state.programmeProjectsCache.get(state.selectedProgrammeId) : null;
         const container = unitView ? els.unitDicoContent : programmeView ? els.programmeProjectsContent : els.personalProjectsContent;
-        if (typeof window === "undefined" || !window.ProjectBrowser || !container) return;
+        if (typeof window === "undefined" || !window.ProjectBrowser || !container) {
+          applyPersonalTimeLayout();
+          return;
+        }
         if (programmeView && !programme) {
           window.ProjectBrowser.cleanup?.(container);
           window.UnitDico?.cleanup?.(container);
@@ -2433,6 +2629,7 @@
         if ((unitView || programmeView) && getSelectedDetailProjectId() == null) {
           window.ProjectBrowser.cleanup?.(container);
           window.UnitDico?.render(container, programmeView ? catalogue?.result : state.unitDicoResult, {
+            showSimilarityMap: unitView,
             calendarView: state.projectCalendarView,
             onCalendarViewChange: setProjectCalendarView,
             focusCalendarView: state.focusCalendarView,
@@ -2461,6 +2658,7 @@
         }
         const panel = state.personalProjectView.get(String(getSelectedDetailProjectId())) || "hours";
         const hours = state.personalProjectHoursCache.get(String(getSelectedDetailProjectId()));
+        const milestones = state.personalProjectMilestonesCache.get(String(getSelectedDetailProjectId()));
         const monthly = panel === "hours" && hours?.result ? summarizePersonalProjectMonthly(hours.result) : null;
         const plannedMonthly = panel === "hours" && hours?.result ? summarizePersonalProjectPlanningMonthly(hours.result) : null;
         const calendarScope = hours?.result ? window.PersonalTime.projectCalendarProgress(getPersonalTimeScope(),
@@ -2477,6 +2675,7 @@
           plannedMonthlyEmployeeId = null;
         }
         if (unitView || programmeView) window.UnitDico?.cleanup?.(container);
+        applyPersonalTimeLayout();
         window.ProjectBrowser.render(container, {
           projects,
           timelineRenderer: window.UnitDico,
@@ -2504,6 +2703,7 @@
             lifetime: hours?.result ? summarizeLifetimeProjectHours(hours.result) : null,
             monthly,
             plannedMonthly,
+            milestones: milestones?.result || null,
             planningInfo: hours?.result && window.ProjectPlanning ? window.ProjectPlanning.summarize(hours.result, {
               now: new Date(),
               includeOrmitters: false
@@ -2541,6 +2741,7 @@
       }
 
       function updatePersonalProjectFilterVisibility() {
+        applyPersonalTimeLayout();
         const selectedId = getSelectedDetailProjectId();
         const projectView = ["projects", "unit-dico", "programmes"].includes(state.dashboardView);
         els.filterBar.hidden = !(state.dashboardView === "time" || state.dashboardView === "projects" ||
@@ -2770,6 +2971,7 @@
       async function loadPersonalProjectHours(id, force = false) {
         if (!Number.isSafeInteger(Number(id)) || Number(id) <= 0 ||
           !getDetailProjectCatalogue().some(project => String(project.id) === String(id))) return;
+        loadPersonalProjectMilestones(id, force);
         const key = String(id);
         const cached = state.personalProjectHoursCache.get(key);
         if (cached?.loading || (!force && cached?.result)) return;
@@ -2789,6 +2991,31 @@
           entry.error = t("shell.les_heures_du_projet_sont_indisponibles_avec_vos_acces_odoo_re_f7978e");
         } finally {
           if (generation === state.personalProjectHoursGeneration) {
+            entry.loading = false;
+            renderPersonalProjects();
+          }
+        }
+      }
+
+      async function loadPersonalProjectMilestones(id, force = false) {
+        if (!Number.isSafeInteger(Number(id)) || Number(id) <= 0 ||
+          !getDetailProjectCatalogue().some(project => String(project.id) === String(id))) return;
+        const key = String(id), cached = state.personalProjectMilestonesCache.get(key);
+        if (cached?.loading || (!force && cached?.result)) return;
+        const generation = state.personalProjectHoursGeneration;
+        const entry = { result: cached?.result || null, loading: true };
+        state.personalProjectMilestonesCache.set(key, entry);
+        try {
+          const result = await postOdooJson("/api/odoo/project-milestones", { projectId: Number(id) }, "Milestones");
+          if (generation !== state.personalProjectHoursGeneration || state.personalProjectMilestonesCache.get(key) !== entry) return;
+          if (!Array.isArray(result.projectIds) || result.projectIds.length !== 1 || Number(result.projectIds[0]) !== Number(id) ||
+            typeof result.available !== "boolean" || !Array.isArray(result.milestones)) throw new Error("Invalid project milestone response");
+          entry.result = { available: result.available, milestones: result.available ? result.milestones : [] };
+        } catch (_) {
+          if (generation !== state.personalProjectHoursGeneration || state.personalProjectMilestonesCache.get(key) !== entry) return;
+          entry.result = { available: false, milestones: [] };
+        } finally {
+          if (generation === state.personalProjectHoursGeneration && state.personalProjectMilestonesCache.get(key) === entry) {
             entry.loading = false;
             renderPersonalProjects();
           }
@@ -5611,6 +5838,7 @@
       }
 
       function renderProjectPanels(projectSummaries) {
+        legacyLineRepaints.clear();
         els.projectList.hidden = projectSummaries.length === 0;
         els.projectList.innerHTML = "";
         projectSummaries.forEach((summary, index) => {
@@ -6943,6 +7171,11 @@
       }
 
       function renderChartsOnly() {
+        // Mounted SVG views resize themselves. Rebuilding the dashboard here
+        // would discard live hover/focus and disclosures during a layout change.
+        const mountedProjectHours = isPersonalProjectHoursView() &&
+          els.personalProjectsContent?.querySelectorAll?.('[data-project-panel="hours"]').length > 0;
+        if (state.dashboardView === "time" && state.personalTimeResult || mountedProjectHours) return;
         if (!state.employee && !state.personalPlan && !state.dicoProjects && !state.projects.length) {
           return;
         }
@@ -7102,6 +7335,8 @@
       }
 
       function renderLineChart(canvas, project, entries, options = {}) {
+        if (!canvas) return;
+        legacyLineRepaints.set(canvas, () => renderLineChart(canvas, project, entries, options));
         drawCanvas(canvas, (ctx, width, height) => {
           const selectedYears = state.selectedYears.size ? state.selectedYears : new Set(state.years);
           const sourceMonths = mergeTimelineMonths(project.months, options.deadlines ? options.deadlines.months : []);
@@ -7110,7 +7345,7 @@
             .sort((a, b) => a.date - b.date);
           const series = entries.map((entry, index) => ({
             ...entry,
-            color: entry.color || CHART_COLORS[index % CHART_COLORS.length],
+            color: chartLineColor(personKey(entry.name), entry.color || CHART_COLORS[index % CHART_COLORS.length]),
             points: buildLinePoints(entry, months, options)
           })).filter((entry) => entry.points.some((value) => value > 0));
 
@@ -7315,6 +7550,8 @@
       }
 
       function renderPlannedActualChart(canvas, project, actualEntries, plan, visibleSeriesKeys = null, deadlineSet = null, milestoneSet = null) {
+        if (!canvas) return;
+        legacyLineRepaints.set(canvas, () => renderPlannedActualChart(canvas, project, actualEntries, plan, visibleSeriesKeys, deadlineSet, milestoneSet));
         drawCanvas(canvas, (ctx, width, height) => {
           const selectedYears = state.selectedYears.size ? state.selectedYears : new Set(state.years);
           const timeline = buildComparisonTimeline(project, plan, deadlineSet, milestoneSet);
@@ -7348,7 +7585,7 @@
               : timeline.map(() => 0);
             return {
               name: actualRow ? actualRow.name : plannedRow.name,
-              color: colorMap.get(key),
+              color: chartLineColor(key, colorMap.get(key)),
               actual: displayIndexes.map((index) => actualAll[index]),
               planned: displayIndexes.map((index) => plannedAll[index])
             };
@@ -7929,6 +8166,12 @@
       }
 
       function renderLineLegend(container, entries, options = {}) {
+        if (!container) return;
+        legacyLineRepaints.set(container, () => {
+          for (const swatch of container.querySelectorAll("[data-line-person-key]")) {
+            swatch.style.backgroundColor = chartLineColor(swatch.getAttribute("data-line-person-key"));
+          }
+        });
         const hiddenSeries = options.hiddenSeries || new Set();
         container.innerHTML = entries.length ? "" : `<p class="legend-value">${t("shell.no_employees_in_selected_scope_984b99")}</p>`;
         entries.forEach((entry) => {
@@ -7943,7 +8186,7 @@
             row.addEventListener("click", () => options.onToggle(entry));
           }
           row.innerHTML = `
-            <span class="swatch" style="background:${entry.color}"></span>
+            <span class="swatch" data-line-person-key="${escapeHtml(personKey(entry.name))}" style="background:${chartLineColor(personKey(entry.name), entry.color)}"></span>
             <span class="legend-name">${escapeHtml(displayEntityLabel(entry.name))}</span>
             <span class="legend-value">${formatHours(entry.value)} h</span>
           `;

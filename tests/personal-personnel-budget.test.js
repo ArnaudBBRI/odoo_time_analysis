@@ -13,7 +13,7 @@ function loadServer() {
     console: { log() {}, error() {} }, URL, AbortController, Buffer,
     require(name) {
       if (["crypto", "async_hooks", "path"].includes(name)) return require(name);
-      if (["./steering-service", "./project-finance-service", "./unit-dico-service"].includes(name)) return require(path.join(path.dirname(serverPath), name));
+      if (["./steering-service", "./project-finance-service", "./unit-dico-service", "./project-tag-view"].includes(name)) return require(path.join(path.dirname(serverPath), name));
       if (name === "http") return { createServer: () => ({ listen() {}, on() {} }) };
       if (name === "fs") return { existsSync: () => false, readFileSync() { throw new Error("Offline tests must not read local configuration"); } };
       throw new Error(`Unexpected server dependency ${name}`);
@@ -115,6 +115,40 @@ test("public HR fallback can confirm BW hours without broadening the exact emplo
   assert.equal(f.projects.get(11).personnelBudget.actualHours, 10);
   assert.deepEqual(f.calls.filter(call => call.method === "search_read" && /^hr\.employee/.test(call.model)).map(call => call.domain),
     [[["id", "in", [20, 21, 22]]], [["id", "in", [20, 21, 22]]]]);
+});
+
+test("personnel totals exclude retained Viktor names without HR records while other unknown people remain unavailable", async () => {
+  const rows = [
+    { id: 1, project_id: [11, "Own project"], employee_id: [80, "  VIKTOR\u00a0DE  GROOTE "], date: "2026-10-13", unit_amount: 100 },
+    { id: 2, project_id: [11, "Own project"], employee_id: [80, "Viktor de Groote"], date: "2026-10-13", unit_amount: -10 },
+    { id: 3, project_id: [11, "Own project"], employee_id: [20, "Private colleague"], date: "2026-10-13", unit_amount: 4.25 },
+    { id: 4, project_id: [12, "Second project"], employee_id: [81, "Viktor de Groot"], date: "2026-10-13", unit_amount: 2 }
+  ];
+  const before = structuredClone(rows), f = fixture({ rows, employeeRows: [{ id: 20, job_title: "Engineer", job_id: false }] });
+  await f.read();
+  assert.equal(f.projects.get(11).personnelBudget.actualStatus, "available");
+  assert.equal(f.projects.get(11).personnelBudget.actualHours, 4.25);
+  assert.equal(f.projects.get(12).personnelBudget.actualStatus, "unavailable");
+  assert.equal(f.projects.get(12).personnelBudget.actualHours, null);
+  assert.deepEqual(rows, before);
+  assert.doesNotMatch(JSON.stringify([...f.projects.values()]), /Viktor|VIKTOR|Private colleague|employee_id|named-override/);
+  const actual = f.calls.find(call => call.model === "account.analytic.line" && call.method === "search_read");
+  assert.deepEqual(actual.fields, ["id", "date", "unit_amount", "employee_id", "project_id"]);
+});
+
+test("the explicit named Ormitter exception covers personnel totals despite missing function schema or conflicting HR", async () => {
+  const rows = [{ id: 1, project_id: [11, "Own project"], employee_id: [80, "Viktor de Groote"], date: "2026-10-13", unit_amount: 8 }];
+  for (const options of [
+    { employeeRows: [{ id: 80, job_title: "Engineer", job_id: false }] },
+    { deniedReads: ["hr.employee", "hr.employee.public"] },
+    { definitions: { "hr.employee": {}, "hr.employee.public": {} } }
+  ]) {
+    const f = fixture({ rows, ...options }); await f.read();
+    assert.equal(f.projects.get(11).personnelBudget.actualStatus, "available");
+    assert.equal(f.projects.get(11).personnelBudget.actualHours, 0);
+    assert.equal(f.projects.get(12).personnelBudget.actualHours, 0);
+    assert.ok(f.calls.every(call => ["fields_get", "search_read"].includes(call.method)));
+  }
 });
 
 test("personnel attribution requires typed HR function metadata without trusting unrelated fields", async () => {

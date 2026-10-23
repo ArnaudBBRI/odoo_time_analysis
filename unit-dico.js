@@ -2,10 +2,12 @@
   const commonJS = typeof module === "object" && module.exports;
   if (commonJS) require("./i18n-timeline-messages");
   const api = factory(commonJS ? require("./project-card") : root.ProjectCard,
-    commonJS ? require("./i18n") : root.DashboardI18n);
+    commonJS ? require("./i18n") : root.DashboardI18n,
+    commonJS ? require("./project-similarity") : root.ProjectSimilarity,
+    commonJS ? require("./chart-palette") : root.ChartPalette);
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.UnitDico = api;
-})(typeof globalThis !== "undefined" ? globalThis : this, function (ProjectCard, I18n) {
+})(typeof globalThis !== "undefined" ? globalThis : this, function (ProjectCard, I18n, ProjectSimilarity, ChartPalette) {
   "use strict";
 
   const DAY = 86400000;
@@ -19,6 +21,7 @@
     timeZone: "Europe/Brussels", year: "numeric", month: "2-digit", day: "2-digit"
   });
   const timelineLifecycles = new WeakMap();
+  const similarityHosts = new WeakMap();
   let renderId = 0;
 
   function isExcludedProjectName(value) {
@@ -175,6 +178,9 @@
   function cleanup(container) {
     timelineLifecycles.get(container)?.();
     timelineLifecycles.delete(container);
+    const similarityHost = similarityHosts.get(container);
+    if (similarityHost) ProjectSimilarity?.cleanup?.(similarityHost);
+    similarityHosts.delete(container);
   }
 
   function mountTimelineBars(container, bars) {
@@ -365,12 +371,16 @@
     };
     const svg = svgNode("svg", { viewBox: "0 0 1000 220", preserveAspectRatio: "none", "aria-hidden": "true", class: "unit-dico-concurrency-svg" });
     const defs = svgNode("defs", {}), gradient = svgNode("linearGradient", { id: `${id}-fill`, x1: "0", y1: "0", x2: "0", y2: "1" });
-    gradient.append(svgNode("stop", { offset: "0%", "stop-color": "#4a85b3", "stop-opacity": 0.55 }), svgNode("stop", { offset: "100%", "stop-color": "#4a85b3", "stop-opacity": 0.08 }));
+    const seriesColor = ChartPalette.color(0);
+    const stops = [svgNode("stop", { offset: "0%", "stop-color": seriesColor, "stop-opacity": 0.55 }),
+      svgNode("stop", { offset: "100%", "stop-color": seriesColor, "stop-opacity": 0.08 })];
+    gradient.append(...stops);
     defs.append(gradient); svg.append(defs);
     const points = summary.months.flatMap(month => [`${month.position * 10},${y(month.count)}`, `${(month.position + month.width) * 10},${y(month.count)}`]);
     const linePath = `M${points.join(" L")}`;
-    svg.append(svgNode("path", { d: `${linePath} L1000,${baseline} L0,${baseline} Z`, fill: `url(#${id}-fill)`, "data-unit-concurrency-area": "" }),
-      svgNode("path", { d: linePath, fill: "none", stroke: "#356e9a", "stroke-width": 2.5, "vector-effect": "non-scaling-stroke", "stroke-linejoin": "round" }));
+    const seriesLine = svgNode("path", { d: linePath, fill: "none", stroke: seriesColor, "stroke-width": 2.5,
+      "vector-effect": "non-scaling-stroke", "stroke-linejoin": "round", "data-unit-concurrency-line": "" });
+    svg.append(svgNode("path", { d: `${linePath} L1000,${baseline} L0,${baseline} Z`, fill: `url(#${id}-fill)`, "data-unit-concurrency-area": "" }), seriesLine);
     plot.append(svg);
     if (summary.today?.position != null) {
       const marker = node("span", "unit-dico-timeline-today"); marker.style.left = `${summary.today.position}%`;
@@ -421,7 +431,17 @@
     const tableBody = node("tbody", "");
     for (const month of summary.months) { const row = node("tr", ""), label = node("th", "", month.label); label.setAttribute("scope", "row"); row.append(label, node("td", "", number(month.count))); tableBody.append(row); }
     table.append(tableBody); details.append(table); section.append(details);
-    return { section, scroll, buttons };
+    let paletteActive = true;
+    const unsubscribePalette = ChartPalette.subscribe(() => {
+      if (!paletteActive) return;
+      const color = ChartPalette.color(0);
+      stops.forEach(stop => stop.setAttribute("stop-color", color));
+      seriesLine.setAttribute("stroke", color);
+    });
+    return { section, scroll, buttons, cleanup() {
+      if (!paletteActive) return;
+      paletteActive = false; unsubscribePalette();
+    } };
   }
 
   function syncTimelineScroll(container, first, second) {
@@ -457,6 +477,8 @@
 
   function render(container, result, options = {}) {
     if (!container) return null;
+    const previousSimilarity = similarityHosts.get(container);
+    const similarityState = previousSimilarity ? ProjectSimilarity?.captureState?.(previousSimilarity) : null;
     cleanup(container);
     const doc = container.ownerDocument || document;
     const node = (tag, className, text) => {
@@ -510,7 +532,9 @@
     if (timeline.projects.length) {
       const grid = node("fieldset", "unit-dico-grid");
       grid.append(node("legend", "unit-dico-sr-only", options.legend || t("chooseProject")));
-      for (const project of timeline.projects) {
+      const cardProjects = timeline.projects.toSorted((a, b) => ProjectCard.nameParts(a).shortName.localeCompare(
+        ProjectCard.nameParts(b).shortName, I18n.locale(), { numeric: true, sensitivity: "base" }) || a.id - b.id);
+      for (const project of cardProjects) {
         const label = node("label", "unit-dico-tile"); label.title = project.name;
         const input = node("input", "unit-dico-radio"); input.type = "radio"; input.name = options.radioName || "unit-dico-project"; input.value = String(project.id);
         input.setAttribute("data-unit-project-choice", String(project.id)); input.setAttribute("aria-label", project.name);
@@ -530,6 +554,11 @@
     }
     content.append(projectsSection);
 
+    let similarityHost = null;
+    if (options.showSimilarityMap === true && result && ProjectSimilarity) {
+      similarityHost = node("div", "unit-dico-similarity-host");
+      content.append(similarityHost);
+    }
     const { section: calendar, bars, selects, scroll: calendarScroll, viewInputs } = createCalendar(doc, timeline, options);
     content.append(calendar);
     const concurrency = createConcurrency(doc, timeline, options); content.append(concurrency.section);
@@ -539,8 +568,16 @@
       const list = node("ul", ""); for (const warning of warnings) list.append(node("li", "", I18n.message(warning))); details.append(list); content.append(details);
     }
     container.replaceChildren(content);
+    if (similarityHost) {
+      ProjectSimilarity.render(similarityHost, timeline.projects, result.tagMap, {
+        onSelect: options.onSelect, state: similarityState, programmeMap: result.programmeMap
+      });
+      similarityHosts.set(container, similarityHost);
+    }
     mountTimelineBars(container, bars);
     syncTimelineScroll(container, calendarScroll, concurrency.scroll);
+    const previousCleanup = timelineLifecycles.get(container);
+    timelineLifecycles.set(container, () => { previousCleanup?.(); concurrency.cleanup?.(); });
     const restoreId = options.focusProjectId ?? focusedChoice;
     if (focusedView != null) viewInputs.get(focusedView)?.focus();
     else if (restoreId != null) choices.get(String(restoreId))?.focus();

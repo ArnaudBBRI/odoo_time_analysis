@@ -47,7 +47,7 @@ test("catalogue normalization rejects missing, duplicate and unrelated programme
   }
 });
 
-test("default programme cards have one native radio each and show the approved front and flipped identities", () => {
+test("default programme cards share project outlines and retain the approved programme identity and native radio", () => {
   const container = domFixture(); render(container);
   const radios = container.querySelectorAll("[data-programme-choice]");
   assert.equal(find(container, ".programme-browser-grid").tagName, "fieldset");
@@ -56,6 +56,15 @@ test("default programme cards have one native radio each and show the approved f
     assert.equal(radio.type, "radio"); assert.equal(radio.name, "programme-choice"); assert.notEqual(radio.disabled, true);
     const label = radio.parentElement, front = find(label, ".project-card-front"), back = find(label, ".project-card-back");
     assert.ok(label.className.split(/\s+/).includes("programme-browser-tile")); assert.equal(label.children[0], radio);
+    assert.ok(label.className.split(/\s+/).includes("project-card-outline"));
+    assert.ok(!label.className.split(/\s+/).includes("project-card-flip"));
+    assert.equal(label.querySelectorAll(".project-card-orb").length, 0);
+    const borders = label.querySelectorAll(".project-card-outline-border");
+    assert.equal(borders.length, 1);
+    assert.equal(borders[0].getAttribute("aria-hidden"), "true");
+    assert.equal(borders[0].getAttribute("focusable"), "false");
+    assert.equal(borders[0].querySelectorAll("rect").length, 1);
+    assert.equal(label.querySelectorAll(".project-card-dates").length, 0);
     assert.equal(find(front, ".project-card-title").textContent, expected[index][0]);
     assert.doesNotMatch(front.textContent, /Backbone|Insight|Manufacturing|Structurer|Agir|Fabriquer/);
     assert.deepEqual(["project-card-back-number", "project-card-short-name", "project-card-manager-name", "project-card-back-full-name"]

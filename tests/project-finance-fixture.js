@@ -109,4 +109,33 @@ function supplierRecords() {
     distribution_analytic_account_ids: [110, 907, 901], analytic_distribution: { "110,907,901": 100 } }];
   return source;
 }
-module.exports = { definitions, records, fixtureRpc, analytic, budgetLine, parent, supplierRecords };
+function purchaseDefinitions() {
+  return { ...structuredClone(definitions), "account.move": { id: { type: "integer" },
+    state: { type: "selection", selection: [["draft", "Draft"], ["posted", "Posted"], ["cancel", "Cancelled"]] },
+    move_type: { type: "selection", selection: [["entry", "Entry"], ["out_invoice", "Customer invoice"], ["out_refund", "Customer credit"], ["in_invoice", "Supplier invoice"], ["in_refund", "Supplier credit"], ["in_receipt", "Receipt"]] } } };
+}
+function purchaseRecords() {
+  const source = structuredClone(records), supplier = [502, "Fictional supplier"];
+  source["budget.analytic"] = []; source["budget.line"] = [];
+  source["res.partner"] = [{ id: 502, name: "Fictional supplier", commercial_partner_id: supplier }];
+  const expense = (recordId, values = {}) => analytic(recordId, { account_type: "expense", parent_state: "posted", amount: -300,
+    date: "2026-01-01", x_plan7_id: [901, "Services"], x_plan8_id: [903, "6010 Services"], partner_id: supplier,
+    move_id: [1000 + recordId, `Document ${recordId}`], name: `Purchased item ${recordId}`, ...values });
+  source["account.analytic.line"] = [
+    expense(101, { name: "Fictional consulting allocation <script>example</script>" }),
+    expense(102, { amount: 25, date: "2026-03-01", name: "Fictional supplier credit" }),
+    expense(103, { amount: -175, date: "2026-10-01", x_plan7_id: [902, "Equipment"], x_plan8_id: [904, "6020 Equipment"] }),
+    analytic(104, { amount: -999, employee_id: [20, "Private employee"], product_uom_id: hours, name: "Private employee / secret timesheet text" }),
+    expense(105, { amount: -500, account_type: "asset_cash", name: "Private payment text" }),
+    expense(106, { amount: -700, move_id: [1106, "Supplier invoice label alone"], name: "Private journal-entry text" }),
+    expense(107, { amount: -800, name: "Private customer-invoice text" }),
+    expense(108, { amount: -900, parent_state: "draft", name: "Private draft text" }),
+    expense(109, { amount: -90, date: "2025-12-31", name: "Private before-start text" }),
+    expense(110, { amount: -100, date: "2099-01-01", name: "Private future text" }),
+    expense(112, { amount: -50, move_id: [1101, "Document 101"], x_plan8_id: [904, "6020 Equipment"], name: "Separate allocated purchase line" })
+  ];
+  source["account.move"] = source["account.analytic.line"].filter(row => row.move_id).map(row => ({ id: row.move_id[0],
+    state: row.parent_state, move_type: row.id === 102 ? "in_refund" : row.id === 105 || row.id === 106 ? "entry" : row.id === 107 ? "out_invoice" : "in_invoice" }));
+  return source;
+}
+module.exports = { definitions, records, fixtureRpc, analytic, budgetLine, parent, supplierRecords, purchaseDefinitions, purchaseRecords };

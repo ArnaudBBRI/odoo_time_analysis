@@ -1,8 +1,9 @@
 (function (root, factory) {
-  const api = factory(typeof module === "object" && module.exports ? require("./i18n-core-messages") : root.DashboardI18n);
+  const api = factory(typeof module === "object" && module.exports ? require("./i18n-core-messages") : root.DashboardI18n,
+    typeof module === "object" && module.exports ? require("./project-purchase-flow") : root.ProjectPurchaseFlow);
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.ProjectBudget = api;
-})(typeof globalThis !== "undefined" ? globalThis : this, function (I18n) {
+})(typeof globalThis !== "undefined" ? globalThis : this, function (I18n, PurchaseFlow) {
   "use strict";
   const t = I18n.t;
 
@@ -10,12 +11,16 @@
   const percentages = { format: value => I18n.formatNumber(value, { style: "percent", maximumFractionDigits: 1 }) };
   let renderId = 0;
   const billDialogs = new WeakMap();
+  const purchaseFlows = new WeakMap();
   const annualPlotHeight = 225;
   const statusKeys = Object.freeze({ draft: "budget.status.draft", under_validation: "budget.status.underValidation",
     confirmed: "budget.status.confirmed", revised: "budget.status.revised", done: "budget.status.done",
     canceled: "budget.status.canceled", cancelled: "budget.status.canceled", cancel: "budget.status.canceled" });
 
   function cleanup(container, restoreFocus = true) {
+    const flow = purchaseFlows.get(container);
+    if (flow) PurchaseFlow?.cleanup(flow);
+    purchaseFlows.delete(container);
     const current = billDialogs.get(container);
     if (!current) return null;
     const key = current.triggerKey;
@@ -233,14 +238,18 @@
 
   function render(container, data, options = {}) {
     const doc = container.ownerDocument || document;
-    const modalTrigger = cleanup(container, false);
     const focused = doc.activeElement;
+    const modalTrigger = cleanup(container, false);
     const oldChoice = container.contains(focused) ? focused?.getAttribute?.("data-budget-convention-choice") : null;
     const oldDetails = container.contains(focused) ? focused?.getAttribute?.("data-budget-details") : null;
     const oldRetry = container.contains(focused) && focused?.getAttribute?.("data-budget-retry") !== null;
     const oldExclusion = container.contains(focused) && focused?.getAttribute?.("data-budget-exclude-ormitter-costs") !== null;
     const oldPersonnelChoice = container.contains(focused) && focused?.getAttribute?.("data-budget-show-bw-personnel-costs") !== null;
     const oldCodeDetail = modalTrigger || (container.contains(focused) ? focused?.getAttribute?.("data-budget-code-detail") : null);
+    const oldTotalDetail = container.contains(focused) ? focused?.getAttribute?.("data-budget-total-detail") : null;
+    const oldPurchaseControl = container.contains(focused) ? focused?.getAttribute?.("data-purchase-flow-control") : null;
+    const purchaseDetailsOpen = Array.from(container.querySelectorAll("[data-purchase-flow-details]")).some(element => element.open);
+    const purchaseCollapsed = Array.from(container.querySelectorAll('[data-purchase-flow-collapsed="true"]')).length > 0;
     const expanded = new Set(Array.from(container.querySelectorAll("[data-budget-details-panel]"))
       .filter(element => element.open).map(element => element.getAttribute("data-budget-details-panel")));
     const node = (tag, className, text) => {
@@ -493,6 +502,11 @@
       headline.setAttribute("data-budget-ratio", ""); convention.append(headline);
       horizontal([budgeted, cost], [t("budget.conventionBudget"), t("budget.recordedConsumed")], benchmark.currency, convention, "total");
     } else if (benchmark && validCost && cost !== null && budgeted !== null) convention.append(status(t("budget.currencyComparisonUnavailable")));
+    const purchaseHost = node("div", "project-budget-purchase-host");
+    purchaseHost.setAttribute("data-budget-purchase-host", "");
+    convention.append(purchaseHost);
+    PurchaseFlow.render(purchaseHost, data.purchases, { codeColor, detailsOpen: purchaseDetailsOpen, collapsed: purchaseCollapsed });
+    purchaseFlows.set(container, purchaseHost);
     if (lifetime.status === "partial") convention.append(status(t("budget.partialConsumptionWarning")));
     const sourceCost = node("p", "project-budget-cost-basis", t("budget.sourceCost", { p0: amount(lifetime.expenseCost, lifetime.currency), p1: showBwPersonnelCosts ? t("budget.bwRecordedCostSuffix", { p0: amount(lifetime.personnelCost, lifetime.currency) }) : t("budget.bwCostHiddenSuffix"), p2: showBwPersonnelCosts ? t("budget.fullConventionBasis") : t("budget.excludingBwConventionBasis") }));
     convention.append(sourceCost);
@@ -606,31 +620,42 @@
         let pinnedCode = null;
         const measureLabels = { budgeted: t("budget.budgeted"), consumed: t("budget.invoicedConsumed"), committed: t("budget.committed") };
         const hideCode = force => { if (force || pinnedCode === null) { pinnedCode = null; tooltip.hidden = true; } };
+        const attachDetail = (button, targetKey, show, activate) => {
+          button.setAttribute("aria-describedby", tooltip.id);
+          button.addEventListener("pointerenter", show); button.addEventListener("pointerleave", () => hideCode(false));
+          button.addEventListener("focus", show); button.addEventListener("blur", () => hideCode(true));
+          button.addEventListener("click", () => {
+            if (activate) { hideCode(true); activate(); }
+            else if (pinnedCode === targetKey) hideCode(true);
+            else { pinnedCode = targetKey; show(); }
+          });
+          button.addEventListener("keydown", event => { if (event.key === "Escape") { event.preventDefault?.(); hideCode(true); } });
+        };
         const attachCode = (button, code, kind) => {
           const targetKey = `${budget.id}:${kind}:${code.key}`;
-          button.setAttribute("data-budget-code-detail", targetKey); button.setAttribute("aria-describedby", tooltip.id);
+          button.setAttribute("data-budget-code-detail", targetKey);
           const show = () => {
             tooltip.replaceChildren(node("strong", "", code.name));
             for (const field of kind === "all" ? ["budgeted", "consumed", "committed"] : [kind]) tooltip.append(node("span", "", `${measureLabels[field]} : ${amount(code.values[field], currencyLabel(code))}`));
             if (!code.compatible) tooltip.append(node("span", "", t("budget.currencyScaleUnavailable")));
             tooltip.hidden = false;
           };
-          button.addEventListener("pointerenter", show); button.addEventListener("pointerleave", () => hideCode(false));
-          button.addEventListener("focus", show); button.addEventListener("blur", () => hideCode(true));
-          if (kind !== "all") {
-            button.setAttribute("aria-haspopup", "dialog");
-            button.addEventListener("click", () => { hideCode(true); openBills(button, code, budget, kind, year); });
-          } else button.addEventListener("click", () => { if (pinnedCode === targetKey) hideCode(true); else { pinnedCode = targetKey; show(); } });
-          button.addEventListener("keydown", event => { if (event.key === "Escape") { event.preventDefault?.(); hideCode(true); } });
+          if (kind !== "all") button.setAttribute("aria-haspopup", "dialog");
+          attachDetail(button, targetKey, show, kind === "all" ? null : () => openBills(button, code, budget, kind, year));
         };
         const bars = node("div", "project-budget-annual-bars");
         const codeTargets = [];
         [["budgeted", t("budget.budgeted")], ["consumed", t("budget.consumed")], ["committed", t("budget.committed")]].forEach(([kind, label], index) => {
           const cluster = node("div", "project-budget-annual-cluster"); cluster.setAttribute("data-budget-measure", kind);
           const clusterBars = node("div", "project-budget-cluster-bars");
-          const column = node("div", "project-budget-annual-column"), rect = geometry.bars[index];
+          const column = node("button", "project-budget-annual-column"), rect = geometry.bars[index]; column.type = "button";
           column.setAttribute("data-budget-bar", kind); column.setAttribute("data-budget-value", rect.value === null ? "unavailable" : String(rect.value));
-          column.setAttribute("aria-label", t("budget.totalMeasure", { p0: label, p1: amount(rect.value, currency) }));
+          const totalText = t("budget.totalMeasure", { p0: label, p1: amount(rect.value, currency) });
+          column.setAttribute("aria-label", totalText);
+          const totalKey = `${budget.id}:${kind}`; column.setAttribute("data-budget-total-detail", totalKey);
+          attachDetail(column, totalKey, () => {
+            tooltip.replaceChildren(node("strong", "", totalText)); tooltip.hidden = false;
+          });
           if (rect.available) {
             const fill = node("span", `project-budget-annual-fill is-${kind}${rect.negative ? " is-negative" : ""}`);
             fill.style.top = `${rect.top}%`; fill.style.height = `${rect.height}%`; fill.setAttribute("data-budget-height", String(rect.height)); column.append(fill);
@@ -671,8 +696,9 @@
             const swatch = node("span", "project-budget-code-dot"); swatch.style.backgroundColor = code.color; swatch.setAttribute("aria-hidden", "true");
             button.append(swatch, node("span", "", code.name)); item.append(button); codeLegend.append(item);
           });
-          card.append(codeLegend, tooltip);
+          card.append(codeLegend);
         }
+        card.append(tooltip);
         const exact = node("dl", "project-budget-annual-values");
         [[t("budget.budgeted"), "budgeted"], [t("budget.invoicedConsumed"), "consumed"], [t("budget.committed"), "committed"]].forEach(([label, kind]) => {
           const item = node("div", `is-${kind}`); item.append(node("dt", "", label), node("dd", "", amount(budget.totals?.[kind], currency))); exact.append(item);
@@ -703,6 +729,7 @@
     if (oldChoice !== null) Array.from(panel.querySelectorAll("[data-budget-convention-choice]")).find(input => input.value === oldChoice)?.focus();
     else if (oldPersonnelChoice && personnelInput) personnelInput.focus();
     else if (oldExclusion && exclusionInput) exclusionInput.focus();
+    else if (oldTotalDetail !== null) Array.from(panel.querySelectorAll("[data-budget-total-detail]")).find(button => button.getAttribute("data-budget-total-detail") === oldTotalDetail)?.focus();
     else if (oldCodeDetail !== null) {
       const target = Array.from(panel.querySelectorAll("[data-budget-code-detail]")).find(button => button.getAttribute("data-budget-code-detail") === oldCodeDetail);
       if (target?.getAttribute("data-budget-code-measure") !== null) {
@@ -711,6 +738,7 @@
       }
       target?.focus();
     }
+    else if (oldPurchaseControl !== null) Array.from(panel.querySelectorAll("[data-purchase-flow-control]")).find(control => control.getAttribute("data-purchase-flow-control") === oldPurchaseControl)?.focus();
     else if (oldDetails !== null) Array.from(panel.querySelectorAll("[data-budget-details]")).find(summary => summary.getAttribute("data-budget-details") === oldDetails)?.focus();
     else if (oldRetry && retry) retry.focus();
     return panel;

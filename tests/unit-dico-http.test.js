@@ -1,7 +1,9 @@
 "use strict";
 const test = require("node:test"), assert = require("node:assert/strict");
+const fs = require("node:fs"), path = require("node:path");
 const { startRuntime } = require("./steering-runtime");
 const { unitFixture } = require("./unit-dico-fixture");
+const { sourceKeyFor, emptyCatalogue, mergeNew } = require("../project-tags");
 const route = "/api/odoo/unit-dico-projects";
 const cookie = response => response.headers.get("set-cookie").split(";")[0];
 const post = (runtime, auth, body = {}) => runtime.request(route, {
@@ -19,7 +21,7 @@ test("Unit DiCo HTTP protects catalogue/assets and rejects method, origin and in
   const runtime = await startRuntime({ ...unitFixture(), disabled: true }); t.after(() => runtime.close());
   assert.equal((await runtime.request(route, { method: "POST", body: "{}" })).status, 401);
   assert.equal(runtime.calls.length, 0);
-  for (const file of ["unit-dico.js", "unit-dico.css"]) {
+  for (const file of ["unit-dico.js", "unit-dico.css", "project-similarity.js", "project-similarity.css"]) {
     assert.equal((await runtime.request("/" + file)).status, 303);
   }
   const auth = cookie(await runtime.login()), before = runtime.calls.length;
@@ -27,10 +29,107 @@ test("Unit DiCo HTTP protects catalogue/assets and rejects method, origin and in
   assert.equal((await runtime.request(route, { method: "POST", headers: { Cookie: auth }, body: "{" })).status, 400);
   assert.equal((await runtime.request(route, { method: "POST", headers: { Cookie: auth, Origin: "https://foreign.example.invalid" }, body: "{}" })).status, 403);
   assert.equal(runtime.calls.length, before);
-  for (const file of ["unit-dico.js", "unit-dico.css"]) {
+  for (const file of ["unit-dico.js", "unit-dico.css", "project-similarity.js", "project-similarity.css"]) {
     assert.equal((await runtime.request("/" + file, { headers: { Cookie: auth } })).status, 200);
   }
   assert.equal((await runtime.request("/unit-dico-service.js", { headers: { Cookie: auth } })).status, 404);
+  for (const file of ["project-tag-view.js", "project-tags.js", "data/project-tags.json"]) {
+    assert.equal((await runtime.request("/" + file, { headers: { Cookie: auth } })).status, 404);
+  }
+});
+
+function installFictionalTags(runtime) {
+  const config = JSON.parse(fs.readFileSync(path.join(runtime.directory, "config.local.json"), "utf8"));
+  const scannedAt = "2026-10-22T08:00:00.000Z";
+  const row = (id, tags) => ({ id, name: `PRIVATE_TAG_SOURCE_NAME_${id}`, code: `PRIVATE_TAG_CODE_${id}`, tags,
+    scanCompleted: true, descriptionStatus: "available", descriptionCharacterCount: 300, scannedAt,
+    sourceVersionId: 800000 + id, sourceVersionDate: "2026-01-01 12:00:00", sourceHash: "a".repeat(64),
+    descriptionText: "PRIVATE_TAG_SOURCE_NARRATIVE", privateMetadata: "PRIVATE_TAG_EXTRA" });
+  const catalogue = mergeNew(emptyCatalogue({ sourceKey: sourceKeyFor(config.odooUrl, config.database), unitId: 206,
+    tagDefinitions: { bim: { en: "BIM", fr: "BIM", nl: "BIM" },
+      vision: { en: "Computer vision", fr: "Vision par ordinateur", nl: "Computervisie" },
+      hidden: { en: "PRIVATE_ONLY_HIDDEN", fr: "PRIVATE_ONLY_HIDDEN", nl: "PRIVATE_ONLY_HIDDEN" } } }),
+    [row(11, ["bim", "vision"]), row(12, ["bim"]), row(13, ["hidden"])], { scannedAt });
+  fs.mkdirSync(path.join(runtime.directory, "data"), { recursive: true });
+  const file = path.join(runtime.directory, "data", "project-tags.json");
+  fs.writeFileSync(file, JSON.stringify(catalogue));
+  return { catalogue, file };
+}
+
+test("Unit DiCo HTTP projects include only each session's saved tag identities without description reads", async t => {
+  const runtime = await startRuntime({ ...unitFixture(), disabled: true }); t.after(() => runtime.close());
+  installFictionalTags(runtime);
+  const first = cookie(await runtime.login()), second = cookie(await runtime.login("second@example.com"));
+  const full = await (await post(runtime, first, { projectIds: [13], sourceKey: "attacker", tagMap: { projects: [13] } })).json();
+  assert.deepEqual(full.tagMap, { status: "available", scannedAt: "2026-10-22T08:00:00.000Z",
+    tagDefinitions: { bim: { fr: "BIM", nl: "BIM" }, vision: { fr: "Vision par ordinateur", nl: "Computervisie" } },
+    projects: [{ id: 11, tags: ["bim", "vision"] }, { id: 12, tags: ["bim"] }] });
+  const limited = await (await post(runtime, second, { projectIds: [11, 13] })).json();
+  assert.deepEqual(limited.projects.map(project => project.id), [12]);
+  assert.deepEqual(limited.tagMap.projects, [{ id: 12, tags: ["bim"] }]);
+  assert.deepEqual(limited.tagMap.tagDefinitions, { bim: { fr: "BIM", nl: "BIM" } });
+  assert.doesNotMatch(JSON.stringify(full.tagMap) + JSON.stringify(limited.tagMap),
+    /PRIVATE_|sourceKey|sourceVersion|sourceHash|description|attacker|hidden|"name"|"code"|"en"/);
+  assert.ok(!runtime.calls.some(xml => /<string>(?:description_version_ids|bw\.project\.description\.version|description)<\/string>/.test(xml)),
+    "Tag display must reuse local scans without reading descriptions");
+  assertReadOnly(runtime.calls);
+});
+
+test("Unit DiCo HTTP keeps project catalogue available when optional saved tags are missing, corrupt or from another source", async t => {
+  const runtime = await startRuntime({ ...unitFixture(), disabled: true }); t.after(() => runtime.close());
+  const auth = cookie(await runtime.login());
+  const expectUnavailable = async () => {
+    const response = await post(runtime, auth); assert.equal(response.status, 200);
+    const result = await response.json(); assert.deepEqual(result.projects.map(project => project.id), [11, 12]);
+    assert.deepEqual(result.tagMap, { status: "unavailable", scannedAt: null, tagDefinitions: {}, projects: [] });
+    assert.doesNotMatch(JSON.stringify(result), /PRIVATE_TAG_|private-upstream-secret|sourceKey|sourceVersion|sourceHash/);
+  };
+  await expectUnavailable();
+  const { catalogue, file } = installFictionalTags(runtime);
+  fs.writeFileSync(file, "{invalid catalogue"); await expectUnavailable();
+  catalogue.scope.sourceKey = "https://other.example.invalid|other-db";
+  fs.writeFileSync(file, JSON.stringify(catalogue)); await expectUnavailable();
+  assertReadOnly(runtime.calls);
+});
+
+test("Unit DiCo HTTP projects fixed programme memberships only onto exact session-visible IDs without extra reads", async t => {
+  const source = unitFixture();
+  source.records["project.project"][0].display_name = "[54232014] Fictional North project";
+  source.records["project.project"][1].name = "[54252043] Fictional South project";
+  source.records["project.project"][2].display_name = "[56232072] Foreign unit project";
+  const runtime = await startRuntime({ ...source, disabled: true }); t.after(() => runtime.close());
+  const first = cookie(await runtime.login()), second = cookie(await runtime.login("second@example.com"));
+  const before = runtime.calls.length;
+  const response = await post(runtime, first, { programmeMap: { status: "available", programmes: [{ id: "DC2", projectIds: [13, 999] }] },
+    programmeId: "DC2", projectIds: [13, 999] });
+  assert.equal(response.status, 200); const full = await response.json();
+  assert.deepEqual(full.programmeMap, { status: "available", programmes: [
+    { id: "DC1", code: "DC1", subtitle: "Backbone", projectIds: [11] },
+    { id: "DC2", code: "DC2", subtitle: "Insight", projectIds: [] },
+    { id: "DC3", code: "DC3", subtitle: "Manufacturing", projectIds: [12] }
+  ] });
+  const firstReads = projectReads(runtime.calls.slice(before));
+  assert.equal(firstReads.length, 2, "Reuse the existing unit catalogue and manager-link reads only");
+  assert.ok(firstReads.every(xml => !xml.includes("<string>ilike</string>")));
+  const limited = await (await post(runtime, second, { programmeMap: full.programmeMap })).json();
+  assert.deepEqual(limited.programmeMap.programmes.map(p => p.projectIds), [[], [], [12]]);
+  assert.deepEqual(limited.projects.map(project => project.id), [12]);
+  assert.doesNotMatch(JSON.stringify(full.programmeMap) + JSON.stringify(limited.programmeMap),
+    /Foreign|54232014|54252043|56232072|51232020|responsible|manager|references|999/);
+  assertReadOnly(runtime.calls);
+});
+
+test("Unit DiCo HTTP retains its catalogue if the optional pure programme projection fails", async t => {
+  const runtime = await startRuntime({ ...unitFixture(), disabled: true }); t.after(() => runtime.close());
+  fs.appendFileSync(path.join(runtime.directory, "programme-service.js"),
+    '\nmodule.exports.createProjectMap = () => { throw new Error("private-programme-projection-secret"); };\n');
+  const auth = cookie(await runtime.login()), response = await post(runtime, auth);
+  assert.equal(response.status, 200); const result = await response.json();
+  assert.deepEqual(result.projects.map(project => project.id), [11, 12]);
+  assert.deepEqual(result.programmeMap, { status: "unavailable", programmes: [] });
+  assert.doesNotMatch(JSON.stringify(result), /private-programme-projection-secret/);
+  assert.equal(projectReads(runtime.calls).length, 2);
+  assertReadOnly(runtime.calls);
 });
 
 test("Unit DiCo HTTP uses fixed confirmed department and session visibility independently of disabled steering or overrides", async t => {

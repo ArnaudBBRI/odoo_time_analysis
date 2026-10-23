@@ -6,6 +6,7 @@ const { AsyncLocalStorage } = require("async_hooks");
 const steeringService = require("./steering-service");
 const projectFinanceService = require("./project-finance-service");
 const unitDicoService = require("./unit-dico-service");
+const projectTagView = require("./project-tag-view");
 
 const HOST = process.env.HOST || "127.0.0.1";
 const PORT = Number(process.env.PORT || 8765);
@@ -127,7 +128,7 @@ const server = http.createServer((request, response) => {
         await handleSteering(request, response, url.pathname);
         return;
       }
-      if (["/steering.js", "/steering-client.js", "/steering-client.css", "/personal-time.js", "/personal-time.css", "/work-capacity.js", "/personal-capacity.js", "/personal-capacity.css", "/project-card.js", "/project-card.css", "/project-monthly.js", "/project-planning.js", "/project-browser.js", "/project-browser.css", "/project-budget.js", "/project-budget.css", "/unit-dico.js", "/unit-dico.css", "/programme-browser.js", "/programme-browser.css"].includes(url.pathname)) {
+      if (["/steering.js", "/steering-client.js", "/steering-client.css", "/chart-palette.js", "/personal-time.js", "/personal-time.css", "/work-capacity.js", "/personal-capacity.js", "/personal-capacity.css", "/project-card.js", "/project-card.css", "/project-monthly.js", "/project-planning.js", "/project-browser.js", "/project-browser.css", "/project-budget.js", "/project-budget.css", "/project-purchase-flow.js", "/project-purchase-flow.css", "/unit-dico.js", "/unit-dico.css", "/project-similarity.js", "/project-similarity.css", "/programme-browser.js", "/programme-browser.css"].includes(url.pathname)) {
         await serveStaticFile(url.pathname, response);
         return;
       }
@@ -887,12 +888,15 @@ async function handleProjectMilestones(request, response) {
 
   const warnings = [];
   const projects = await findProjectsByCode(odooUrl, database, uid, apiKey, projectCode, warnings);
-  const projectIds = projects.map((project) => Number(project.id)).filter((id) => Number.isFinite(id));
+  const requestedProjectId = /^id:\d+$/.test(projectCode) ? Number(projectCode.slice(3)) : null;
+  const projectIds = projects.map((project) => Number(project.id))
+    .filter((id) => Number.isSafeInteger(id) && id > 0 && (requestedProjectId === null || id === requestedProjectId));
+  if (requestedProjectId !== null && !projectIds.length) throw new Error("Selected project is unavailable");
   let fieldDefs;
   try {
     fieldDefs = await getModelFields(odooUrl, database, uid, apiKey, "project.milestone");
   } catch (error) {
-    warnings.push(`Project milestone lookup failed: ${error.message}`);
+    warnings.push("Project milestones are unavailable with your current Odoo access or schema.");
     sendJson(response, 200, {
       ok: true,
       uid,
@@ -900,6 +904,7 @@ async function handleProjectMilestones(request, response) {
       projectName: formatProjectName(projectCode, projects[0] && projects[0].name),
       projectIds,
       model: "project.milestone",
+      available: false,
       domain: null,
       fields: [],
       milestoneCount: 0,
@@ -911,24 +916,51 @@ async function handleProjectMilestones(request, response) {
 
   const availableFields = new Set(Object.keys(fieldDefs));
   const fields = buildMilestoneFields(fieldDefs);
+  const exactProject = requestedProjectId !== null;
+  if (exactProject) {
+    // Exact project views may only follow a metadata-confirmed project relation.
+    for (const field of ["project_id", "project_ids"]) {
+      const definition = fieldDefs[field];
+      const expectedTypes = field === "project_id" ? ["many2one"] : ["many2many", "one2many"];
+      if (definition?.relation !== "project.project" || !expectedTypes.includes(definition.type)) availableFields.delete(field);
+    }
+  }
   const domains = buildProjectMilestoneDomains(availableFields, projectCode, projectIds);
+  if (!domains.length) {
+    sendJson(response, 200, { ok: true, uid, projectCode,
+      projectName: formatProjectName(projectCode, projects[0] && projects[0].name), projectIds,
+      model: "project.milestone", available: false, domain: null, fields, milestoneCount: 0, milestones: [],
+      warnings: [...warnings, "Project milestone relations are unavailable."] });
+    return;
+  }
   let milestones = null;
   let domain = null;
+  let milestoneReadFailed = false;
 
   for (const candidateDomain of domains) {
     try {
-      const rows = await searchReadAll(odooUrl, database, uid, apiKey, "project.milestone", candidateDomain, fields, {
+      const sourceRows = await searchReadAll(odooUrl, database, uid, apiKey, "project.milestone", candidateDomain, fields, {
         order: availableFields.has("deadline") ? "deadline asc, id asc" : "id asc"
       });
-      if (!milestones || rows.length > 0) {
+      const rows = exactProject ? sourceRows.filter(row =>
+        (availableFields.has("project_id") && projectIds.includes(relationalId(row.project_id))) ||
+        (availableFields.has("project_ids") && Array.isArray(row.project_ids) && row.project_ids.some(id => Number.isSafeInteger(id) && projectIds.includes(id)))) : sourceRows;
+      if (exactProject) {
+        if (!milestones) { milestones = []; domain = candidateDomain; }
+        const seen = new Set(milestones.map(row => row.id));
+        for (const row of rows) if (Number.isSafeInteger(row.id) && row.id > 0 && !seen.has(row.id)) {
+          seen.add(row.id); milestones.push(row);
+        }
+      } else if (!milestones || rows.length > 0) {
         milestones = rows;
         domain = candidateDomain;
       }
-      if (rows.length > 0) {
+      if (rows.length > 0 && !exactProject) {
         break;
       }
-    } catch (error) {
-      warnings.push(`Milestone search failed for ${JSON.stringify(candidateDomain)}: ${error.message}`);
+    } catch (_) {
+      milestoneReadFailed = true;
+      warnings.push("Project milestone search is unavailable with your current Odoo access or schema.");
     }
   }
 
@@ -952,6 +984,7 @@ async function handleProjectMilestones(request, response) {
     projectName,
     projectIds,
     model: "project.milestone",
+    available: !milestoneReadFailed,
     domain,
     fields,
     milestoneCount: normalizedMilestones.length,
@@ -2577,6 +2610,7 @@ function buildProjectMilestoneDomains(availableFields, projectCode, projectIds) 
       ? [["project_ids", "in", projectIds]]
       : [["project_ids.name", "ilike", projectCode]]);
   }
+  if (/^id:\d+$/.test(projectCode)) return domains;
   if (availableFields.has("display_name")) {
     domains.push([["display_name", "ilike", projectCode]]);
   }
@@ -2685,7 +2719,10 @@ function buildMilestoneFields(fieldDefs) {
   ]);
   const fields = [];
   const addField = (field) => {
-    if (fieldDefs[field] && isReadableMilestoneField(fieldDefs[field]) && !fields.includes(field)) {
+    if (isMilestoneAuditDateField(field)) return;
+    const definition = fieldDefs[field];
+    const exactProjectCollection = field === "project_ids" && definition?.type === "one2many" && definition.relation === "project.project";
+    if (definition && (isReadableMilestoneField(definition) || exactProjectCollection) && !fields.includes(field)) {
       fields.push(field);
     }
   };
@@ -2770,10 +2807,18 @@ function pickMilestoneDateField(milestone, fieldDefs) {
   return { field: "", value: "" };
 }
 
+function isMilestoneAuditDateField(field) {
+  const compactName = String(field).toLowerCase().replace(/[^a-z0-9]/g, "");
+  return /^(?:create|created|write|written|update|updated|modify|modified)(?:date|datetime|time|timestamp|at|on)$/.test(compactName) ||
+    /^(?:date|datetime|time|timestamp)(?:created|updated|modified)$/.test(compactName) ||
+    /^(?:lastupdate|lastupdated|lastmodified|creationdate|modificationdate)$/.test(compactName);
+}
+
 function isMilestoneDateField(field, definition = {}) {
+  if (isMilestoneAuditDateField(field)) return false;
   const text = fieldInfoText(field, definition);
   return ["date", "datetime"].includes(definition.type || "") &&
-    /\b(deadline|target|due|milestone|jalon|date)\b/.test(text) &&
+    /\b(deadline|target|due|milestone|jalon)\b/.test(text) &&
     !/\b(reached|atteint|done|completed)\b/.test(text);
 }
 
@@ -3154,6 +3199,12 @@ function isSubcontractorFunction(value) {
   return normalized === "ai consultant" || normalized === "ai consultant ormit";
 }
 
+function isNamedSubcontractor(value) {
+  // User-confirmed historical exception: HR records/functions may be gone,
+  // while existing timesheets or planning still retain this full name.
+  return typeof value === "string" && value.normalize("NFKC").trim().replace(/\s+/g, " ").toLowerCase() === "viktor de groote";
+}
+
 function employeeFunctionDetails(employee, model) {
   const candidates = [
     { value: String(employee.job_title || "").trim(), source: `${model}.job_title` },
@@ -3270,7 +3321,12 @@ async function enrichEmployeeFunctions(odooUrl, database, uid, apiKey, records, 
       record.employeeId = employee.id;
       record.employee = record.employee || employee.name;
     }
-    if (employee?.employeeFunction) {
+    if (isNamedSubcontractor(record.employee) || isNamedSubcontractor(employee?.name)) {
+      record.employeeFunction = employee?.employeeFunction || String(record.role || "").trim();
+      record.employeeFunctionSource = employee?.employeeFunctionSource || (record.employeeFunction ? "planning.role_id" : "");
+      record.isSubcontractor = true;
+      record.subcontractorClassification = "named-override";
+    } else if (employee?.employeeFunction) {
       record.employeeFunction = employee.employeeFunction;
       record.employeeFunctionSource = employee.employeeFunctionSource;
       record.isSubcontractor = employee.isSubcontractor;
@@ -4486,12 +4542,12 @@ async function enrichPersonalPersonnelBudgets(args, projects, now = new Date()) 
       if (!employeeId || hours === null || !Number.isSafeInteger(row.id) || row.id <= 0) { invalid.add(projectId); continue; }
       if (seen.has(row.id)) { invalid.add(projectId); invalid.add(seen.get(row.id)); continue; }
       seen.set(row.id, projectId);
-      records.push({ projectId, employeeId, hours });
+      records.push({ projectId, employeeId, employee: relationalName(row.employee_id), hours });
     }
     await enrichEmployeeFunctions(...args, records, [], { strictFunctionMetadata: true });
     const totals = new Map([...eligible.keys()].map(id => [id, { sum: 0, correction: 0 }]));
     for (const record of records) {
-      if (record.subcontractorClassification !== "employee-function") { invalid.add(record.projectId); continue; }
+      if (!["employee-function", "named-override"].includes(record.subcontractorClassification)) { invalid.add(record.projectId); continue; }
       if (!record.isSubcontractor) {
         // Compensated summation avoids cent-level drift without rounding the
         // source precision before the strict convention-exhaustion comparison.
@@ -4879,6 +4935,17 @@ async function handleUnitDicoProjects(request, response) {
     const result = await unitDicoService.load(rpc);
     const projects = new Map(result.projects.map(project => [project.id, project]));
     await enrichPersonalProjectManagers(args, projects);
+    // Local tag data is optional and is intersected with this session's exact
+    // accessible catalogue. Never fetch descriptions or expose the saved file.
+    try {
+      const catalogue = JSON.parse(fs.readFileSync(path.join(ROOT, "data", "project-tags.json"), "utf8"));
+      result.tagMap = projectTagView.createView(catalogue, result.projects, settings);
+    } catch (_) { result.tagMap = projectTagView.unavailable(); }
+    // The fixed programme lists are projected locally onto already-visible
+    // exact IDs; optional mapping failures cannot discard the unit catalogue.
+    try {
+      result.programmeMap = require("./programme-service").createProjectMap(result.projects);
+    } catch (_) { result.programmeMap = { status: "unavailable", programmes: [] }; }
     sendJson(response, 200, result);
   } catch (_) {
     sendJson(response, 502, { ok: false, error: "Les projets de Unit DiCo sont indisponibles. Réessayez ou vérifiez vos accès Odoo et le champ d’unité responsable." });

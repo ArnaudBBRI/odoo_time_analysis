@@ -42,7 +42,7 @@ function loadDashboard(mockFetch, { allowedRoutes = ["/api/odoo/project-timeshee
       getScopedPersonalProjects, renderPersonalProjects, choosePersonalProject, clearPersonalProject,
       getSelectedDetailProjectId, setSelectedDetailProjectId, getDetailProjectCatalogue, fetchUnitDicoProjects,
       fetchProgrammeCatalogue, fetchProgrammeProjects, renderProgrammes, chooseProgramme,
-      summarizePersonalProjectHours, summarizeLifetimeProjectHours, loadPersonalProjectHours, setPersonalProjectOrmitters, hasProjectOrmitters,
+      summarizePersonalProjectHours, summarizeLifetimeProjectHours, loadPersonalProjectHours, loadPersonalProjectMilestones, setPersonalProjectOrmitters, hasProjectOrmitters,
       summarizePersonalProjectPlanningMonthly, setPersonalProjectPlannedMonthlyEmployee,
       loadPersonalProjectFinance, setPersonalProjectView, setPersonalProjectConvention, setPersonalProjectExcludeOrmitterCosts, setPersonalProjectShowBwPersonnelCosts, updatePersonalProjectFilterVisibility,
       applyViewChange: handleDashboardViewChange,
@@ -1014,7 +1014,7 @@ test("persistent sticky navigation starts on Mon temps and hides legacy populati
   const menu = source.match(/<section class="dashboard-menu"[\s\S]*?<\/section>/)?.[0];
   assert.match(menu, /<nav id="pilotage-nav"/);
   assert.match(menu.replace(/<span[^>]*>|<\/span>/g, ""), /data-view="time" aria-current="page">(?:<span[^>]*>)?Mon temps(?:<\/span>)?<\/button>/);
-  assert.match(menu.replace(/<span[^>]*>|<\/span>/g, ""), /data-view="projects">Projets<\/button>\s*<button type="button" data-view="unit-dico">Unité DiCo<\/button>/);
+  assert.match(menu.replace(/<span[^>]*>|<\/span>/g, ""), /data-view="projects">Mes Projets<\/button>\s*<button type="button" data-view="unit-dico">Unité DiCo<\/button>/);
   assert.match(menu, /id="hoursScopeControl"[^>]*hidden/);
   assert.match(menu, /id="hoursInclusionControl"[^>]*hidden/);
   assert.ok(source.indexOf('id="time-view"') > source.indexOf(menu) + menu.length,
@@ -2680,4 +2680,83 @@ test("scope changes preserve selected years, consultant inclusion and chart visi
   assert.equal(dashboard.state.includeOrmittersHours, true);
   assert.equal(total(dashboard.getScopedOverview().actual), 8);
   assert.ok(context.renderCalls > 0);
+});
+
+function projectMilestonesResult(id = 101, extra = {}) {
+  return { ok: true, projectIds: [id], available: true,
+    milestones: [{ id: 81, name: "Source milestone", date: "2026-06-15", isReached: false }], ...extra };
+}
+
+test("project milestones load independently and share exact-ID cached data in personal, unit and programme hours", async () => {
+  let finishMilestones;
+  const { dashboard, requests, context } = loadDashboard(({ url, payload }) => url.endsWith("project-milestones")
+    ? new Promise(resolve => { finishMilestones = resolve; }) : response(projectHoursResult(payload.projectId)),
+  { personalTime: true, allowedRoutes: ["/api/odoo/project-hours", "/api/odoo/project-milestones"] });
+  dashboard.state.personalTimeResult = personalResult(); dashboard.state.dashboardView = "projects";
+  dashboard.state.selectedPersonalProjectId = 101;
+  await dashboard.loadPersonalProjectHours(101);
+  let view = context.projectBrowserRenders.at(-1).options;
+  assert.equal(view.detail.project.actual, 28, "A slow milestone read cannot delay the hour charts");
+  assert.equal(view.detail.loading, false); assert.equal(view.detail.milestones, null);
+  await dashboard.loadPersonalProjectHours(101); await dashboard.loadPersonalProjectMilestones(101);
+  assert.equal(requests.length, 2, "Both optional and required reads share their own in-flight/cache entries");
+  assert.ok(requests.every(request => JSON.stringify(request.payload) === '{"projectId":101}'));
+  finishMilestones(response(projectMilestonesResult())); await new Promise(setImmediate);
+  const cached = dashboard.state.personalProjectMilestonesCache.get("101").result;
+  assert.equal(cached.available, true); assert.equal(cached.milestones[0].name, "Source milestone");
+  for (const kind of ["projects", "unit-dico", "programmes"]) {
+    dashboard.state.dashboardView = kind;
+    dashboard.state.unitDicoResult = unitDicoResult([101]); dashboard.state.selectedUnitProjectId = 101;
+    dashboard.state.selectedProgrammeId = "DC1"; dashboard.state.selectedProgrammeProjectId = 101;
+    dashboard.state.programmeProjectsCache.set("DC1", { result: programmeProjectsResult("DC1", [101]), loading: false, error: "" });
+    dashboard.renderPersonalProjects();
+    assert.equal(context.projectBrowserRenders.at(-1).options.detail.milestones, cached, kind);
+    dashboard.state.selectedYears = new Set([2025, 2026]); dashboard.renderPersonalProjects();
+    await dashboard.loadPersonalProjectHours(101);
+    assert.equal(context.projectBrowserRenders.at(-1).options.detail.milestones, cached);
+  }
+  assert.equal(requests.length, 2, "Shared contexts and local date changes reuse the milestone cache");
+});
+
+test("milestone failures and mismatched project responses stay optional and an explicit hours retry refreshes them", async () => {
+  let attempt = 0;
+  const { dashboard, requests, context } = loadDashboard(({ url }) => url.endsWith("project-hours") ? response(projectHoursResult())
+    : ++attempt === 1 ? Promise.reject(new Error("Private upstream failure"))
+    : response(projectMilestonesResult(attempt === 2 ? 102 : 101)),
+  { personalTime: true, allowedRoutes: ["/api/odoo/project-hours", "/api/odoo/project-milestones"] });
+  dashboard.state.personalTimeResult = personalResult(); dashboard.state.dashboardView = "projects";
+  dashboard.state.selectedPersonalProjectId = 101;
+  for (let pass = 0; pass < 3; pass += 1) {
+    await dashboard.loadPersonalProjectHours(101, pass > 0); await new Promise(setImmediate);
+    const view = context.projectBrowserRenders.at(-1).options;
+    assert.equal(view.detail.project.actual, 28); assert.equal(view.detail.error, "");
+    assert.equal(view.detail.milestones.available, pass === 2);
+    assert.equal(view.detail.milestones.milestones.length, pass === 2 ? 1 : 0);
+  }
+  assert.equal(requests.length, 6);
+  await dashboard.loadPersonalProjectHours(999); await dashboard.loadPersonalProjectMilestones(999);
+  assert.equal(requests.length, 6, "Unknown project IDs cannot trigger milestone reads");
+});
+
+test("milestone responses cannot cross project selections or repopulate refreshed cache generations", async () => {
+  const pending = new Map();
+  const { dashboard, context } = loadDashboard(({ url, payload }) => url.endsWith("project-milestones")
+    ? new Promise(resolve => pending.set(payload.projectId, resolve))
+    : response(url.endsWith("my-time") ? personalResult() : projectHoursResult(payload.projectId)),
+  { personalTime: true, allowedRoutes: ["/api/odoo/project-hours", "/api/odoo/project-milestones", "/api/odoo/my-time"] });
+  const personal = personalResult(); personal.projects.push({ id: 102, name: emptyProjectName });
+  personal.timesheets.lines.push(line(11, 1, false, employeeName, emptyProjectName));
+  dashboard.state.personalTimeResult = personal; dashboard.state.dashboardView = "projects";
+  dashboard.choosePersonalProject(101); dashboard.choosePersonalProject(102); await new Promise(setImmediate);
+  pending.get(101)(response(projectMilestonesResult(101))); await new Promise(setImmediate);
+  assert.equal(dashboard.state.personalProjectMilestonesCache.get("101").result.available, true);
+  assert.equal(context.projectBrowserRenders.at(-1).options.selectedId, 102);
+  assert.equal(context.projectBrowserRenders.at(-1).options.detail.milestones, null);
+  await dashboard.fetchPersonalTime();
+  pending.get(102)(response(projectMilestonesResult(102))); await new Promise(setImmediate);
+  assert.equal(dashboard.state.personalProjectMilestonesCache.size, 0);
+  const replacement = dashboard.loadPersonalProjectMilestones(101);
+  pending.get(101)(response(projectMilestonesResult(101, { milestones: [] }))); await replacement;
+  assert.equal(dashboard.state.personalProjectMilestonesCache.get("101").result.available, true);
+  assert.equal(dashboard.state.personalProjectMilestonesCache.get("101").result.milestones.length, 0);
 });

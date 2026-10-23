@@ -12,7 +12,7 @@ function loadServer() {
     console: { log() {}, error() {} }, URL, AbortController, Buffer,
     require(name) {
       if (["crypto", "async_hooks", "path"].includes(name)) return require(name);
-      if (["./steering-service", "./project-finance-service", "./unit-dico-service"].includes(name)) {
+      if (["./steering-service", "./project-finance-service", "./unit-dico-service", "./project-tag-view"].includes(name)) {
         return require(path.join(path.dirname(serverPath), name));
       }
       if (name === "http") return { createServer: () => server };

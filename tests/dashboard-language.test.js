@@ -134,10 +134,12 @@ test("calendar view callbacks validate choices and share one retained view acros
   for (const invalid of ["near", "other", "NEAR", null, {}, "full;fetch"]) dashboard.setProjectCalendarView(invalid);
   assert.equal(renders.project.length, count);
   state.dashboardView = "unit-dico"; state.selectedUnitProjectId = null; dashboard.renderPersonalProjects();
+  assert.equal(renders.unit.at(-1).options.showSimilarityMap, true);
   assert.equal(renders.unit.at(-1).options.calendarView, "near");
   renders.unit.at(-1).options.onCalendarViewChange("full");
   assert.equal(state.projectCalendarView, "full"); assert.equal(renders.unit.at(-1).options.focusCalendarView, "full");
   state.dashboardView = "programmes"; state.selectedProgrammeProjectId = null; dashboard.renderPersonalProjects();
+  assert.equal(renders.unit.at(-1).options.showSimilarityMap, false);
   assert.equal(renders.unit.at(-1).options.calendarView, "full");
   renders.unit.at(-1).options.onCalendarViewChange("near");
   assert.equal(state.projectCalendarView, "near"); assert.equal(state.selectedProgrammeId, "DC3");

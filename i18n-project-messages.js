@@ -6,6 +6,50 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
   return {
+  "project.browser.usagePersonalPlanning": {
+    "fr": "Mes heures · planning",
+    "nl": "Mijn uren · planning"
+  },
+  "project.browser.usageTotalPlanning": {
+    "fr": "Total · planning",
+    "nl": "Totaal · planning"
+  },
+  "project.browser.usageTotalConvention": {
+    "fr": "Total · convention",
+    "nl": "Totaal · overeenkomst"
+  },
+  "project.browser.usageOver": {
+    "fr": "{hours} de surconsommation à ce jour.",
+    "nl": "{hours} meer verbruikt tot vandaag."
+  },
+  "project.browser.usageUnder": {
+    "fr": "{hours} de sous-consommation à ce jour.",
+    "nl": "{hours} minder verbruikt tot vandaag."
+  },
+  "project.browser.usageBalanced": {
+    "fr": "Consommation conforme à ce jour.",
+    "nl": "Verbruik volgens verwachting tot vandaag."
+  },
+  "project.browser.usageUnavailable": {
+    "fr": "Comparaison indisponible.",
+    "nl": "Vergelijking niet beschikbaar."
+  },
+  "project.browser.milestoneName": {
+    "fr": "Jalon {id}",
+    "nl": "Mijlpaal {id}"
+  },
+  "project.browser.milestones": {
+    "fr": "Jalons du projet",
+    "nl": "Projectmijlpalen"
+  },
+  "project.browser.milestonesLegend": {
+    "fr": "Jalons du projet ({count}) · repères verticaux noirs",
+    "nl": "Projectmijlpalen ({count}) · zwarte verticale lijnen"
+  },
+  "project.browser.milestonesUnavailable": {
+    "fr": "Les jalons Odoo sont indisponibles.",
+    "nl": "De Odoo-mijlpalen zijn niet beschikbaar."
+  },
   "project.browser.indisponible.m9mk9v": {
     "fr": "Indisponible",
     "nl": "Niet beschikbaar"
@@ -151,8 +195,8 @@
     "nl": "Verwacht verschil = reeds gepresteerde uren + resterende geplande uren (inclusief TH) − overeenkomst. Al deze cijfers zijn zonder Ormitters."
   },
   "project.browser.lesComparaisonsACeJourUtilisentLe.10ti53d": {
-    "fr": "Les comparaisons à ce jour utilisent le planning réellement daté et la convention répartie linéairement sur les dates du projet. Elles sont indépendantes de la période sélectionnée.",
-    "nl": "De vergelijkingen tot vandaag gebruiken de werkelijk gedateerde planning en de overeenkomst lineair verdeeld over de projectdatums. Ze zijn onafhankelijk van de geselecteerde periode."
+    "fr": "Les comparaisons à ce jour utilisent le planning réellement daté et la convention répartie linéairement sur les dates du projet. Elles sont indépendantes de la période sélectionnée. La comparaison personnelle utilise uniquement vos imputations et allocations identifiées, hors ressources TH.",
+    "nl": "De vergelijkingen tot vandaag gebruiken de werkelijk gedateerde planning en de overeenkomst lineair verdeeld over de projectdatums. Ze zijn onafhankelijk van de geselecteerde periode. De persoonlijke vergelijking gebruikt alleen uw geïdentificeerde tijdregistraties en planningsuren, zonder TH-resources."
   },
   "project.browser.duAu.1aa9v9x": {
     "fr": "du {p0} au {p1}",
@@ -243,8 +287,24 @@
     "nl": "Projecten · 03 / Maandelijkse planning · projectduur"
   },
   "project.browser.projets02EvolutionMensuelleDureeDuProjet.1sqrl4c": {
-    "fr": "Projets · 02 / Évolution mensuelle · durée du projet",
-    "nl": "Projecten · 02 / Maandelijkse evolutie · projectduur"
+    "fr": "Projets · 02 / Heures réalisées · jusqu’à aujourd’hui",
+    "nl": "Projecten · 02 / Gepresteerde uren · tot vandaag"
+  },
+  "project.browser.plannedConventionMonthly": {
+    "fr": "La ligne pointillée représente les heures de convention du projet réparties linéairement sur ses dates, au prorata des jours de chaque mois. Cette référence reste à l’échelle du projet lorsqu’une personne est sélectionnée.",
+    "nl": "De stippellijn toont de uren van de projectovereenkomst, lineair verdeeld over de projectdatums volgens het aantal dagen per maand. Deze referentie blijft op projectniveau wanneer een persoon is geselecteerd."
+  },
+  "project.browser.plannedConventionCumulative": {
+    "fr": "La ligne pointillée cumule la référence linéaire de la convention jusqu’au total des heures prévues à la fin du projet. Cette référence reste à l’échelle du projet lorsqu’une personne est sélectionnée.",
+    "nl": "De stippellijn telt de lineaire referentie van de overeenkomst op tot het totale aantal voorziene uren op de einddatum van het project. Deze referentie blijft op projectniveau wanneer een persoon is geselecteerd."
+  },
+  "project.browser.plannedConventionEmpty": {
+    "fr": "Aucun budget horaire positif n’est renseigné dans la convention ; la référence pointillée n’est pas affichée.",
+    "nl": "De overeenkomst bevat geen positief urenbudget; de stippellijn wordt niet getoond."
+  },
+  "project.browser.plannedConventionUnavailable": {
+    "fr": "Les heures de convention n’ont pas pu être déterminées ; la référence pointillée n’est pas affichée.",
+    "nl": "De uren van de overeenkomst konden niet worden bepaald; de stippellijn wordt niet getoond."
   },
   "project.browser.inclureLesHeuresDesOrmitters.4nxxt6": {
     "fr": "Inclure les heures des Ormitters",

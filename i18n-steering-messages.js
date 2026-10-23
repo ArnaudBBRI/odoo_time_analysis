@@ -489,8 +489,8 @@
     "nl": "Alle"
   },
   "steering.projets_0dad61": {
-    "fr": "Projets",
-    "nl": "Projecten"
+    "fr": "Mes Projets",
+    "nl": "Mijn projecten"
   },
   "steering.unite_dico_aa8785": {
     "fr": "Unité DiCo",

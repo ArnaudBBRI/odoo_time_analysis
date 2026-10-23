@@ -32,6 +32,7 @@ function loadServer() {
       if (name === "./steering-service") return require("../steering-service");
       if (name === "./project-finance-service") return require("../project-finance-service");
       if (name === "./unit-dico-service") return require("../unit-dico-service");
+      if (name === "./project-tag-view") return require("../project-tag-view");
       if (name === "http") {
         return { createServer: () => server };
       }

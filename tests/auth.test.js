@@ -266,7 +266,7 @@ async function fixture(options = {}) {
   mock.listen(0, '127.0.0.1');
   await once(mock, 'listening');
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'bw-auth-test-'));
-  for (const file of ['server.js', 'language-preferences.js', 'language-client.js', 'i18n.js', 'i18n-core-messages.js', 'i18n-shell-messages.js', 'i18n-project-messages.js', 'i18n-timeline-messages.js', 'i18n-steering-messages.js', 'i18n-server-messages.js', 'index.html', 'login.html', 'steering.js', 'steering-service.js', 'project-finance-service.js', 'project-planning-service.js', 'unit-dico-service.js', 'steering-client.js', 'steering-client.css', 'personal-time.js', 'personal-time.css', 'project-card.js', 'project-card.css', 'project-monthly.js', 'project-planning.js', 'project-browser.js', 'project-browser.css', 'project-budget.js', 'project-budget.css', 'unit-dico.js', 'unit-dico.css']) fs.copyFileSync(path.join(__dirname, '..', file), path.join(directory, file));
+  for (const file of ['server.js', 'language-preferences.js', 'language-client.js', 'chart-palette.js', 'i18n.js', 'i18n-core-messages.js', 'i18n-shell-messages.js', 'i18n-project-messages.js', 'i18n-timeline-messages.js', 'i18n-steering-messages.js', 'i18n-server-messages.js', 'index.html', 'login.html', 'steering.js', 'steering-service.js', 'project-finance-service.js', 'project-purchase-service.js', 'project-planning-service.js', 'unit-dico-service.js', 'project-tag-view.js', 'project-tags.js', 'project-similarity.js', 'project-similarity.css', 'steering-client.js', 'steering-client.css', 'personal-time.js', 'personal-time.css', 'project-card.js', 'project-card.css', 'project-monthly.js', 'project-planning.js', 'project-browser.js', 'project-browser.css', 'project-budget.js', 'project-budget.css', 'project-purchase-flow.js', 'project-purchase-flow.css', 'unit-dico.js', 'unit-dico.css']) fs.copyFileSync(path.join(__dirname, '..', file), path.join(directory, file));
   fs.mkdirSync(path.join(directory, 'assets'));
   fs.copyFileSync(path.join(__dirname, '..', 'assets', 'buildwise-logo.svg'), path.join(directory, 'assets', 'buildwise-logo.svg'));
   const mockOrigin = `http://127.0.0.1:${mock.address().port}`;
@@ -343,7 +343,7 @@ test('Odoo login, session isolation and access control', async t => {
     assert.match(await welcome.text(), /Bienvenue/);
     assert.equal(welcome.headers.get('cache-control'), 'no-store');
     assert.equal((await f.request('/assets/buildwise-logo.svg')).status, 200);
-    for (const route of ['/dashboard', '/index.html', '/project-card.js', '/project-card.css', '/project-monthly.js', '/project-browser.js', '/project-browser.css', '/project-budget.js', '/project-budget.css']) {
+    for (const route of ['/dashboard', '/index.html', '/chart-palette.js', '/project-card.js', '/project-card.css', '/project-monthly.js', '/project-browser.js', '/project-browser.css', '/project-budget.js', '/project-budget.css']) {
       const response = await f.request(route);
       assert.equal(response.status, 303);
       assert.equal(response.headers.get('location'), '/login');
@@ -387,7 +387,7 @@ test('Odoo login, session isolation and access control', async t => {
     assert.match(f.calls.at(-1), /correct password/);
     assert.doesNotMatch(f.calls.at(-1), /attacker|private-config-secret/);
     assert.equal((await f.request('/dashboard', { headers: { Cookie: first } })).status, 200);
-    for (const route of ['/project-card.js', '/project-card.css', '/project-monthly.js', '/project-browser.js', '/project-browser.css', '/project-budget.js', '/project-budget.css']) assert.equal((await f.request(route, { headers: { Cookie: first } })).status, 200);
+    for (const route of ['/chart-palette.js', '/project-card.js', '/project-card.css', '/project-monthly.js', '/project-browser.js', '/project-browser.css', '/project-budget.js', '/project-budget.css']) assert.equal((await f.request(route, { headers: { Cookie: first } })).status, 200);
     for (const route of ['/server.js', '/project-finance-service.js', '/config.local.json', '/.git/config', '/README.md', '/timesheets_aca.xlsx', '/assets/../server.js', '/project-monthly.js.map']) {
       assert.equal((await f.request(route, { headers: { Cookie: first } })).status, 404);
     }

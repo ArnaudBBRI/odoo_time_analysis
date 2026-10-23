@@ -1,11 +1,184 @@
 "use strict";
 const test = require("node:test"), assert = require("node:assert/strict");
 const service = require("../project-finance-service");
-const { fixtureRpc, records, definitions, analytic, budgetLine, parent, supplierRecords } = require("./project-finance-fixture");
+const { fixtureRpc, records, definitions, analytic, budgetLine, parent, supplierRecords, purchaseDefinitions, purchaseRecords } = require("./project-finance-fixture");
 const now = new Date("2026-10-09T12:00:00Z");
 const load = rpc => service.load(11, rpc, now);
 const supplierRpc = options => fixtureRpc({ records: supplierRecords(), ...options });
 const annual = result => result.annual.find(budget => budget.id === 60);
+const purchaseRpc = options => fixtureRpc({ records: purchaseRecords(), definitions: purchaseDefinitions(), ...options });
+
+test("purchases map exact posted supplier allocations across both dimensions without budget-version joins", async () => {
+  const rpc = purchaseRpc(), sourceBefore = structuredClone(rpc.source), result = await load(rpc), purchases = result.purchases;
+  assert.equal(purchases.status, "available"); assert.deepEqual(purchases.issues, []);
+  assert.equal(purchases.startDate, "2026-01-01"); assert.equal(purchases.endDate, "2026-10-09");
+  assert.deepEqual(purchases.items.map(item => item.id), [101, 112, 102, 103]);
+  assert.deepEqual(purchases.items.map(item => [item.categoryId, item.codeCategoryId, item.code]), [[901, 903, "6010"], [901, 904, "6020"], [901, 903, "6010"], [902, 904, "6020"]]);
+  assert.equal(purchases.items.reduce((total, item) => total + item.consumed, 0), 500);
+  assert.equal(purchases.items.find(item => item.id === 102).consumed, -25);
+  assert.equal(purchases.items.find(item => item.id === 102).documentType, "in_refund");
+  assert.equal(purchases.items[0].description, "Fictional consulting allocation <script>example</script>");
+  assert.equal(purchases.items[0].supplierLabel, "Fictional supplier");
+  assert.deepEqual(Object.keys(purchases.items[0]).sort(), ["id", "date", "consumed", "currencyId", "currency", "categoryId", "category", "codeCategoryId", "codeCategory", "code", "description", "supplierLabel", "documentLabel", "documentType"].sort());
+  assert.doesNotMatch(JSON.stringify(purchases), /Private|employee_id|move_line_id|product_uom_id|analytic_distribution/);
+  const documentRead = rpc.calls.find(call => call.model === "account.move" && call.method === "search_read");
+  assert.deepEqual(documentRead.domain, [["id", "in", [1101, 1102, 1103, 1106, 1107]]]);
+  assert.deepEqual(documentRead.requested, ["id", "state", "move_type"]);
+  assert.ok(rpc.calls.every(call => ["fields_get", "search_read"].includes(call.method)));
+  assert.deepEqual(rpc.source, sourceBefore);
+});
+
+test("purchase dates include project start and Brussels today, retain post-end purchases and exclude other periods", async () => {
+  const rpc = purchaseRpc();
+  rpc.source["account.analytic.line"].find(row => row.id === 103).date = "2026-10-09 22:00:00";
+  const today = await service.load(11, rpc, new Date("2026-10-08T22:30:00Z"));
+  assert.equal(today.purchases.endDate, "2026-10-09");
+  assert.deepEqual(today.purchases.items.map(row => row.id), [101, 112, 102, 103]);
+  assert.ok(today.purchases.items.some(row => row.date > today.project.endDate));
+  rpc.source["account.analytic.line"].find(row => row.id === 103).date = "2026-10-10";
+  const tomorrow = await load(rpc); assert.ok(!tomorrow.purchases.items.some(row => row.id === 103));
+  assert.equal(tomorrow.purchases.status, "available");
+});
+
+test("purchase projection leaves existing lifetime, annual and convention source outputs unchanged", async () => {
+  const withDocuments = await load(purchaseRpc()), withoutDocuments = await load(fixtureRpc({ records: purchaseRecords() }));
+  for (const field of ["lifetime", "annual", "conventions", "macro", "warnings"]) assert.deepEqual(withDocuments[field], withoutDocuments[field]);
+  assert.equal(withDocuments.lifetime.expensesOnly.consumed, 2090);
+  assert.equal(withDocuments.purchases.items.reduce((total, item) => total + item.consumed, 0), 500);
+});
+
+test("purchase detail remains expense-only even when invoice allocations have employee and Hours dimensions", async () => {
+  const rpc = purchaseRpc(), row = rpc.source["account.analytic.line"].find(item => item.id === 101);
+  row.employee_id = [20, "Private employee"]; row.product_uom_id = [7, "Hours"];
+  const result = await load(rpc);
+  assert.equal(result.purchases.status, "available"); assert.equal(result.purchases.items.length, 4);
+  assert.equal(result.purchases.items[0].consumed, 300);
+  assert.doesNotMatch(JSON.stringify(result.purchases), /Private employee|employee_id|product_uom_id|secret timesheet/);
+});
+
+test("purchase source deduplicates identical allocations and rejects conflicts in either category, money, date or document", async () => {
+  const identical = purchaseRpc(); identical.source["account.analytic.line"].push(structuredClone(identical.source["account.analytic.line"][0]));
+  assert.equal((await load(identical)).purchases.items.length, 4);
+  for (const change of [row => { row.x_plan7_id = [999, "Other convention"]; }, row => { row.x_plan8_id = [999, "6030 Other code"]; },
+    row => { row.amount = -999; }, row => { row.date = "2099-01-01"; }, row => { row.move_id = [999, "Other invoice"]; }, row => { row.currency_id = [2, "USD"]; }]) {
+    const rpc = purchaseRpc(), duplicate = structuredClone(rpc.source["account.analytic.line"][0]); change(duplicate); rpc.source["account.analytic.line"].push(duplicate);
+    const result = (await load(rpc)).purchases;
+    assert.equal(result.status, "partial"); assert.ok(result.issues.includes("duplicateConflict"));
+    assert.ok(!result.items.some(item => item.id === 101));
+  }
+});
+
+test("purchase mappings retain missing dimensions explicitly instead of guessing from budgets or accounts", async () => {
+  for (const change of [row => { row.x_plan7_id = false; }, row => { row.x_plan8_id = false; }, row => { row.x_plan8_id = [903, "Services without a code"]; }]) {
+    const rpc = purchaseRpc(); change(rpc.source["account.analytic.line"][0]);
+    const purchases = (await load(rpc)).purchases, item = purchases.items.find(row => row.id === 101);
+    assert.equal(purchases.status, "partial"); assert.ok(purchases.issues.includes("mappingMissing")); assert.equal(item.consumed, 300);
+    assert.ok(item.categoryId === null || item.code === null);
+  }
+  const rpc = purchaseRpc(); delete rpc.definitions["account.analytic.line"].x_plan7_id;
+  const item = (await load(rpc)).purchases.items.find(row => row.id === 101);
+  assert.equal(item.categoryId, null); assert.equal(item.category, null);
+});
+
+test("purchase amounts and currencies remain unknown or separately identified without conversion", async () => {
+  const missing = purchaseRpc(); missing.source["account.analytic.line"][0].amount = false; missing.source["account.analytic.line"][1].currency_id = false;
+  const purchases = (await load(missing)).purchases;
+  assert.equal(purchases.status, "partial"); assert.ok(purchases.issues.includes("amountMissing")); assert.ok(purchases.issues.includes("currencyMissing"));
+  assert.equal(purchases.items.find(row => row.id === 101).consumed, null); assert.equal(purchases.items.find(row => row.id === 102).currencyId, null);
+  const mixed = purchaseRpc(); mixed.source["account.analytic.line"][0].currency_id = [2, "USD"];
+  const currencies = (await load(mixed)).purchases;
+  assert.equal(currencies.status, "available"); assert.deepEqual([...new Set(currencies.items.map(row => row.currencyId))].sort(), [1, 2]);
+  const unbound = purchaseRpc(); delete unbound.definitions["account.analytic.line"].amount.currency_field;
+  const unknown = (await load(unbound)).purchases;
+  assert.ok(unknown.issues.includes("currencyMissing")); assert.ok(unknown.items.every(row => row.currencyId === null));
+});
+
+test("purchase source rejects missing dates and IDs while source start/date/schema failures cannot invent all-history scope", async () => {
+  const invalid = purchaseRpc(); invalid.source["account.analytic.line"][0].date = "2026-02-30"; invalid.source["account.analytic.line"][1].id = false;
+  const partial = (await load(invalid)).purchases;
+  assert.equal(partial.status, "partial"); assert.ok(partial.issues.includes("incomplete")); assert.deepEqual(partial.items.map(row => row.id), [112, 103]);
+  const missingStart = purchaseRpc(); missingStart.source["project.project"][0].date_start = false;
+  assert.deepEqual((await load(missingStart)).purchases, { status: "unavailable", startDate: null, endDate: "2026-10-09", items: [], issues: ["startUnavailable"] });
+  assert.ok(!missingStart.calls.some(call => call.model === "account.move"));
+  const missingState = purchaseRpc(); delete missingState.definitions["account.analytic.line"].parent_state;
+  assert.equal((await load(missingState)).purchases.status, "unavailable");
+});
+
+test("purchase document type and posted state require exact confirmed metadata rather than names", async () => {
+  for (const change of [defs => { delete defs["account.move"]; }, defs => { defs["account.move"].move_type.type = "char"; },
+    defs => { defs["account.move"].move_type.selection = [["in_invoice", "Invoice"]]; }, defs => { defs["account.move"].state.type = "char"; }]) {
+    const rpc = purchaseRpc(); change(rpc.definitions);
+    const result = await load(rpc); assert.equal(result.purchases.status, "unavailable"); assert.deepEqual(result.purchases.issues, ["documentUnavailable"]);
+    assert.equal(result.lifetime.expensesOnly.consumed, 2090);
+  }
+  const rpc = purchaseRpc({ failRead: "account.move" }), unavailable = await load(rpc);
+  assert.equal(unavailable.purchases.status, "unavailable"); assert.doesNotMatch(JSON.stringify(unavailable), /private-source-secret/);
+});
+
+test("missing or conflicting purchase documents exclude only their allocations and disclose partial coverage", async () => {
+  const missing = purchaseRpc(); missing.source["account.move"] = missing.source["account.move"].filter(row => row.id !== 1102);
+  const purchases = (await load(missing)).purchases;
+  assert.equal(purchases.status, "partial"); assert.ok(purchases.issues.includes("documentUnavailable")); assert.ok(!purchases.items.some(row => row.id === 102));
+  const conflict = purchaseRpc(); conflict.source["account.move"].push({ id: 1101, state: "posted", move_type: "out_invoice" });
+  const conflicting = (await load(conflict)).purchases;
+  assert.ok(conflicting.issues.includes("duplicateConflict")); assert.ok(!conflicting.items.some(row => row.id === 101 || row.id === 112));
+  const unknownType = purchaseRpc(); unknownType.source["account.move"].find(row => row.id === 1102).move_type = "unknown";
+  assert.ok((await load(unknownType)).purchases.issues.includes("documentUnavailable"));
+});
+
+test("purchase descriptions read only confirmed exact purchase IDs and retain amounts when optional text fails", async () => {
+  const rpc = purchaseRpc(); await load(rpc);
+  const read = rpc.calls.find(call => call.model === "account.analytic.line" && call.requested?.includes("name"));
+  assert.deepEqual(read.domain, [["account_id", "=", 110], ["id", "in", [101, 102, 103, 112]], ["account_type", "in", ["expense", "expense_direct_cost", "expense_depreciation"]], ["parent_state", "=", "posted"]]);
+  for (const field of ["amount", "move_id", "currency_id", "x_plan7_id", "x_plan8_id"]) assert.ok(read.requested.includes(field));
+  for (const field of ["employee_id", "product_uom_id", "analytic_distribution"]) assert.ok(!read.requested.includes(field));
+  const failed = purchaseRpc(), originalRead = failed.read;
+  failed.read = async (model, domain, fields) => { if (model === "account.analytic.line" && fields.includes("name")) throw new Error("private-description-secret"); return originalRead(model, domain, fields); };
+  const unavailableText = await load(failed);
+  assert.equal(unavailableText.purchases.status, "partial"); assert.deepEqual(unavailableText.purchases.issues, ["descriptionsMissing"]);
+  assert.equal(unavailableText.purchases.items.reduce((total, row) => total + row.consumed, 0), 500);
+  assert.ok(unavailableText.purchases.items.every(row => row.description === null)); assert.doesNotMatch(JSON.stringify(unavailableText), /private-description-secret/);
+});
+
+test("changed monetary, category, scope or document evidence cannot attach purchase descriptions", async () => {
+  for (const change of [row => { row.amount = -999; }, row => { row.x_plan7_id = [999, "Other"]; }, row => { row.x_plan8_id = [999, "6030 Other"]; },
+    row => { row.account_id = [999, "Other account"]; }, row => { row.move_id = [999, "Other document"]; }, row => { row.currency_id = [2, "USD"]; }]) {
+    const rpc = purchaseRpc(), read = rpc.read;
+    rpc.read = async (model, domain, fields) => { const rows = await read(model, domain, fields); if (model === "account.analytic.line" && fields.includes("name")) change(rows.find(row => row.id === 101)); return rows; };
+    const purchases = (await load(rpc)).purchases, item = purchases.items.find(row => row.id === 101);
+    assert.equal(item.consumed, 300); assert.equal(item.description, null); assert.ok(purchases.issues.includes("descriptionsMissing"));
+  }
+});
+
+test("purchase source failures and shared analytic accounts remain isolated and unavailable", async () => {
+  for (const rpc of [purchaseRpc({ failRead: "account.analytic.line" }), purchaseRpc({ denied: "account.analytic.line" })]) {
+    const result = await load(rpc); assert.equal(result.purchases.status, "unavailable"); assert.deepEqual(result.purchases.items, []);
+    assert.ok(!rpc.calls.some(call => call.model === "account.move")); assert.doesNotMatch(JSON.stringify(result), /private-source-secret/);
+  }
+  const shared = purchaseRpc(); shared.source["project.project"][1].account_id = [110, "Shared"];
+  const result = await load(shared); assert.deepEqual(result.purchases.issues, ["sourceUnavailable"]); assert.ok(!shared.calls.some(call => call.model === "account.move"));
+});
+
+test("unknown financial classification or state cannot silently disappear from purchase coverage", async () => {
+  for (const change of [row => { row.account_type = "custom_unknown"; row.move_id = false; }, row => { row.account_type = false; row.move_id = false; },
+    row => { row.parent_state = "unknown"; }]) {
+    const rpc = purchaseRpc(); change(rpc.source["account.analytic.line"][0]);
+    const purchases = (await load(rpc)).purchases;
+    assert.equal(purchases.status, "partial"); assert.ok(purchases.issues.includes("incomplete")); assert.ok(!purchases.items.some(row => row.id === 101));
+  }
+});
+
+test("contradictory purchase description snapshots cannot be rescued by another apparently matching duplicate", async () => {
+  const rpc = purchaseRpc(), read = rpc.read;
+  rpc.read = async (model, domain, fields) => {
+    const rows = await read(model, domain, fields);
+    if (model === "account.analytic.line" && fields.includes("name")) rows.push({ ...structuredClone(rows.find(row => row.id === 101)), amount: -999 });
+    return rows;
+  };
+  const purchases = (await load(rpc)).purchases;
+  assert.equal(purchases.items.find(row => row.id === 101).description, null);
+  assert.ok(purchases.issues.includes("descriptionsMissing"));
+});
 
 test("finance reads exact project and referenced budgets; versions, future years and zero-budget consumption survive", async () => {
   const rpc = fixtureRpc();

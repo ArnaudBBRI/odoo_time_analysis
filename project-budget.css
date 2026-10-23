@@ -75,11 +75,11 @@
 .project-budget-annual-bars { display: flex; justify-content: space-between; gap: 14px; height: 100%; padding: 0 4px; }
 .project-budget-annual-cluster { position: relative; flex: 1; min-width: 0; height: 100%; }
 .project-budget-cluster-bars { display: flex; justify-content: center; gap: 4px; height: 100%; }
-.project-budget-annual-column { position: relative; flex: 0 0 24px; width: 24px; min-width: 0; height: 100%; }
+.project-budget-annual-column { position: relative; display: block; flex: 0 0 24px; width: 24px; min-width: 0; height: 100%; padding: 0; border: 0; border-radius: 4px; background: transparent; cursor: pointer; }
 .project-budget-cluster-label { position: absolute; top: calc(100% + 8px); left: 0; right: 0; color: #6d8897; font-size: 9px; text-align: center; white-space: nowrap; }
 .project-budget-code-column { position: relative; display: block; flex: 0 0 11px; width: 11px; height: 100%; min-width: 0; padding: 0; border: 0; border-radius: 4px; background: transparent; cursor: pointer; }
-.project-budget-code-column .project-budget-annual-fill { pointer-events: none; }
-.project-budget-code-column:focus-visible { outline: 2px solid #249cb2; outline-offset: 2px; background: rgb(24 143 171 / 6%); }
+.project-budget-annual-column .project-budget-annual-fill, .project-budget-code-column .project-budget-annual-fill { pointer-events: none; }
+.project-budget-annual-column:focus-visible, .project-budget-code-column:focus-visible { outline: 2px solid #249cb2; outline-offset: 2px; background: rgb(24 143 171 / 6%); }
 .project-budget-code-legend { display: flex; flex-wrap: wrap; gap: 4px 8px; margin: 0 0 14px; padding: 0; list-style: none; }
 .project-budget-code-legend li { min-width: 0; max-width: 100%; }
 .project-budget-code-key { display: flex; align-items: center; gap: 6px; max-width: 100%; min-height: 26px; padding: 4px 5px; border: 1px solid transparent; border-radius: 6px; color: #6c8999; background: transparent; font: inherit; font-size: 9px; line-height: 1.6; text-align: left; cursor: pointer; }
