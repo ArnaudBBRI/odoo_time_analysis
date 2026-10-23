@@ -54,6 +54,13 @@ temporary-file rename checks for an intervening edit. These operations are
 local preference writes, with no token requirement or Odoo call. See
 [configuration and deployment limits](CONFIGURATION.md#language-preference).
 
+## Browser chart palette
+
+`GET /chart-palette.js` is an authenticated dashboard asset: anonymous requests
+redirect to `/login`. Palette settings use only a validated browser-local
+`classic`, `dico-vibes` or `vibrant-emotions` preference; no palette API or server configuration
+write is involved.
+
 ## Connected person's time
 
 `POST /api/odoo/my-time` accepts JSON `{}` and uses the authenticated session
@@ -97,7 +104,9 @@ valid starts enter the batched paginated analytic-line read. The domain and
 postfilters require employee links, per-project starts and today's upper bound;
 post-end charges remain included. Known future starts prove zero consumption.
 Strict typed HR job title/job relation reads use exact employee IDs, with private
-then public fallback. Unknown classification, duplicate/malformed relevant
+then public fallback. The explicit normalized full-name exception for Viktor
+de Groote also confirms exclusion through `named-override`, using only the
+already-read relation label. Unknown classification for other people, duplicate/malformed relevant
 records or unavailable source/HR reads keep affected actuals unavailable.
 Nonemployee analytic expenses are outside this hours comparison. The backend
 retains signed corrections and precision; no colleague rows, names or employee
@@ -178,6 +187,9 @@ One response supplies `ok`, `uid`, `project: {id, name}`, `employee`,
 `hasOrmitters` and `lifetime`. Full-history raw lines/slots retain employee/resource
 IDs, `isSubcontractor` and `subcontractorClassification`, alongside monthly
 summaries and total hours.
+The explicit historical name exception reports `named-override` and sets
+`isSubcontractor: true`, preserving genuine `employeeFunction` and source values
+or leaving them empty when absent; it does not invent an Odoo function.
 These records support both **Mes heures** and **Heures du projet · tous les
 employés (hors Ormitters)** locally. The browser excludes known consultants by
 default, discloses included unknown functions, and applies selected-year/Brussels-date
@@ -295,7 +307,7 @@ positive project ID, deduplicates IDs and excludes normalized exact Interne /
 Overhead names, including a displayed numeric-code prefix.
 
 The successful response is `{ok, unit, responsibleField, projects, warnings,
-asOf}`. `unit` contains the fixed ID `206` and **RESEARCH & DEVELOPMENT / DIGITAL
+asOf, tagMap, programmeMap}`. `unit` contains the fixed ID `206` and **RESEARCH & DEVELOPMENT / DIGITAL
 CONSTRUCTION UNIT**; `responsibleField` is `lead_unit_id`. Each project has
 `{id, name, startDate, endDate, manager, totalBudget}`. Accessible archived and zero-hour
 projects remain included without employee-membership or year/date restrictions.
@@ -304,6 +316,28 @@ Dates use only metadata-confirmed `date_start` / `date` fields and become
 and recovers each date independently with exact catalogue IDs and the same unit
 domain; missing, invalid and reversed periods produce warnings rather than
 invented dates. A verified empty source returns an empty project array.
+
+`tagMap` is an optional local-snapshot projection with
+`{status, scannedAt, tagDefinitions, projects}`. Its `projects` contain only
+`{id, tags}` for completed nonempty saved tag sets intersecting the exact current
+unit catalogue, after checking the configured Odoo base URL/database namespace.
+Definitions contain only used canonical IDs with `{fr, nl}` labels. No saved
+project names/codes, other IDs, descriptions, hashes, source URLs or version
+metadata are exposed. Missing, invalid or mismatched local data yields
+`status: "unavailable"` with empty arrays/definitions, preserving the main
+catalogue. A valid empty intersection remains `available`. This adds no Odoo
+reads; the complete `data/project-tags.json` remains outside static routes.
+`/project-similarity.js` and `.css` are authenticated static renderer assets.
+
+`programmeMap` is an optional pure projection of the existing curated programme
+lists onto this session's accessible unit projects:
+`{status: "available", programmes: [{id, code, subtitle, projectIds}]}`. The three
+DC1/DC2/DC3 rows carry sorted exact matched IDs, using the same whole business-code
+and ambiguity exclusions as the programme view. Missing/hidden references and
+their source names/codes are not returned; an ID can belong to multiple lists.
+Caller-supplied maps/IDs do not alter the result. Projection failures yield
+`{status: "unavailable", programmes: []}` without discarding projects or tags.
+No additional Odoo request is made.
 
 Optional manager enrichment reuses the exact project/user-ID metadata and bounded
 raster-photo checks described for personal projects. Unavailable manager data
@@ -409,6 +443,14 @@ credential, schema, domain and year overrides are not consumed. It returns:
   Brussels today, source status/currency, expense/personnel components, exact
   convention-rubric breakdown, unmapped costs, zero-valued hours count and
   before-start/after-end diagnostics;
+- `purchases`: an independent supplier-invoice/credit-note projection with
+  `status` (`available`, `partial`, `unavailable`), exact project `startDate`,
+  Brussels-today `endDate`, machine-readable `issues` and `items`. Each item
+  contains analytic allocation `id`, `date`, signed `consumed`, verified
+  `currencyId`/`currency`, convention `categoryId`/`category`, internal
+  `codeCategoryId`/`codeCategory`/four-digit `code`, optional `description`,
+  `supplierLabel`/`documentLabel`, and confirmed `documentType`
+  (`in_invoice` or `in_refund`). Unknown measures remain null;
 - source `warnings`, without credentials, personnel descriptions or raw
   accounting-document/employee payloads.
 
@@ -463,6 +505,19 @@ return 200 with explicit unavailable/partial sections. Budget controls and
 selected years reuse the exact-project browser cache; refresh/retry invalidate
 it separately from the hours cache.
 
+Purchase eligibility additionally verifies the exact referenced `account.move`
+IDs through metadata-confirmed `state` and `move_type` fields. Only posted
+supplier invoices and credit notes qualify, from the known project start through
+inclusive Brussels today, including post-project-end charges. Missing document
+permission/schema or start dates cannot produce a complete zero. Exact analytic
+IDs deduplicate allocations, and conflicting snapshots are excluded with a
+partial-source issue. Optional descriptions are read only for confirmed purchase
+IDs and checked again against project/account, amount, currency, document and
+both category dimensions. The projection never uses invoice grand totals,
+employee time descriptions, unbilled orders or estimated rates. Its scope can
+differ from `lifetime`, which retains before-start costs and other expense types.
+The server-only `project-purchase-service.js` is not served as a frontend asset.
+
 ## Connected Lead Unit portfolio
 
 - POST /api/odoo/my-lead-unit: resolves the session user's unit and returns leadUnit id/name.
@@ -509,12 +564,26 @@ Three authenticated POST routes are available under `/api/odoo/pilotage/`: `meta
 
 ## Refresh
 
-- Last refreshed: 2026-10-16
+- Last refreshed: 2026-10-21
+- Purchase source basis: project-purchase-service.js, project-purchase-flow.js/css,
+  project-finance-service.js, project-budget.js, project-browser.js,
+  tests/project-purchase-flow.test.js and finance/budget/project integration tests.
 - Additional source basis: language-preferences.js, language-client.js, i18n.js,
   i18n-*-messages.js and tests/language-preferences-http.test.js.
 - Source basis: server.js, project-planning-service.js, project-planning.js, tests/project-planning-service.test.js, tests/project-planning-http.test.js, programme-service.js, programme-browser.js, tests/programme-service.test.js, tests/programme-http.test.js, unit-dico-service.js, unit-dico.js, project-finance-service.js, login.html, index.html/steering-client.js browser callers, personal-time.js, project-browser.js, project-budget.js, tests/personal-personnel-budget.test.js, tests/personal-recommendations.test.js and tests/auth.test.js.
 - Limitations: automated integration tests use simulated Odoo; broad account/schema compatibility is not established.
 
 ## APIs retained from main
+
+`POST /api/odoo/project-milestones` also feeds the shared project-hours area
+charts. The exact `projectId` path uses only metadata-confirmed `project_id` or
+`project_ids` relations, unions and deduplicates their results, and postfilters
+returned rows to that project. It has no name/code fallback. `available: true`
+with an empty `milestones` array is a confirmed empty result; unreadable model/
+relations or any failed relation read produce unavailable evidence. Milestone
+reads remain authenticated, session-scoped, archived-safe and read-only.
+Scheduled milestone dates use the explicit deadline/target/due/milestone/date
+fields or metadata with milestone/deadline/target/due semantics. Creation,
+modification and last-update timestamps cannot supply a milestone date.
 
 Authenticated POST routes /api/odoo/project-workpackages, /api/odoo/project-milestones and /api/odoo/project-budgets return task/WP, milestone and financial details. Unit-row detail calls pass projectId (a positive integer), resolved against project.project.id including archived records; missing IDs fail without a name-search fallback. Existing projectCode lookups remain available for legacy callers. /api/odoo/dico-projects retains the legacy fixed-unit API. The RPC boundary accepts only common.authenticate/version, db.list and object fields_get/search_read/read_group; mutations and unknown operations are blocked before network access.

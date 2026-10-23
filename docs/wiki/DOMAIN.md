@@ -1,5 +1,54 @@
 # Domain
 
+## Local project tags
+
+The shipped catalogue is keyed by normalized Odoo base URL/database and exact
+project ID, with business codes/names as labels. Tags use canonical IDs and
+English/French/Dutch labels. Completed rows carry a description-quality status,
+meaningful character count, source-version ID/date, extracted-text hash and scan
+timestamp. Full source narratives are omitted. Missing/short results are also
+permanently completed; `unavailable` remains retryable. Quality uses the latest
+owned macro-info summary, excluding template prompts and URL-only content;
+fewer than 200 meaningful Unicode characters is short. The catalogue is local
+reference data and does not represent Odoo tag assignments. See
+[workflow](../../data/README.md).
+
+Public-source enrichment is separate from Odoo description quality. Optional
+`webEnrichment` records identify a Buildwise review as `verified`, `not-found`,
+`ambiguous` or `insufficient`. A missing Odoo description can have tags only with
+verified public provenance covering every tag. Accepted sources carry identity
+evidence, URL/title, retrieval time and a content fingerprint; tag evidence
+references accepted source URLs. The short public summary does not replace
+Odoo's description status, character count, version, hash or scan timestamp.
+Completed scans remain permanent after a deliberate local enrichment edit.
+See the [web review report](../ai-context/PROJECT_TAG_WEB_ENRICHMENT.md).
+
+The unit similarity map includes only session-visible projects with saved tags.
+Each project has an equal-size bubble; link strength is weighted Jaccard overlap,
+with weight `ln(1 + N / tagFrequency)` for the visible tagged population.
+Weighted communities suggest thematic regions, named from their shared tags.
+Positions and boundaries are approximate; exact common tags appear in focus/
+pointer details. Tagged projects with no shared tags remain in a separate
+specialties panel. Parent/subtype relationships are not inferred; untagged
+projects are omitted. Opening a project is an explicit existing-app action.
+
+The grouping toggle selects separate retained thematic and programme layouts.
+Both use the same rarity-weighted semantic links and pair repulsion; programme
+mode adds attraction to the curated DC1/DC2/DC3 centres. Other projects have
+weaker central attraction rather than a tightly bound fourth programme.
+Programme membership is projected onto visible IDs using the same unique
+whole-code rules as the programme view. A shared member belongs to every matched
+list, with combined attraction and a segmented fill from the programme colours.
+Bubble fills and cloud colours match the active legend. Existing link endpoints
+move with their bubbles; identities, common tags, similarities and semantic
+communities remain unchanged. Deterministic settling/replay and smooth mode
+transitions are presentation, not new evidence of project similarity.
+
+Each mode has its own bounded label placement and member envelopes. Hulls can
+still overlap or enclose nonmembers, so the caption is explicit and legend
+counts/tooltips list exact plotted members. Animation respects reduced motion;
+retained mode/readiness avoids restarting settling on cached or language refresh.
+
 - Actual hours come from Odoo account.analytic.line unit_amount, grouped by month, project and employee.
 - Planned hours come from planning.slot or pivot exports. API slots use allocated_hours, with a duration/percentage fallback when unavailable.
 - Personal macro/Projets records use exact project IDs. Legacy workbook matching prefers a numeric bracketed code, then a normalized name; legacy projectCode lookup can search names, while projectId reads use the exact Odoo ID.
@@ -24,6 +73,107 @@ arbitrary source text is not inferred or translated.
 Invented project/contributor names carry explicit `nameMessageKey` provenance.
 The allowlisted `I18n.displayName` formats only those fallbacks from typed IDs;
 genuine source names that happen to resemble a fallback stay literal.
+
+## Shared wide-layout preference
+
+The header's native checkbox switch offers **Normal / Large**, or
+**Normaal / Breed** in Dutch, before the account/language controls. It is visible
+in every view, has a translated accessible name and shows its status on hover
+or focus. Mon temps and a selected personal project's Hours panel implement
+wide layouts. Project lists, Budget, Unit and Programmes keep their normal
+layout and width, with a neutral localized status when wide mode is selected.
+Normal is the default. All views share the browser's `standard` or `wide`
+preference under `odoo-time-analysis.mon-temps.layout`. A legacy saved `auto` value
+becomes `wide` in memory without writing during initialization. Invalid stored
+values or blocked reads use Normal; blocked writes leave the in-memory choice
+usable. Storage never involves Odoo or private configuration.
+
+Wide mode activates at 1600 CSS viewport pixels. Media-query changes follow
+resize/zoom, with viewport-width fallback when media queries are unavailable.
+A selected wide preference remains selected below that width, while the
+effective display safely returns to normal. The localized status describes
+the active view's layout or required width. There is no
+separate automatic mode or 2000px threshold.
+
+Active wide Mon temps removes the main content's usual 1880px maximum.
+Four visual columns show recommendations, capacity/planning, the graph and the
+project legend from left to right. Compared with the previous wide layout,
+recommendations are 30% narrower and capacity/planning is 50% narrower; the
+graph retains its width and the legend uses the remaining space. Recommendation
+and capacity content stays stacked within its column.
+Normal mode retains its original vertical flow. Views outside Mon temps and
+selected personal Project Hours retain the normal main-content cap.
+
+In active wide mode, the graph starts directly below the period. A compact
+120px summary shares its grid cell, visually showing actual hours above planned
+hours with smaller labels and values. The metric notes remain available to
+assistive technology; the overlay ignores pointer events so chart interaction
+continues underneath. The original planned-then-actual DOM order and normal or
+standalone presentation remain unchanged.
+
+The three hosts stay inside the static `personalTimeLayout` wrapper. Nested
+grids split the graph and legend while preserving the graph card's positioned
+box for tooltips; only its body uses `display: contents`. Layout changes update
+attributes, CSS and the status message, without rebuilding the
+rendered personal content or requesting data. The loaded-personal resize path
+also avoids a full render because its SVG and CSS adapt themselves. Controls,
+focus, recommendation tolerance, disclosures and cached data retain identity;
+period scope and all calculations remain independent of this preference.
+
+In a selected personal project's Hours panel, wide mode also removes the main
+content cap. The overview's four macro cards and three usage cards stack in a
+fixed 528.75px left column, exactly 125% of a 423px macro card at the normal
+1880px cap. The four macro cards use a 91.2px minimum height instead of 182.4px,
+with smaller type, gaps and padding; longer content can still increase their
+height. A 28px gap separates the overview from the personal, project and
+convention bar comparisons in the remaining top-row width.
+
+The actual and planned monthly area charts form an equal-width pair below that
+top row, spanning the full content width with a 28px gap. If only one chart is
+present, it spans the whole row. Compact one-column 220px legends sit to the
+right of the bar and monthly plots and scroll within bounded heights for
+larger teams.
+
+The `project-hours-layout` wrappers retain the normal vertical presentation
+outside active wide mode. A `project-hours-monthly` wrapper groups the existing
+monthly sections; in wide mode the graph wrapper uses `display: contents` so
+the pair occupies both top-grid columns. Attributes and CSS switch the layout without
+refetching or rebuilding controls, disclosures or cached data. Mounted chart
+ResizeObservers queue SVG geometry updates in animation frames and preserve the
+focused month. Notifications coalesce to the latest width; cleanup cancels a
+pending frame and retired callbacks cannot redraw detached content. This avoids
+changing the observed chart height during observer delivery. Without animation
+frame support the existing synchronous fallback remains. Separately,
+the dashboard's resize handler avoids rebuilding a mounted personal Hours
+panel. Monthly geometry keeps its 1200px default limit, with an optional 4096px
+limit only under the exact selected Hours layout and active wide ancestor.
+Both initial drawing and resize checks share that limit, so ultrawide charts
+use their available width without enlarging the labels or graph height.
+
+## Line and area chart colour preference
+
+The top toolbar's native **Paramètres / Instellingen** disclosure contains three
+radio choices with decorative palette previews: **Dico vibes**,
+**Classique / Klassiek** and **Vibrant Emotions**. Dico vibes is the default
+fifteen-colour palette; Classique retains the previous twenty colours, and
+Vibrant Emotions has ten colours. The shared `chart-palette.js`
+Browser/CommonJS module repeats the selected array after its own length and
+stores only the selected enum under `odoo-time-analysis.chart-palette` in browser
+storage. Initialization reads once without writing. Invalid or inaccessible
+storage uses Dico vibes; a blocked write leaves the in-memory selection usable.
+No Odoo operation or private-configuration change is involved.
+
+Changing the choice recolours mounted project SVG areas/person lines and
+Unit/programme concurrency charts in place, with subscriptions released during
+chart cleanup. Legacy canvas monthly, cumulative and planned/actual person
+lines also repaint, together with their line-legend swatches. Palette changes
+retain controls, focus, tooltip and table state, geometry, data and existing
+animation state. Pies, horizontal bars, Sankeys, project clouds and calendar
+colours are independent, as are semantic project-total, convention,
+dated-planning and milestone styles. Escape closes the settings disclosure and
+returns focus to its summary; an outside pointer press also closes it.
+While open, the settings disclosure stacks above the sticky navigation/date
+bar so the bar cannot obscure or intercept its palette options.
 
 ## Personal planned/actual macro
 
@@ -223,7 +373,8 @@ project IDs with positive readable budgets and valid starts, including archived
 records. Returned lines are checked against each project's start and inclusive
 Brussels today; post-end charges remain included. Nonemployee analytic costs
 are outside this hours cohort. Strict typed private/public HR function evidence
-excludes AI Consultant/AI Consultant Ormit; unknown or malformed classification,
+excludes AI Consultant/AI Consultant Ormit and the explicit named Ormitter
+exception described below; unknown or malformed classification for other people,
 duplicate source IDs, denied reads or malformed relevant amounts/dates leave
 the affected aggregate unavailable. Signed corrections and compensated sums
 retain source precision for exhaustion comparison. Only scalar totals/statuses
@@ -254,6 +405,17 @@ subcontractors/consultants; unknown functions remain included with a warning,
 including any disclosed planning-role fallback. Personal matching
 prefers an explicit employee ID; resource fallback applies only when no
 employee ID is present. The personal macro retains all personal roles.
+
+The shared server classifier has one explicit historical exception for the exact
+full name **Viktor de Groote**, after NFKC Unicode, case and whitespace
+normalization. A retained employee/resource label or resolved HR name establishes
+`isSubcontractor: true` with `subcontractorClassification: "named-override"`,
+even when HR evidence is absent or has another function. Readable function/source
+fields remain genuine; no Odoo function or employee ID is invented. The same
+classification feeds hours, planning, contributor/assignment presence and the
+strict personnel-hours scalar. Unknown-person warnings omit confirmed exception
+records. Records without a retained name or resolved matching profile cannot use
+this exception; descriptions and partial names are not identity evidence.
 
 An unchecked **Inclure les heures des Ormitters** checkbox appears only in the
 project comparison when any full-history nonzero actual/planned record is
@@ -355,15 +517,40 @@ It supports hover, keyboard focus, click/touch and Escape while retaining
 interactive native details and their open/focus state. The project period and
 captions inside the cards remain visible.
 
-Below the cards, two signed pointage comparisons use actuals through inclusive
-Brussels today: versus planning due through today, prorated directly from dated
-slots within project dates, and versus convention hours interpolated by elapsed
-inclusive project days. TH stays in the planning reference and known Ormitters
-stay excluded, independently of graph filters. These comparisons are distinct
-from projected end-of-project excess; each reference has an independent
-availability status. Actual corrections and post-end actuals retain their
-existing signed behavior; unknown planning or convention cannot produce a
-fabricated shortfall.
+Below the four macro cards, three compact text-only cards replace the former
+two comparison paragraphs: **Mes heures · planning**, **Total · planning** and
+**Total · convention**. The Dutch labels are **Mijn uren · planning**,
+**Totaal · planning** and **Totaal · overeenkomst**. They show a signed
+over-/under-consumption sentence, balanced consumption or an unavailable
+comparison, without a large value or percentage. Only over-consumption uses
+orange emphasis; under-consumption remains neutral blue. Differences within
+0.005h display as balanced without changing calculation precision.
+
+`ProjectPlanning.summarize` adds independent `personalToDate` actual/planned
+hours and statuses, signed difference and combined status. Actuals use the
+verified numeric own employee/resource IDs on already-loaded raw records;
+an explicit employee ID takes precedence over resource fallback. Planning uses
+the confirmed person snapshot before technical owner fields, excluding verified
+TH and unlinked resources. An unknown snapshot never borrows a mutable technical
+employee link; a potentially own nonzero elapsed allocation with uncertain
+ownership leaves personal planning unavailable. Both sides retain fixed
+Ormitter exclusion independently of graph filters.
+
+All three cards use actuals from project start through inclusive Brussels today.
+The existing total-planning reference remains prorated directly from dated slots
+within project dates, with TH included; the personal reference uses the same
+date overlap for eligible own allocations. The convention reference remains
+linear over inclusive project days. These comparisons are distinct from
+projected end-of-project excess and keep independent source availability.
+Signed corrections and post-end actuals retain their existing behavior;
+unknown personal data, planning or convention cannot create a fabricated
+shortfall or suppress an independently known comparison.
+
+In Normal mode, the compact grid has three columns down to 520px, then stacks.
+Its minimum card heights are 91.2px on desktop, 80px up to 1000px and 74px up to
+520px, half the normal primary-card minima. Wide Project Hours stacks these
+cards and also reduces the primary-card minimum to 91.2px, as described above.
+Text can expand naturally without clipping.
 
 Future allocation uses exact elapsed-time overlap between Brussels midnights,
 with the original UTC source-slot duration as denominator. Its lower bound is
@@ -374,8 +561,8 @@ closed project has zero future hours even when historical planning is denied.
 Signed allocations are retained; unknown/invalid applicable data is not clamped
 into a reassuring amount. Projection assumes the remaining plan is consumed,
 including positions still to fill; it is not an extrapolation of historical pace.
-The grid has four columns, then two up to 1000px and one up to 520px, with large
-values, rounded pale cards and orange excess styling. Card minimum heights are
+In Normal mode, the grid has four columns, then two up to 1000px and one up to
+520px, with large values, rounded pale cards and orange excess styling. Card minimum heights are
 182.4px on desktop, 160px at the two-column breakpoint and 148px on phones,
 20% below their previous sizes. Reduced spacing preserves the existing font
 sizes; long captions can expand naturally without clipping.
@@ -427,7 +614,7 @@ single final day such as eXtRAI's May 31 does not raise a month-long warning.
 Confirmed substantial gaps expose inclusive dates/calendar-day counts directly
 and in native details. Open state and keyboard focus survive redraws.
 
-**Projets · 02 — Évolution mensuelle** stacks actual employee hours in colored
+**Projets · 02 / Heures réalisées · jusqu’à aujourd’hui** stacks actual employee hours in colored
 areas with a thicker signed net-total line. Positive and negative contributions
 stack separately above and below zero, preserving signed corrections. The
 timeline starts at the project start and ends at Brussels today, without
@@ -474,9 +661,30 @@ stack separately, zero months remain, and cumulative totals reconcile with
 monthly sums. Valid empty planning is zero; failed/malformed sources are
 unavailable. Dates are bounded before constructing the series.
 
+Its separate dotted convention reference uses the same precise hour allowance
+as actual history, distributed linearly across every inclusive project day.
+Monthly amounts follow each month's overlapping day count; cumulative amounts
+reach the full convention allowance at project end, including future months.
+This reference remains project-wide when one employee/resource is selected or
+Ormitter inclusion changes; only the planned employee areas and total follow
+those filters. Legend, month details and exact-value columns retain the
+reference. A missing/nonpositive allowance omits the curve with an empty-budget
+notice; unreadable or invalid evidence uses an unavailable notice instead.
+Both notices are translated in French and Dutch, without a fabricated zero line.
+
 Both monthly charts have separate SVG/radio/tooltip IDs, open-table/focus state
 and reveal/lifecycle keys, so rendering or leaving the view cleans each chart's
 observers and document handlers independently.
+
+Projets 02 actual history and Projets 03 planning share the selected line/area
+palette. New exact string employee/resource identities receive successive
+ordinal slots, looping through either fifteen Dico vibes colours or twenty
+Classique colours. A chart-only cache retains those ordinals across both charts,
+palette changes, filters, monthly/cumulative modes and language rerenders.
+Areas, selected-person actual and planned-reference lines, legend samples,
+avatar borders and month-tooltip dots use the same identity colour. Horizontal
+bar colours are independent. Fixed total (`#183b53`), convention (`#8496a2`),
+dated planning (`#cf3347`) and black milestone styles remain unchanged.
 
 The actual-history month tooltip omits people whose displayed value is exactly
 known zero. Negative values and unknowns remain. Its exact-values table omits a
@@ -487,6 +695,25 @@ a nonzero reference preserve the row. These are presentation filters: chart
 months, totals and source series remain intact; the planned-area chart is not
 filtered by this rule.
 
+Both actual and planned project-hours charts overlay dated Odoo milestones as
+solid black vertical lines, independent of employee, Ormitter and monthly/
+cumulative choices. Strict calendar dates must lie within the chart's visible
+start/through period and month axis. Each marker occupies its calendar-day
+position inside the corresponding month interaction bucket, including partial
+first/last and single-month charts. A separate lower x axis shows milestone
+names on up to two balanced lines at 9px, tilted at -30 degrees. It sits closer
+below the fixed month ticks; the month/current-month caption follows all
+milestone names at the bottom. Its compact footer grows independently of the
+hour plot. Measured per-line rotated bounds, shifted boundary anchors, leaders
+and extra lanes separate crowded/same-date names. Each lane uses the nearest
+free interval with 6px gaps between projected boxes, and lane heights follow
+their actual projected extents. Extreme
+axis titles are ellipsized; full source names remain in SVG titles/accessibility
+labels, the month tooltip and the compact native disclosure below the chart.
+The overlay does not intercept month interactions or change hour totals/scales.
+Missing milestone access is disclosed separately; confirmed-empty data adds no
+markers or empty disclosure.
+
 All areas and lines share a one-second reveal on first display and each mode,
 employee selection or Ormitter inclusion switch. Scope changes, resizing and
 unchanged rerenders do not replay it; reduced-motion preference displays the final chart immediately.
@@ -496,8 +723,11 @@ explicit **Employé non identifié** bucket when neither is available. Zero net
 contributors are omitted. Their signed amounts use at most two decimal places
 and sum to the displayed actual total. Reconciled positive contributions stack
 within the actual bar in proportion to their hours, retaining the outer bar's
-cap and stable identity colors across year/inclusion changes. Photos or initials
-and names sit in bubbles inside sufficiently wide segments, with avatar-only
+cap and stable identity colors across year/inclusion changes.
+Scoped project and lifetime convention segments are ordered by descending
+actual hours. Each uses its own period's values,
+with existing localized name/ID tie order; legends remain alphabetical.
+Photos or initials and names sit in bubbles inside sufficiently wide segments, with avatar-only
 bubbles on narrower segments; a keyed contributor list
 always exposes all amounts. Optional profiles are joined by exact IDs, with no
 remote photo requests. Any negative contribution uses a neutral net bar plus
@@ -522,6 +752,46 @@ without changing their final hour-based widths or the date tick. A reduced-motio
 preference displays the final bars immediately.
 
 ## Project budget cost bases
+
+The purchase Sankey has a separate supplier-purchase basis below the first
+budget-consumption comparison: posted supplier invoices and credit notes,
+represented by each exact project analytic allocation from known project start
+through Brussels today. It keeps direct convention-rubric and internal-category
+identities; labels or account-code prefixes never invent a mapping. Right-hand
+entries with identical full description/document-fallback names merge with
+summed signed amounts within their currency/purchase-or-correction diagram.
+Complete `NF/FK MM-YYYY: INITIALS` names also merge across months by exact
+initials, tolerating optional source asterisks. Multiple months display the
+chronological range `NF/FK MM-YYYY --> MM-YYYY: INITIALS`; a single month keeps
+its source label. The range follows label months rather than accounting dates.
+Original invoice allocations remain separate in the detail table and preserve
+their category/code connections. Employee Hours, unbilled orders and other document types do not
+enter this graph, independently of the personnel and annual supplier controls.
+
+Within each currency, positive invoice amounts form the purchase diagram;
+negative invoice corrections and credit notes form a separate dashed correction
+diagram. Both diagrams share the same amount-to-thickness scale, with a small
+minimum visible width for tiny allocations. Gross purchases, signed corrections
+and net costs reconcile. Missing amounts remain in the full detail table and
+make the affected totals unavailable. Unverified currency identities are kept
+separate; missing category/code mappings remain explicit. Source status and
+translated issue notices describe incomplete coverage without inventing zeros.
+
+Inline and fullscreen diagrams always use a single right-hand purchase column,
+including dense lists. Its 1300-unit SVG width, direct code-to-purchase curves,
+name/amount width, financial groups and exact connections remain identical on
+expansion. Fullscreen proportionally fits the existing SVG without regrouping
+or moving its nodes, gradients or controls. Closing clears fitted dimensions;
+currency/correction diagrams retain their shared physical scale.
+
+The right column automatically tightens its spacing, then its typography,
+toward twice the left category column's connector/text extent. Font size stays
+between 8 and 10 SVG units (6–7.5pt before proportional fitting), with line height
+12.8–16 and connector gaps 2–18. Individual gaps also reserve one unit between
+label frames. The target excludes canvas padding, headings and the middle
+column. Dense lists may exceed it once minimum sizes are reached; every
+purchase and its full inline amount remain available without changing the
+financial ribbon scale.
 
 The finance response preserves a full lifetime consumption basis and a separate
 `lifetime.expensesOnly` basis. Both use signed recorded costs through Brussels
@@ -564,6 +834,12 @@ supplier-cost exclusion still applies independently to all annual periods.
 Both choices are remembered per project, leave hours/year/date controls
 independent and recalculate from cached data without another request.
 
+The three annual total bars expose their exact displayed amount and currency
+through the same tooltip as category bars. Native total buttons support hover,
+focus, click/tap pinning, blur and Escape, including zero/unavailable amounts
+and cards without category codes. Focus is restored by budget and measure on
+rerender; category arrow navigation and invoice-dialog actions stay separate.
+
 ## Unité DiCo catalogue and calendar
 
 The **Unité DiCo** tab uses the project's responsible department, exactly
@@ -577,40 +853,50 @@ connected person's employee hours or planning. Normalized exact **Interne** and
 excluded; unrelated names containing those words remain projects.
 
 `UnitDico.normalizeProjects` validates positive exact project IDs, deduplicates
-them and sorts the compact manager-radio grid by French project name. Photos
+them and retains source-name catalogue ordering. The DiCo and programme project
+card grids sort a separate copy by the short title displayed on each card,
+using the current FR/NL locale, natural numbers and case/accent-insensitive
+comparison, then exact ID for ties. Numeric source prefixes do not determine
+card order. Timeline chronology and similarity inputs retain their ordering. Photos
 remain optional validated raster data URLs with initials fallbacks. Project-ID
 colors stay stable across ordering and selection and identify Unit avatar
 borders and duration bars.
 
-Both grids use flip cards in place of sibling blur. Fronts have the project
-manager portrait and a bold short project title on white with black type and a
-moving `#00bfb6` border. The short title is the first nonnumeric bracketed acronym
-from `project.name`, without its brackets. A source numeric project code of at
-least five digits comes from a bracketed or leading token. The white back shows
-the number without brackets beside a mini portrait, then the short title, manager
-name and smaller italic full title with a two-line ellipsis. Its subtly floating
-turquoise `#00bfb6`, blue `#0087b7` and yellow `#ffce00` colors sit behind a
-translucent white content panel. No additional decorative icon is rendered.
+Personal, Unit and programme-associated project grids use the shared outline
+card presentation. White fronts show the manager portrait and a bold short
+project title with black type and a turquoise `#00bfb6` underline. The short title
+is the first nonnumeric bracketed acronym from `project.name`, without brackets;
+otherwise the remaining title is used. A source numeric code of at least five
+digits comes from a bracketed or leading token. A missing code stays empty;
+the Odoo record ID is never substituted.
 
-Without an acronym, the remaining text becomes the bold title and its duplicate
-italic row is empty. A missing code stays empty; the Odoo record ID is never
-substituted. Original source case and the complete name remain available in
-tooltips and the native radio label. Both portraits reuse existing bounded
-raster-photo metadata and broken-image initials, without another read. Missing
-manager data displays **Responsable indisponible**.
+Hover or keyboard focus fades the front and reveals a mini manager portrait
+beside the unbracketed code, the full remaining title and visible **Début** /
+**Fin** dates. A decorative turquoise SVG outline traces around the card in
+650ms; project cards do not rotate or contain moving color orbs. Long full
+titles have a three-line clamp, or two lines in compact Unit cards. Dates use
+strict date-only validation, and unavailable text can wrap in either language.
+Source case and the complete name remain in the native tooltip and radio label.
+Both portraits reuse existing bounded raster-photo metadata and image-error
+initials, without another read. The manager's full name remains available in
+the mini portrait's title and accessible description; missing manager metadata
+uses the localized unavailable fallback.
 
-Source start/end dates and the complete convention macro budget
-(`total_budget_convention`), including personnel, remain in the outer native
-tooltip and accessible description rather than visible back rows. Scoped years
-and the budget-panel personnel choice do not alter this scalar. Unknown
-dates/amounts remain **Indisponible**, while known amounts with unknown currency
-disclose it. Hover or keyboard focus reveals the back and starts its background
-motion. Touch/no-hover devices show both faces at twice the card height; reduced
-motion removes all card animation and the rotation transition. Unit cards have
-a fixed 112px height; personal cards have a fixed 190px height, or 180px at phone
-width. Bounded faces and ellipsis prevent long names from changing sibling sizes.
-Both faces stay decorative; the native radio retains its full project name,
-selection and single accessible metadata description.
+The outer native tooltip and single accessible description retain strict source
+dates and the complete convention macro budget (`total_budget_convention`),
+including personnel. Budget is not a visible project-detail row. Scoped years
+and the budget-panel personnel choice do not alter this scalar. Unknown dates
+or amounts remain explicitly unavailable; known amounts with unknown currency
+disclose it. Desktop Unit cards are 112px high; personal cards use 190px, or 180px
+at phone viewport width. Touch/no-hover project cards instead show the front
+and details together without animation, with a minimum height of 190px. Reduced
+motion makes hover/focus transitions immediate. Bounded faces and ellipsis keep
+sibling sizes consistent. Visual faces and the SVG are decorative; the native
+radio retains its full project name, selection and single metadata description.
+The small top-right project-radio circles are visually clipped while the real
+native inputs retain label selection, keyboard focus and accessible state.
+This applies to project cards in personal, Unit and programme-associated grids
+and to the three larger programme selectors.
 
 `UnitDico.buildTimeline` uses date-only `startDate` / `endDate` endpoints and
 inclusive calendar-day geometry. A valid end date in year 2999 excludes that
@@ -673,6 +959,10 @@ exposing exact values through hover/focus/tap month controls and an expandable
 table. Left/right arrows and
 Home/End move through months; Escape dismisses the tooltip. Matching gutters and
 linked horizontal scrolling keep the area chart aligned with the lifetime calendar.
+The line and both gradient stops use the selected line/area palette's first
+hue, with the existing 0.55 and 0.08 stop opacities. A palette change updates
+those attributes without replacing month controls, pinned details, the open
+values table or the calendar; cleanup retires its subscription.
 
 The personal **Projets** overview reuses this calendar below its radio grid.
 Its membership follows the same nonzero planned/actual year/custom-date scope
@@ -701,14 +991,19 @@ configuration:
 | DC2 | Insight | To Act / Agir | Timothée Lonfils |
 | DC3 | Manufacturing | To Make / Fabriquer | François Denis |
 
-Its larger radio cards reuse the white animated project-card faces. French
+Its larger radio cards use the same white faces, turquoise title underline and
+650ms traced SVG outline reveal as project cards, with programme-specific
+detail content. French
 catchphrases appear in the badge, tooltip and accessible description while
 canonical definitions, names and DC identities stay intact. Fronts show
 only the responsible portrait/initials and DC code; backs show the catchphrase
-badge beside a mini portrait, then code, responsible name and italic one-line
-subtitle. They contain no invented project dates or budget metadata. Cards have
+badge beside a mini portrait, then code, a bold one-line subtitle and responsible
+name. They contain no invented project dates or budget metadata. Cards have
 a fixed 230px height in three columns, or 210px in one column up to 700px wide,
-with the shared touch/no-hover and reduced-motion rules.
+with front and details together inside that same height on touch/no-hover
+devices. Touch portraits are 40px, versus 64px desktop. Native radios remain
+accessible but visually clipped, with selected/focus outlines. Reduced motion
+removes reveal transitions.
 
 Fixed names/text stay available while optional portraits load or fail.
 User-record visibility, missing metadata and ambiguous exact-name matches can
@@ -740,9 +1035,17 @@ The DiCo steering views introduce cumulative project-authoritative actuals, conv
 
 ## Refresh
 
-- Last refreshed: 2026-10-16
+- Last refreshed: 2026-10-23
+- Tag source basis: project-tags.js, project-description.js, project-tag-scan.js,
+  project-tag-view.js, project-similarity.js/css, programme-service.js and
+  data/project-tags.json, including the separately
+  validated Buildwise enrichment metadata.
+- Purchase source basis: project-purchase-service.js, project-purchase-flow.js/css,
+  project-finance-service.js, project-budget.js, project-browser.js,
+  tests/project-purchase-flow.test.js and finance/budget/project integration tests.
 - Additional source basis: i18n.js, i18n-*-messages.js, language-client.js,
-  language-preferences.js and the calendar/exclusion/zero-value renderer tests.
+  language-preferences.js, chart-palette.js and the palette/settings,
+  calendar/exclusion/zero-value renderer tests.
 - Source basis: personal-time.js, personal-time.css, tests/personal-recommendations.test.js, tests/personal-personnel-budget.test.js, project-planning-service.js, project-planning.js, tests/project-planning.test.js, project-card.js/css, programme-browser.js/css, programme-service.js, unit-dico-service.js, unit-dico.js/css, project-monthly.js, project-browser.js/css, project-budget.js, project-finance-service.js, index.html personal/lifetime/planning/programme scope/rendering and chart controls, steering-client.js navigation and server.js identity/contributor/assignment/convention/date/programme metadata/month allocation.
 - Limitations: business meanings and completeness of supplied exports were not validated.
 

@@ -1,5 +1,71 @@
 # Data Flow
 
+## Manual project-tag scan
+
+The shipped `data/project-tags.json` is a local reference snapshot. Ordinary
+app startup does not run a scan. `node scripts/scan-project-tags.js` loads private
+configuration through the actual server functions without starting HTTP. The
+existing RPC allowlist remains active. Project metadata and an exact unit-206
+listing (including archived records) establish the accessible scope.
+
+Completed source-namespace/project-ID pairs are skipped before description
+relations or content are read. New IDs use verified `description_version_ids`
+links and matching `bw.project.description.version.project_id`; version metadata
+selects the latest date/ID before that row's HTML is fetched. Summary extraction
+removes template instructions, measures meaningful characters and distinguishes
+missing/short descriptions from access/schema failures. Only pending local review
+results are written to `.local/project-tag-scan.json`, excluded from Git/Docker.
+No Odoo writes or automatic tags/catalogue updates occur. Reviewed entries can
+be merged locally through `project-tags.mergeNew`, which retains completed rows.
+See [catalogue workflow](../../data/README.md).
+
+The user-requested Buildwise enrichment is a separate reviewed local edit of
+completed rows. `project-tags.js` validates accepted HTTPS Buildwise provenance
+and a source reference for every applied web tag before permitting tags on a
+missing-description row. The original Odoo scan fields and completion flag are
+retained; `mergeNew` still preserves completed rows. Public summaries,
+identity-match notes, content hashes and per-tag evidence live only in the
+catalogue. There is no runtime web scraper, automatic rescan or Odoo write.
+See the [public-source review](../ai-context/PROJECT_TAG_WEB_ENRICHMENT.md).
+
+The normal authenticated unit catalogue handler also reads the local snapshot
+and applies `project-tag-view.createView` to its already verified accessible IDs
+and session source namespace. Only tagged IDs and their used localized
+definitions enter `result.tagMap`; public summaries, source URLs, hashes and
+evidence are omitted. `unit-dico.js` opts into the similarity renderer
+only from the unit overview, before the unchanged calendar 02. No description
+reads or scanner imports occur. The browser computes exact-tag weighted Jaccard
+links, deterministic positions and weighted communities; tag definitions supply
+labels in the current locale. Parent cleanup and opaque state restoration retain
+focus/details across language and cached refreshes.
+
+The unit handler also calls pure `programme-service.createProjectMap` on those
+same visible project rows. Its fixed reference resolver is shared with the
+programme lookup; no RPC is added. `result.programmeMap` carries only programme
+identity/subtitle and matched visible IDs. Optional projection errors retain the
+catalogue with unavailable mapping. `unit-dico.js` forwards it as a renderer
+option. The renderer builds one semantic model and a deterministic thematic
+physical layout. Programme geometry is computed separately on first use, with
+the same weighted semantic links and additional group attraction, then retained
+for later returns. A local native toggle interpolates displayed positions toward
+the chosen target while updating active fills, cloud layers and member legends.
+Existing circle/link elements remain; their coordinates change without altering
+the model or its source evidence.
+
+The pure solver records independent position snapshots for the initial settling
+and replay. Cumulative maximum displacement assigns proportional time to each
+physical segment with smoothstep easing, including the final collision pass;
+mode transitions use cubic interpolation between their retained targets.
+Native animation-frame callbacks update circles, label guides,
+member hulls and both visible/hit-test link endpoints. Clouds become more opaque
+during settling; labels and guides fade in during the final 20%. Reduced motion
+or unavailable animation APIs paint the exact final layout
+immediately. Cleanup invalidates callbacks and removes the motion listener.
+Ready/mode/focus state is captured for cached and language refreshes; missing
+mapping falls back to themes. Counts/tooltips distinguish exact programme
+members from approximate spatial envelopes. No backend or RPC change is needed
+for animation.
+
 ## Language and local preference
 
 `i18n.js` and explicit core/shell/project/timeline/steering/server catalogues
@@ -133,7 +199,10 @@ proves zero consumption without reading colleague lines for that project.
 
 An opt-in strict HR lookup requests only typed job-title/job-position columns
 for exact employee IDs in these records, with exact private/public fallback.
-Known Ormitters are excluded. Unknown classification, duplicate/malformed
+Known Ormitters are excluded, including the explicit `named-override` for Viktor
+de Groote when the already-read employee relation retains his full name. This
+label stays backend-only and requires no extra Odoo fields or reads.
+Unknown classification for other people, duplicate/malformed
 relevant records or unavailable reads prevent a complete affected aggregate;
 source precision and signed corrections are preserved with compensated sums.
 Only `{status, conventionHours, actualHours, actualStatus}` scalar evidence is
@@ -165,33 +234,42 @@ entry or tab departure; timeline name/bar selection opens the same project view.
 Changing scope can clear
 an out-of-scope selection, and macro-hidden IDs do not filter this grid.
 
-Both personal and Unit grids use `ProjectCard.mount` with direct-child native
-radio inputs outside the rotating faces. Shared `nameParts` / `createTitle`
-helpers parse only the existing `project.name` into the first nonnumeric
-bracketed acronym without brackets, a bracketed or leading numeric code of at
-least five digits, and the remaining full title. Fronts show the existing manager
-portrait and one bold short title. White backs show a mini portrait beside the
-unbracketed number, then the short title, manager name and smaller italic
-two-line full title. Without an acronym, the remaining text supplies the short
-title without an italic duplicate. Missing codes remain empty rather than using
-the Odoo ID. Tooltips and native radio labels keep the complete source name and
-case. The outer label tooltip and single native description retain strict source
-dates and the full convention budget; those values are no longer visible rows.
-The existing manager name/photo supplies both faces, with bounded PNG/JPEG/WebP
-data-URL validation and initials after image errors. No extra source read is
-made. Decorative faces and three ambient-color spans are hidden from
-accessibility trees. Hover/focus rotates the inner card 180 degrees in 550ms.
-A five-second conic-gradient border turns around the white front in `#00bfb6`,
-pausing while the back is revealed. The white back has blurred `#00bfb6`,
-`#0087b7` and `#ffce00` orbs moving over 4.8 seconds only when revealed, behind a
-translucent white content panel with black type. No siblings are filtered.
-Touch/no-hover CSS displays both faces without rotation at twice the fixed
-height, with moving orbs; reduced motion removes every card animation and the
-flip transition. Unit cards stay 112px; personal cards stay 190px, or 180px at
-phone width. Bounded faces and ellipsis prevent long names from changing those
-sizes. Personal scope preserves full-lifetime metadata by exact project ID
-without recalculating that budget, and the native selection controls remain
-unchanged.
+Personal, Unit and programme-associated project grids call `ProjectCard.mount`
+with its default outline presentation. The direct-child native radio stays
+outside the decorative faces and SVG. The outline-only CSS clips this input to
+a one-pixel box, removing the visible circle without removing native label,
+keyboard or accessibility behavior. The three programme selectors keep their
+visible radios. Shared `nameParts` / `createTitle` helpers
+parse only the existing `project.name`: the first nonnumeric bracketed acronym
+without brackets, a bracketed or leading numeric code of at least five digits,
+and the remaining full title. Fronts show the existing manager portrait, bold
+short title and turquoise underline. Without an acronym the remaining title
+supplies the short title; missing codes remain empty rather than using an Odoo
+ID. Hover/focus reveals the mini portrait, source code, full remaining title and
+two visible strict start/end dates. The SVG border traces in 650ms while the
+faces fade/translate; there is no project flip or ambient-color background.
+
+Complete source names remain in tooltips and native radio labels. One native
+metadata description retains the manager name, dates and full convention budget;
+the outer label tooltip also retains dates and budget. Budget remains outside
+the visible project details. Existing PNG/JPEG/WebP data URLs are bounded and
+validated, with initials after image errors. No extra source read occurs, and
+source names, metadata, radio identity and listeners are unchanged. Faces and
+SVG stay hidden from accessibility trees; the SVG is nonfocusable and cannot
+intercept pointer selection. Unit desktop cards stay 112px; personal desktop
+cards use 190px, or 180px at phone viewport width. On touch/no-hover devices,
+project fronts and details are simultaneously visible with a minimum 190px
+height. Dates can wrap, including Dutch unknown-value text. Reduced motion
+removes transitions; long titles remain clamped inside equal-size cards.
+Personal scope preserves full-lifetime metadata by exact project ID without
+recalculating the budget.
+
+Only the three programme selectors pass `variant: "programme"`. They retain
+their original portrait/code front, catchphrase and identity back, 550ms flip,
+five-second rotating turquoise border and floating turquoise/blue/yellow orbs.
+Their touch/no-hover layout still shows both faces at twice the fixed height;
+reduced motion removes their transitions and animations. Project cards beneath
+a selected programme use the default outline presentation, not that variant.
 
 Selecting a radio requests `/api/odoo/project-hours` once with the exact
 numeric `projectId`. Its full-history classified records and exact own
@@ -236,6 +314,21 @@ linear project-date fraction. Positive convention hours use the 75% baseline
 and capped actual scale. Missing/nonpositive hours omit the upper row and show
 the status-specific budget message; positive actuals use a 100%-of-actual employee
 distribution explicitly without a convention scale or date tick.
+
+Both scoped project and lifetime comparison bars sort a copied included-person
+list by descending actual contribution before creating segments. Each uses
+its own summary values, with existing name/ID tie order. The original alphabetical
+contributor list still drives legends; ignored scoped hours retain their tail
+segment and negative/unreconciled summaries retain the neutral fallback.
+
+Selected project hours also start an independent `/api/odoo/project-milestones`
+read with the exact positive project ID. A dedicated ID-keyed optional cache
+shares hours refresh/session generations, rejects stale or foreign-project
+responses, and survives local scope, language and contributor changes. It does
+not delay the hours request. The shared personal/Unit/programme detail passes
+the normalized source to both monthly charts; each clips dates to its own
+visible period. Optional failure retains the hour graphs and shows a separate
+milestone availability note.
 
 Before the legacy employee/function lookup can enrich raw planning slots,
 `project-planning-service.js` snapshots their authoritative planning identities.
@@ -351,6 +444,9 @@ total project days. Cumulative mode also sums this reference, which plateaus at
 the project end while actuals may continue. A missing budget/end date omits the
 reference while retaining actuals. A missing start date prevents inventing a
 timeline.
+Its displayed section title explicitly says **Heures réalisées · jusqu’à
+aujourd’hui** (Dutch: **Gepresteerde uren · tot vandaag**); the period caption
+retains the actual-through date independently of the future project end.
 
 The actual summary also exposes `planning`/`planningStatus`/`planningWarning`,
 with exact dated slot overlap through today in the same month bins. Each actual
@@ -360,6 +456,12 @@ The same cached response separately feeds `ProjectMonthly.summarizePlanning`,
 which constructs full-project month bins through project end, including future
 allocations and planning-only/TH/resource identities. Source planning failure
 does not erase actual history and cannot fabricate zero planned hours.
+For available planned series, the same cached lifetime convention scalar also
+feeds `linearReference` through the inclusive project end rather than today.
+Monthly points use overlapping project days; cumulative points sum to the full
+allowance. The summary carries the independent budget status. A missing or
+nonpositive budget leaves `convention: null`; unreadable/invalid evidence stays
+unavailable, and a nonfinite projection is not rendered.
 
 Each actual contributor also receives `plannedHours`, `plannedStatus`,
 `plannedReference` and `plannedWarning`. Planning is read from the same cached
@@ -398,6 +500,10 @@ The planned chart has its own `personalProjectPlannedMonthlyEmployee` map and
 callback, validated against its full planning cohort. Both charts share mode
 and Ormitter preferences, while kind-scoped rendering retains independent
 SVG/radio/tooltip IDs, focus/open-table state and complete lifecycle cleanup.
+Planned employee/resource filtering retains the independent dotted project
+convention in geometry, legend, tooltip and exact table; Ormitter filtering
+does not change its allowance. Available/empty/unavailable reference notes use
+the French/Dutch catalogue, and missing references do not erase planned areas.
 Real inclusion/mode/employee switches advance a per-project reveal revision,
 replaying the shared one-second clip reveal on visibility. Scope changes, resizing and
 unchanged rerenders retain the revision; reduced motion skips animation.
@@ -596,6 +702,94 @@ loading/response rerenders.
 
 ## Selected project finances
 
+The same cached finance response supplies `purchases`, calculated by
+`project-purchase-service.js` from the original exact-project analytic rows.
+It independently verifies referenced purchase document types/posting state and
+the project-start/Brussels-today scope, deduplicates both category dimensions and
+enriches only confirmed purchase descriptions. Failures of this optional source
+do not replace the existing lifetime or annual calculations.
+
+`project-budget.js` mounts `ProjectPurchaseFlow` immediately after the first
+budget/consumption horizontal comparison. Its model groups by confirmed currency
+and direct rubric/code identities, preserving unknown amounts for detail-only
+display. Blank internal codes use one explicit unassigned middle bucket per
+currency and purchase/correction diagram; original rows and warnings remain
+intact. Nonblank codes without a verified category ID
+remain entry-specific. Native SVG uses fixed three-column geometry, contained scrolling and
+the existing stable internal-code palette. Convention category fills use the
+same HSL scheme keyed by exact category identity; allocation gradients start
+at that fill, consistently across purchases, corrections and currency groups.
+Hover, focus or tap shows a translated
+tooltip; a single ribbon gains a foreground copy while its original focusable
+node remains in place. Other ribbons dim without propagating selection. Leaving,
+blur, Escape, chart-background activation or scrolling clears the emphasis.
+Node activation shows information without highlighting its connected paths.
+Tooltips retain deduplicated full source code labels whenever all hovered rows
+share one nonblank code identity, including aggregate nodes/ribbons. Mixed-code
+and unassigned aggregates do not select an arbitrary label. Supplier, document,
+date and purchase-description details are shown only for a single allocation.
+Reduced motion removes the opacity transition. All purchase allocations remain
+available in a bounded native disclosure table.
+
+Right-hand nodes group exact full `description || documentLabel || ""` names
+within each currency/purchase-or-correction diagram. Complete monthly NF/FK
+references additionally group by exact uppercase initials, with optional source
+asterisks ignored for identity. Valid label months determine the chronological
+range independently of accounting dates; malformed/partial references keep
+exact-name grouping. Stable family keys retain focus when a range extends.
+They retain contributing
+allocations and sum signed amounts and allocation ribbon heights. Each distinct
+code-to-name connection is also summed, with its own source/target offsets;
+category-to-code paths and the original detail table stay allocation-based.
+Name/family-derived node/link keys survive source order and membership changes.
+Same-code groups retain the code palette; mixed-code groups use a stable
+name-derived HSL fill with matching gradient ends on every incoming ribbon.
+
+Right-hand purchase/credit names and amounts share an HTML flex row within
+an SVG foreignObject. Only names shrink to ellipsis; amounts retain their full
+localized value, and accessible labels/tooltips keep the complete source name.
+Each diagram targets a right-column content extent at most twice the left
+category extent, counting connector rectangles and label envelopes, excluding
+canvas padding and headings. Right-column gaps tighten from 18 to 2 SVG units
+before font size reduces from 10 to 8 units (7.5 to 6pt before proportional SVG
+fitting). Centred label frames/line height scale from 16 to 12.8 units; adjacent
+frames retain at least one unit of clearance, increasing individual gaps when
+necessary. Category/internal-code gaps remain 52 units. If minimum typography
+and spacing still exceed the target, the diagram grows without omissions,
+label collisions or changes to amount-to-ribbon thickness. Sparse diagrams
+retain the maximum sizes. Layout exposes `purchaseStyle` and `columnExtents`;
+the renderer applies those same font, line-height and frame dimensions.
+Links whose endpoint node fills differ receive a source-to-target user-space
+linear gradient with an ID unique to the render and diagram. The foreground
+copy reuses its gradient URL; links with equal endpoint fills remain solid.
+
+The parent budget and shared project renderers preserve stable purchase-control
+focus and open detail state on cached rerenders. Budget cleanup hides tooltips
+before a host is removed during project/Hours navigation. A top-left square
+control moves the same graph panel into a viewport-filling native dialog, with
+a sticky restore control. The available viewport area below the first diagram's
+preceding title/notices/totals determines a common scale for all expanded SVGs:
+the smaller width or height ratio wins. Diagrams are centred and preserve their
+aspect ratio, with equal physical ribbon scales for purchases and credits.
+ResizeObserver/window resize recalculate the fit; restore/cleanup disconnects
+observers/listeners and clears inline dimensions for the embedded layout.
+Native modality and a focus
+boundary keep keyboard navigation within it; Escape, cancellation or the toggle
+restore the panel and control focus. Parent renderers capture the focused
+control before teardown so modal reparenting cannot lose its refresh identity.
+Cleanup closes the dialog without refocusing before removing a host. No new
+source request or alternate graph data is used. The new JS/CSS are
+authenticated static assets, loaded before `project-budget.js`; no library or
+build step was added.
+
+A second square beside expand controls the graph body with `hidden`, leaving
+the translated Sankey heading and both controls visible. Its ARIA label and
+expanded state switch with the plus/minus icon. Hiding clears tooltips/emphasis
+and closes any fullscreen dialog before restoring toggle focus. Expanding
+reveals a hidden body first. A panel collapse-state attribute and the parent
+budget's `collapsed` option preserve the choice on cached/language rerenders,
+along with existing detail disclosure state; no persistent preference is saved.
+
 The selected project header switches between Heures and Budget. Browser maps
 remember the mode, explicit convention choice and default-off annual supplier-cost
 exclusion by exact project ID. A separate map remembers `showBwPersonnelCosts`, defaulting
@@ -730,7 +924,14 @@ DiCo steering uses authenticated scoped portfolio reads, then additional one-pro
 
 ## Refresh
 
-- Last refreshed: 2026-10-16
+- Last refreshed: 2026-10-22
+- Tag source basis: project-tags.js, project-description.js, project-tag-scan.js,
+  project-tag-view.js, project-similarity.js/css, unit-dico.js,
+  scripts/scan-project-tags.js, data/project-tags.json and
+  ignore/Docker files, including the separately validated web-enrichment flow.
+- Purchase source basis: project-purchase-service.js, project-purchase-flow.js/css,
+  project-finance-service.js, project-budget.js, project-browser.js,
+  tests/project-purchase-flow.test.js and finance/budget/project integration tests.
 - Additional source basis: i18n.js, i18n-*-messages.js, language-client.js,
   language-preferences.js and index.html cached locale/calendar/employee handlers.
 - Source basis: personal-time.js, personal-time.css, tests/personal-recommendations.test.js, tests/personal-personnel-budget.test.js, project-planning-service.js, project-planning.js, tests/project-planning-service.test.js, tests/project-planning-http.test.js, tests/project-planning.test.js, project-card.js/css, programme-browser.js/css, programme-service.js, unit-dico-service.js, unit-dico.js/css, project-monthly.js, project-browser.js/css, project-budget.js, project-finance-service.js, steering-client.js, login.html, index.html personal/unit/programme/lifetime/planning/finance-fetch/scope/render functions and preference maps, server.js identity/contributor/assignment/convention/date/unit/programme/finance/authentication/transport handlers and summary helpers.

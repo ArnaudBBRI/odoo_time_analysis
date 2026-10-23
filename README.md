@@ -4,6 +4,17 @@ The dashboard compares Odoo timesheets and planning. Run the server, open the Bu
 
 ## Local Server Quick Start
 
+The app ships a reviewed Digital Construction project-tag catalogue in
+[data/project-tags.json](data/project-tags.json). Completed projects are never
+automatically scanned again, including missing/short descriptions. See the
+[catalogue workflow](data/README.md) and the
+[2026-10-22 coverage report](docs/ai-context/PROJECT_TAG_SCAN.md) for all projects,
+tags and description gaps. This is local reference data; scanning uses Odoo reads only.
+In **Unité DiCo**, an interactive similarity map appears above **02 / Calendrier
+des projets**. Hover or focus a project/link for its tags and shared technologies;
+the explicit open-project action uses the existing project detail view. Only
+tagged projects accessible to the signed-in account appear.
+
 The dashboard also includes French DiCo project/programme/unit steering views with coverage diagnostics, separate convention/annual budgets and a connected-project-leader shortcut. They require a confirmed responsible-unit filter in private configuration. See [DiCo steering setup and measures](docs/wiki/PILOTAGE.md); the existing time dashboard remains available when steering is disabled.
 
 Use Node.js 22 to match the Docker runtime. No npm installation or build step is required. To use the Odoo API features, start the local server from this repository folder:

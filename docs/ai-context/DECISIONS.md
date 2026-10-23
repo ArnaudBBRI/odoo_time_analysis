@@ -1,5 +1,449 @@
 # Decisions
 
+## 2026-10-23: Adapt Sankey purchase typography to column density
+
+- Keep the restored single purchase column; aim for a connector/text extent
+  no more than twice the left convention-category extent, excluding headings
+  and canvas padding. Apply this automatically inline and fullscreen.
+- Preserve the current right-hand font/spacing as maxima. Tighten connector
+  gaps from 18 to 2 units first, then reduce text from 10 to 8 SVG units
+  (7.5–6pt before proportional fitting), with proportional 16–12.8 line height.
+  Keep one unit between text frames and preserve connector thickness.
+- Readability limits take precedence over the height target. Allow greater
+  height when minimum sizes cannot fit all purchases; omit or split none.
+
+## 2026-10-23: Restore one Sankey purchase column
+
+- The user rejected the two-purchase-column concept. Always retain one right
+  purchase column in both inline and fullscreen diagrams, regardless of density.
+- Remove split thresholds, gap/bottom routing, the extra heading and expanded
+  geometry switching. Fullscreen only fits the existing single-column diagram
+  proportionally to its available frame.
+- Preserve purchase grouping, signed amounts, exact links, gradients, hover,
+  native controls and the shared physical currency/correction scale.
+
+## 2026-10-23: Classify Viktor de Groote as an Ormitter explicitly
+
+- The user confirms Viktor de Groote is an Ormitter even if his historical HR
+  function or employee record is no longer available. Apply an app-local exact
+  full-name exception, normalizing Unicode compatibility, case and whitespace.
+- Use retained employee/resource labels or the exact resolved employee name;
+  do not infer identity from descriptions, partial names or unrelated people.
+  The exception takes precedence over missing or conflicting function evidence.
+- Mark classification as `named-override`, preserving actual readable function
+  and source fields rather than inventing an Odoo function. Apply the shared
+  flag to actuals, planning, assignments/contributors and strict personnel totals.
+  Other unknown/malformed records retain existing validation and uncertainty.
+- This modifies the app only. No Odoo record, function, permission or RPC guard
+  is changed, and no Odoo write is authorized.
+
+## 2026-10-23: Match large programme cards to project cards
+
+- Reuse the project cards' white faces, turquoise underline and traced outline
+  reveal on hover/keyboard focus for the three programme selectors.
+- Retain their larger 230px desktop and 210px phone dimensions, responsible
+  portraits, DC codes, translated catchphrases and programme subtitles. Reveal
+  the subtitle before the responsible person's name, without project dates or
+  budget fields. Keep native radio selection and accessible descriptions.
+- Use the shared static front/detail layout on touch/no-hover and existing
+  reduced-motion support. Remove the obsolete flip/orb styling.
+
+## 2026-10-23: Add Vibrant Emotions to chart settings
+
+- Add **Vibrant Emotions** as a third line/area palette, retaining Dico vibes as
+  the default and preserving existing saved choices.
+- Use the exact ordered colours `#FF5733`, `#C70039`, `#FFC300`, `#DAF7A6`,
+  `#581845`, `#5D3F6A`, `#FFC0CB`, `#900C3F`, `#FF9F00`, `#2980B9`; repeat after
+  ten. Keep the requested proper name in French and Dutch.
+- Reuse the existing previews, immediate chart repaint and browser-local enum
+  persistence with the `vibrant-emotions` value.
+
+## 2026-10-23: Choose line and area colours from the header settings
+
+- Add a **Paramètres / Instellingen** menu in the top toolbar with two native
+  radio choices and colour previews: **Dico vibes** and **Classique / Klassiek**.
+  Dico vibes is the default; retain the previous twenty-colour set as Classique.
+- Use the user's exact Dico vibes order: `#F89700`, `#CAC800`, `#4DD000`,
+  `#00EF75`, `#00E0BF`, `#00E7FF`, `#00C2FF`, `#00B8FF`, `#9289FF`,
+  `#E480FF`, `#FF55FF`, `#FF53D3`, `#FF3272`, `#FF5E00`, `#FF7000`.
+  Repeat each selected palette after its own length, without generating colours.
+- Store only `classic` or `dico-vibes` under the browser-local
+  `odoo-time-analysis.chart-palette` key. Read an existing valid choice without
+  writing during initialization; missing, invalid or inaccessible storage uses
+  Dico vibes. Blocked writes retain the usable session choice. Do not change
+  private configuration, credentials or Odoo data.
+- Keep each exact project-chart employee/resource identity's ordinal stable
+  across both charts, filtering, monthly/cumulative views and language changes.
+  Apply the selected palette to areas, person lines, legends, avatar borders
+  and tooltip dots together. Recolour mounted SVG attributes/styles in place,
+  retaining controls, focus, pinned details, open tables, geometry and reveal
+  state; release palette subscriptions with each chart's existing lifecycle.
+- Apply the same setting to legacy canvas person lines and their line legend,
+  and use the first selected hue for Unit/programme concurrency lines and their
+  gradient stops, retaining existing opacity. Keep bars, pies, Sankeys, project
+  clouds, calendar bars, semantic reference lines and milestone styles unchanged.
+
+## 2026-10-23: Split a tall expanded Sankey purchase list into two columns (reverted)
+
+- Superseded by the single-purchase-column decision above; this experiment and
+  its subsequent gap-routing refinement have been removed.
+
+- Only in the expanded dialog, consider a second purchase column when the
+  grouped purchase stack exceeds twice the convention-category stack. Measure
+  node heights plus the existing column gaps, using the same amount scale.
+- Keep purchase groups intact and ordered, choosing a contiguous split that
+  minimizes a conservative height including lower routing space. Retain one column when a
+  split would not shorten the diagram, such as a dominant internal-code column.
+- Follow-up refinement: prefer internal gaps between nearer purchase rows for
+  far-column ribbons. Protect the complete bars and 16px label rows with 1px
+  clearance; allocate thicker ribbons first to a fitting gap near their target.
+  Only ribbons that cannot fit use the lower route. Rise in separate lanes
+  beyond the near labels' right edge, reserving height only for lower overflow.
+  Extend width as necessary; retain
+  the existing inline label width and full amount. Do not duplicate purchases,
+  change grouping, financial values, connections or signed/currency boundaries.
+- Reposition the existing SVG controls and gradients in place. Preserve native
+  interaction/focus identities, proportional fitting and common physical
+  scales. Closing the dialog restores the original single-column geometry.
+
+## 2026-10-22: Replace the monthly chart palette with twenty repeating colours
+
+- The later header-settings decision above replaces the fixed default with
+  Dico vibes. This twenty-colour set remains available as Classique; stable
+  identity ordinals now resolve through the selected palette.
+- Supersede the thirteen-colour palette below for Projets 02/03 with the user's
+  exact ordered set: `#f7909f`, `#e2647f`, `#d1698c`, `#e8555f`, `#da332a`,
+  `#fe672a`, `#ff7a34`, `#ffb22c`, `#83ba69`, `#4ca64e`, `#2a897e`, `#287f91`,
+  `#62b0dc`, `#6492cb`, `#4975c4`, `#3b4f93`, `#32436f`, `#5f5395`, `#6f4483`,
+  `#5a3340`. Assign successive new exact identities in that order and repeat
+  from the first colour after twenty, as requested; do not generate extras.
+- Retain cached exact-ID colours across both charts, filtering, mode/language
+  changes and matching area/legend/avatar/line/tooltip cues. Keep horizontal
+  bars, fixed references and the 30-degree milestone layout unchanged.
+
+## 2026-10-22: Give both monthly hour charts a dedicated thirteen-colour palette
+
+- The colour selection and overflow policy are superseded by the later
+  twenty-colour decision above; the chart scope and milestone layout remain.
+- Apply the same employee/resource colours to Projets 02 actual history and
+  Projets 03 planning, independently of the existing horizontal bar palette.
+  Keep exact-ID assignments stable across filtering, monthly/cumulative views
+  and language changes. Areas, selected-person actual/reference lines, legend
+  samples, avatar borders and tooltip dots must agree.
+- Preserve the eight requested colours and insert five intermediate shades:
+  `#003d5c`, `#19436d`, `#31497e`, `#4c4c8a`, `#674f95`, `#844f98`, `#a14e9a`,
+  `#d44c8d`, `#e7537e`, `#f9596f`, `#ff7a47`, `#ff9024`, `#ffa600`. Retain
+  distinct generated colours beyond that set rather than reuse an assigned
+  colour. Keep total, convention, dated-planning and milestone styles unchanged.
+- Limit both charts' milestone title tilt to 30 degrees. Preserve solid black
+  markers, exact dates and complete source titles; use measured rotated bounds
+  to separate labels and grow footer lanes without compressing the hour plot.
+
+## 2026-10-22: Extend the shared wide-layout switch to selected Project Hours
+
+- Reuse the same header switch, browser preference and 1600 CSS-pixel threshold
+  for Mon temps and a selected personal project's Hours panel. Keep the switch
+  visible in every view and preserve its shared choice. Project lists, Budget,
+  Unit and Programmes keep their normal width and show a neutral localized
+  status when wide mode is selected. Mon temps retains its four columns below.
+- In wide Project Hours, stack the overview's macro and usage cards in a fixed
+  528.75px left column: 125% of a 423px macro card at the normal 1880px main
+  content cap. Halve the four macro cards' minimum height to 91.2px with compact
+  typography, allowing content to grow without cropping. Put the comparison
+  bars in the remaining right column, separated by 28px.
+- Below that top row, place the actual and planned area charts side by side,
+  equally sharing the full content width with a 28px gap. A single chart uses
+  the whole row. Keep compact 220px legends beside the bar and monthly plots.
+- Preserve loaded data, controls, focus, disclosures and calculation scopes.
+  Layout changes only presentation attributes/CSS; chart ResizeObservers redraw
+  geometry in animation frames, coalescing the latest width and cancelling
+  pending work on cleanup, without rebuilding or requesting data. Raise the
+  monthly geometry limit to 4096px only in this active selected Hours layout;
+  retain the normal 1200px limit elsewhere.
+
+## 2026-10-22: Offer an opt-in superwide Mon temps layout
+
+- Keep the standard Mon temps layout as the default. Replace the initial
+  three-choice selector with a binary **Normal / Large** header switch
+  (**Normaal / Breed** in Dutch), before the account/language controls and
+  initially visible only in Mon temps. Use a rounded, glowing switch
+  in the app's teal palette while retaining a native accessible checkbox.
+- Persist only the browser-local `standard` or `wide` preference, without Odoo
+  data, server configuration or a source request. Interpret a previously saved
+  `auto` value as `wide` in memory without writing during initialization.
+- Wide mode requires at least 1600 CSS viewport pixels. Follow viewport resize
+  and zoom while retaining the selected preference below that width, where the
+  display returns to the normal layout. Remove the separate automatic mode.
+- In active wide Mon temps, let the main content use the window width. The
+  follow-up refinement uses four visual columns: recommendations 30% narrower,
+  capacity/planning 50% narrower, the graph at its previous wide-layout width,
+  and the project legend in the remaining space. The subsequent Project Hours
+  extension above adds another view using the full window width.
+- In wide mode, place a compact actual-then-planned summary within the pie area
+  so the graph starts higher, directly below the period. Retain metric notes for
+  assistive technology and leave the normal and standalone presentations intact.
+- Preserve the existing hosts, controls, focus, tolerance, disclosure state and
+  loaded data, including the graph card's tooltip containing box. Keep the three
+  existing hosts and use nested grids for the four visual columns. Apply layout
+  through attributes and CSS rather than rerendering or refetching the personal
+  dashboard. Calculations and selected scope remain
+  independent of the layout preference; provide French and Dutch controls.
+
+## 2026-10-22: Merge monthly NF/FK purchases by exact initials
+
+- Extend Sankey right-column grouping for complete `NF/FK MM-YYYY: INITIALS`
+  names, including optional source asterisks. Group exact initials across months
+  and show the chronological first/last label months as
+  `NF/FK MM-YYYY --> MM-YYYY: INITIALS`. Keep the original label for one month.
+- Keep signed summed amounts, original detail rows, category/code connections,
+  currency boundaries and separate purchase/correction diagrams. Other names
+  retain exact-name grouping; malformed or partial references do not establish
+  an NF/FK family. This changes local presentation only, without Odoo operations.
+
+## 2026-10-22: Show three compact project-hours usage cards
+
+- Replace the two expected-to-date text paragraphs below the four global
+  project-hours macro cards with three text-only cards: **Mes heures · planning**,
+  **Total · planning** and **Total · convention**. Provide the corresponding
+  Dutch labels and use approximately half the height of the primary cards,
+  in three desktop columns and a stacked mobile layout.
+- Add the personal comparison from already loaded raw records belonging to the
+  verified own identity, scoped from project start through today. Keep its
+  employee/Ormitter exclusion fixed, independent of display toggles, and use the
+  existing dated-slot allocation and verified TH-snapshot exclusion rules.
+- Preserve the existing total-planning and convention calculations. Keep source
+  availability independent, retain signed differences and distinguish under,
+  over and balanced comparisons at the displayed precision.
+- This is a frontend calculation/presentation change. Reuse current data without
+  adding backend fields, source requests or Odoo operations.
+
+## 2026-10-22: Animate the project graph with separate thematic and programme layouts
+
+- The user's follow-up explicitly replaces the earlier cloud-only toggle:
+  programme mode may reposition and recolour bubbles to make programme groups
+  visible. Keep the same project identities, exact shared tags, weighted links
+  and semantic communities; only the presentation of their endpoints changes.
+- Use deterministic physical settling, shown over approximately two seconds,
+  with separate retained target layouts for themes and programmes. Thematic
+  attraction follows tag similarity; programme attraction follows the existing
+  curated memberships, with weaker attraction for unassigned Other projects.
+  Returning to a mode restores its own saved layout rather than rerunning a
+  random arrangement.
+- Interpolate smoothly between displayed and target positions. Labels and cloud
+  envelopes follow the bubbles, whose colours match the active grouping legend.
+  Provide replay, respect reduced motion, and stop retired animation callbacks
+  while retaining the state required by cached and language rerenders.
+- Keep implementation local to the existing frontend. Do not add dependencies,
+  backend fields, source requests or Odoo operations. Programme membership still
+  means the curated lists, not an authoritative Odoo programme field.
+
+## 2026-10-22: Switch cloud regions between themes and programmes
+
+- The animation decision above supersedes this initial fixed-layout presentation
+  contract; its exact membership projection and optional-failure rules remain.
+- Add a small native **Thématiques / Programmes** selector above the existing
+  unit graph, defaulting to themes. Change only the background cloud regions,
+  legend and explanatory caption. Keep bubble/link elements, coordinates,
+  colours, topology, weights and emphasis unchanged on the toggle.
+- Reuse the three existing curated DC1/DC2/DC3 programme lists through a pure
+  projection onto the session-visible unit catalogue. Share its exact business
+  code/ambiguity rules with the programme view; do not infer an Odoo membership
+  field, add source reads or expose missing/hidden reference records.
+- Draw each programme envelope around its existing plotted member positions;
+  retain all memberships if lists overlap. Plot unmatched tagged projects as
+  **Autres projets**. Keep untagged and isolated-project behavior unchanged.
+  Envelopes can overlap/enclose nonmembers; explain this and show exact member
+  counts/names in the legend rather than claiming spatial inclusion proves
+  programme membership.
+- Preserve mode and native toggle focus through cached/language rerenders.
+  Unavailable optional mapping disables programme mode and retains themes.
+
+## 2026-10-22: Enrich completed description gaps from the Buildwise showroom
+
+- The user's explicit request authorizes a manual local enrichment of the 31
+  missing and one very short Odoo-description results. Match public Buildwise
+  project narratives by distinctive acronym, expanded identity and available
+  phase/year evidence; leave ambiguous or unsupported matches untagged.
+- Store original paraphrases, source links, response fingerprints, retrieval
+  dates, identity caveats and evidence for each accepted tag separately under
+  `webEnrichment`. Preserve all original Odoo scan statuses, version IDs, hashes,
+  counts and completion dates. Do not copy public text into Odoo or imply that
+  its descriptions have changed.
+- Reuse equivalent canonical tags across both sources. Keep different grants,
+  phases and annual projects separate. In particular, public SPEC evidence does
+  not establish PRNSPEC-A/B, and a 2026 standards publication does not establish
+  the 2025 annual record. Record BIMup's public/local date discrepancy.
+- Completed rows still never automatically rescan or merge replacement tags.
+  Public evidence stays in the bundled local catalogue and report; the existing
+  authenticated unit response continues to expose only visible IDs and tags.
+  No runtime crawler, new Odoo call, write permission or approval bypass is added.
+
+## 2026-10-22: Show project similarity in the unit overview
+
+- The explorer disclosure lists canonical tags instead of projects, under
+  **Explorer par tag**, ordered by descending number of associated visible
+  projects, with localized alphabetical ties. Selecting one shows every exact matching visible project
+  in the info panel and highlights its graph subset. Retain keyboard access and
+  tag/disclosure/focus state across cached/language rerenders. Widen the desktop
+  info column from 230px to 345px; preserve the stacked narrow layout.
+- Place the approved tag-based map immediately above **Unité DiCo · 02 /
+  Calendrier des projets**, after the project cards. Keep calendar numbering and
+  shared personal/programme views as they are.
+- Reuse the permanent tag snapshot, with no automatic description scans or
+  Odoo writes. Show only exact currently accessible tagged unit project IDs in
+  the matching source namespace. Keep complete stored data off static routes.
+- Preserve equal-size project bubbles, the preview palette and soft thematic
+  regions. Use rarity-weighted exact-tag Jaccard links and deterministic layout.
+  Broad/subtype semantic relationships are not silently added to the saved tags.
+- Hover and keyboard focus expose shared tags; native relationship controls
+  avoid excessive SVG-link tab stops. An explicit action opens existing project
+  detail. Untagged projects are omitted; tagged isolates remain visible.
+- Provide FR/NL labels and preserve map detail/focus across cached/language
+  rerenders. Optional snapshot failures must not block the unit calendar.
+
+## 2026-10-22: Ship permanent project-tag scans locally
+
+- Store reviewed technical tags in `data/project-tags.json`, shipped with the
+  app, keyed by exact project ID within the Odoo instance/database namespace.
+  Use canonical IDs with English/French/Dutch labels; do not write Odoo tags.
+- Scan the Digital Construction responsible-unit-206 catalogue, including
+  archived projects. Infer tags from the macro-info narrative, not project names.
+  Record source version, fingerprint and timestamp without shipping source HTML.
+- Completed projects are never automatically scanned again, even after source
+  edits; missing and very short descriptions also count as completed. Failed
+  reads stay retryable. A future explicit retag request would require a local
+  catalogue edit. Hash/version differences do not invalidate saved results.
+- Flag fewer than 200 meaningful Unicode characters as very short; ignore the
+  generic bilingual template and link-only summaries. Keep a full gap report.
+- New-project discovery is an explicit manual CLI operation using the unchanged
+  guarded Odoo reads. Candidate reports stay local and require review before
+  merge. No automatic scanning, remote model service, public data endpoint or
+  dashboard badge placement is introduced by this request.
+
+## 2026-10-21: Show Odoo milestones on project-hour charts
+
+- Follow-up on 2026-10-22: use solid black milestone markers and a secondary
+  x axis below the month axis. Keep it compact with smaller 9px, two-line titles
+  tilted at -30 degrees, and place the month/current-month caption below all
+  milestone names. Pack measured per-line rotated bounds with 6px gaps and
+  separate lanes while preserving exact marker dates and complete source names.
+- Overlay a marker for each dated project milestone in both
+  actual and planned hours charts, including monthly/cumulative and individual
+  views. Show only dates in each chart's displayed period, with source names
+  and exact dates in month details and a compact list.
+- Reuse the dashboard milestone source through exact project relations only;
+  keep this optional read independent of hour loading and preserve the strict
+  read-only Odoo boundary. Do not infer milestones when source access fails.
+
+## 2026-10-21: Order horizontal project-hour contributions by size
+
+- Correction on 2026-10-22: fill both scoped **Heures du projet en [année]**
+  and lifetime convention bars in descending booked hours, from largest
+  contributor on the left to smallest on the right.
+  Rank each comparison by its own period's values; retain identity colours,
+  alphabetical legends and existing ignored/signed/incomplete behaviour.
+
+## 2026-10-21: Trace purchased project costs through categories and internal codes
+
+- Follow-up: merge right-hand items with identical displayed purchase names
+  and sum their amounts, as requested for repeated entries in project 59212066.
+  Match the full description/document-fallback name before visual shortening;
+  preserve original detail rows, code connections and separate currency/credit
+  diagrams. Mixed-code merges retain distinct incoming flows with matching
+  gradients instead of assigning the group to one of its contributing codes.
+
+- Follow-up: show the available full internal-code label on hover even when
+  several purchases share the code. Keep purchase-specific details individual-only.
+
+- Follow-up: combine purchases with no internal code into one middle box per
+  diagram, preserving individual purchase details. Name the graph explicitly
+  in its FR/NL heading and add a square hide/show control beside expand. Keep
+  its title/controls available when hidden and preserve the choice on cached
+  refresh/language changes; expanding restores the content.
+
+- Follow-up: make the graph more compact by halving spacing between right-hand
+  purchases, keeping inline names/amounts readable without overlap.
+
+- Follow-up: each convention category must have its own stable colour. Use its
+  exact identity, independent of display label/order/language, and start its
+  outgoing gradients at that colour. Preserve the existing internal-code palette.
+
+- Follow-up: place each right-hand expense's EUR amount beside its name on one
+  line, reducing the font as needed. Preserve complete amounts and full names
+  through tooltips/details. A ribbon connecting different endpoint colours
+  transitions between those colours without changing the existing palette.
+
+- Follow-up: the user requested a small square expand control at the graph's
+  top-left. Use a viewport-filling native modal containing the existing graph,
+  keeping its data/hover/details intact. A sticky toggle and Escape restore the
+  embedded view and focus; cleanup closes the modal before project/Hours
+  navigation or rerender. No data, source, backend or palette change is needed.
+  The subsequent correction requires proportional fitting to the limiting
+  available width or height, rather than forcing full viewport width. Keep a
+  shared physical scale across purchase/credit diagrams, account for preceding
+  notices/totals, centre spare horizontal space and recalculate on resize.
+
+- Approval: the user approved a three-column Sankey directly below the first
+  consumed-budget comparison, inspired by the public-finance reference at
+  `https://finances-publiques.stratec.eu/`. Keep the dashboard's colours and
+  isolate one ribbon on hover/focus while preserving a fixed surrounding layout.
+- Scope: posted supplier invoices and credit notes, with exact project analytic
+  allocations from the project's known start through inclusive Brussels today.
+  Verify document type and posting state; document labels alone cannot establish
+  a purchase. Use exact convention-rubric and internal-category relations from
+  each allocation. Right-hand entries show individual allocated purchases rather
+  than repeated invoice totals. Internal employee-hour costs and unbilled orders
+  do not enter this graph, independently of existing personnel/supplier controls.
+- Integrity: retain signed deductions, explicit missing mappings, separate
+  currency groups and partial/unavailable source states. Never estimate a start
+  date, mapping, amount or currency. The graph has its own scope and total;
+  existing lifetime/annual calculations remain unchanged.
+- Presentation: reuse stable code colours, proportional ribbons, foreground
+  selection, pointer details, keyboard/touch access, reduced motion and a full
+  accessible detail table. New interface text is translated into French/Dutch.
+- Safety: extend the existing authenticated finance read only. The Odoo RPC
+  guard, private configuration and earlier local work remain intact. No Odoo
+  write, automatic commit, push or publication is approved.
+
+## 2026-10-20: Clarify project references and simplify card selection
+
+- Approved on `codex/project-card-outline`: show the project convention's
+  linear hours reference in planned section 03 over the entire project lifetime,
+  including future months. Monthly values use inclusive calendar-day proration;
+  cumulative values reach the convention total at the project end. Keep this
+  dotted reference project-wide when selecting a person/resource or toggling
+  Ormitters. Missing, invalid or nonpositive budgets do not become zero lines;
+  preserve valid planning and explain the absent reference in FR/NL.
+- Rename actual section 02 to **Projets · 02 / Heures réalisées · jusqu’à
+  aujourd’hui**, with its Dutch equivalent. Preserve the actual-through date,
+  existing calculations and individual actual-chart planning reference.
+- Visually hide native radio circles only on small outline project cards in
+  personal, unit and programme project lists. Keep native keyboard/label
+  selection and focus restoration. The three large programme selectors retain
+  their visible radios and existing flip presentation.
+- Reuse cached data, preserve the local October 16 card experiment and leave
+  Odoo access/configuration unchanged. This task does not request publication.
+
+## 2026-10-16: Reveal project details inside an animated outline
+
+- Approved plan on `codex/project-card-outline`, after publishing prior work to
+  `main`: adapt the user's [Uiverse reference](https://uiverse.io/Smit-Prajapati/spicy-rat-83)
+  for personal, Unit DiCo and programme-associated project cards. Keep a white
+  background, black text, turquoise outline, manager portrait and short name at
+  rest. Hover or keyboard focus traces the outline and reveals the full name,
+  real project number and start/end dates. Preserve homogeneous grid sizes.
+- Use existing cached metadata, exact project identities and native radios.
+  Missing/invalid dates remain explicitly unavailable; never substitute the
+  database ID for a missing business number. Source text stays literal and all
+  application labels remain FR/NL.
+- Give the three DC1/DC2/DC3 programme selectors an explicit presentation
+  variant so their current flip/orb appearance remains unchanged. Touch devices
+  show project details statically and the first tap still selects the project;
+  reduced-motion preferences remove animated transitions.
+- This experiment is local to the new branch. The preceding request authorized
+  publishing the existing work to `main`; it did not request publishing this
+  new card implementation. No extra Odoo source call or write is needed.
+
 ## 2026-10-16: French/Dutch interface and focused project exploration
 
 - Approved plan: add an FR/NL selector beside logout, translate all existing and
@@ -749,7 +1193,8 @@
 
 - Request: add **Projets · 02 — Évolution mensuelle** below **Projets · 01 —
   Vue d’ensemble**, with one monthly actual-hours line per employee, a thicker
-  total and a dotted convention reference. Retain employee colors from the bars.
+  total and a dotted convention reference. Initially reuse employee colours from
+  the bars; the dedicated monthly-chart palette decision above supersedes this.
 - Default interpretation: each point is that month's hours, not a running total,
   following the user's explicit per-month request.
 - Period: actuals start at the exact project start and stop at inclusive Brussels

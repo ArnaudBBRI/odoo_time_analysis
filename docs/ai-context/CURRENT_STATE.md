@@ -2,6 +2,740 @@
 
 ## Functional State
 
+- Completed on 2026-10-23 at the user's explicit request: accumulated app,
+  curated tag catalogue and test changes are committed as `3c66e67` and pushed
+  to `origin/codex/project-card-outline`, with upstream tracking established.
+  Companion documentation records the delivered features and verification.
+  The full offline suite passes **1204/1204** in **32.52s**; all **63** changed
+  JavaScript files pass syntax checks. Independent scope/packaging reviews find
+  no commit blocker; private configuration and raw local reports remain ignored.
+  Staged whitespace checks pass after removing one extra EOF blank line in a
+  test. No separate build/lint/typecheck command exists. No Odoo access or data
+  change was needed for publication. Earlier local/uncommitted notes below are
+  historical for the changes included in this feature commit.
+
+- Completed on 2026-10-23: Sankey purchase columns automatically tighten spacing
+  (18 to 2 SVG units), then font size (10 to 8, equivalent to 7.5–6pt before
+  proportional fitting), toward twice the left connector/text extent. Line
+  height follows 16–12.8 units with collision-safe label clearance. Sparse
+  diagrams retain current maxima; dense diagrams may exceed the target at
+  minimum sizes. Every purchase, grouping, link and amount scale is preserved.
+  All **112/112** focused Sankey/Budget tests pass (**52/52** Sankey cases,
+  six new regressions), with independent review, syntax and whitespace checks.
+  Fictional browser verification confirms sparse maxima, a 40-purchase exact
+  2:1 fit, 90-purchase minimum-size overflow without label collisions, FR/NL,
+  exact keyboard isolation, unchanged expanded geometry, resizing and restore.
+  No browser warnings/errors. Screenshot saved; preview/viewport resources
+  released. No separate build/lint/typecheck command exists; full suite not
+  repeated for this isolated layout change. Refresh Budget to review.
+  No Odoo, main-server, configuration or publication change.
+
+- Completed on 2026-10-23: restored exactly one right-hand purchase column in
+  every Sankey, including dense fullscreen diagrams. The rejected split/gap/
+  bottom-routing experiment, second heading and geometry switching are removed.
+  Grouping, amounts, links, gradients, controls and common physical scale remain.
+  Fullscreen fits the existing SVG and closing clears only fitted dimensions.
+  All **106/106** focused Sankey/Budget tests pass (**46/46** Sankey cases).
+  Independent review/static checks and a fictional 90-purchase/five-credit browser
+  check verify unchanged paths/viewBoxes, one purchase x-coordinate, all 95
+  details, isolated exact amount, 1280px/2560px fitting and native restore with
+  no errors/overflow. Screenshot saved; viewport and preview resources released.
+  Full suite not repeated for this renderer-only reversion; previous 1205-case
+  result is historical. No separate build/lint/typecheck command exists.
+  Refresh Budget to review. No Odoo, main-server, configuration or publication change.
+
+- Completed on 2026-10-23: Viktor de Groote is explicitly classified as an
+  Ormitter by exact normalized full name, including retained timesheet/resource
+  labels after HR removal or denied function access. `named-override` provenance
+  preserves genuine function/source fields and leaves them blank when absent.
+  Shared actual/planning/assignment/contributor behavior and strict personnel
+  totals use the exception; other unknown/malformed records remain unchanged.
+  All **1205/1205** full offline tests pass in **46.02s**, including six new
+  regressions; focused classification/hours/personnel **78/78**, independent
+  review, syntax, documentation links and whitespace pass. The app was restarted
+  as a standard user in session **37191**, loopback **8765**; workspace-matching
+  login **200**, protected asset **303** and anonymous API **401** verified.
+  Refresh/sign in again to reload records. No live Odoo read/write, private
+  configuration, dependency, commit or publication change. A retained/resolved
+  full name is required; no erased records or identities are reconstructed.
+  No separate build/lint/typecheck command exists.
+
+- Completed on 2026-10-23: DiCo and programme project-card grids now sort
+  alphabetically by their displayed short names, ignoring numeric source
+  prefixes and case/accents, with natural numeric ordering and exact-ID ties.
+  A sorted copy leaves source/catalogue, calendar and similarity order intact.
+  All **175/175** focused Unit/similarity/sticky-scope/language tests pass.
+  Independent FR/NL unit/programme fixtures confirm displayed-name ordering,
+  selection/focus and unchanged source data/calendar chronology. Syntax and
+  whitespace pass. Refresh either view to review. No Odoo/main-server change;
+  full suite not repeated. No separate build/lint/typecheck command exists.
+
+- Completed on 2026-10-23: the main Projects tab, matching page heading and
+  browser title now read **Mes Projets / Mijn projecten**. Other project/chart
+  headings retain their existing wording. All **117/117** focused sticky-scope/
+  dashboard-language/i18n tests pass; syntax, whitespace and independent scope
+  review pass. Refresh to review. No Odoo or main-server change; full suite not
+  repeated for this label-only change. No separate build/lint/typecheck command.
+
+- Completed on 2026-10-23: the three large programme selectors now share project
+  cards' white/turquoise outline reveal, replacing the old flip/orb presentation.
+  Their 230px desktop and 210px phone sizes remain, with larger portraits/type;
+  programme details retain catchphrase, DC code, subtitle and responsible name.
+  Native selection/descriptions/focus remain intact. Touch/no-hover shows both
+  faces together within the larger card, using a 40px portrait; reduced motion
+  stays supported. All **182/182** focused card/programme/project/Unit/language
+  tests pass, along with independent review and static checks. Fictional FR
+  desktop and NL 390px browser checks verify retained sizes, keyboard selection/
+  reveal, detail bounds and no errors/overflow. Screenshot saved; viewport reset
+  and preview resources released. Physical touch hardware/full suite not tested
+  for this refinement; no separate build/lint/typecheck command. Refresh
+  Programmes to review. No Odoo, main-server, configuration, dependency, commit
+  or publication change.
+
+- Completed on 2026-10-23: the open header Settings disclosure now stacks above
+  the sticky navigation/date bar, keeping every palette visible and clickable.
+  The higher layer applies only while open. All **108/108** focused settings/
+  sticky-scope tests pass; independent review and a fictional browser check
+  verify overlap hit-testing, last-option selection and Escape focus restoration
+  without errors/overflow. Screenshot saved; preview resources released.
+  Syntax/CSS balance, documentation links and whitespace pass. Full suite not
+  repeated for this CSS-only fix; no separate build/lint/typecheck command.
+  Refresh to review. No Odoo, main-server, configuration or publication change.
+
+- Completed on 2026-10-23: **Vibrant Emotions** is a third line/area palette in
+  header Settings, with the user's exact ten colours, repeating after ten,
+  a matching preview and the same proper name in FR/NL. Dico vibes remains the
+  default. Existing immediate repaint and browser-local enum persistence cover
+  the new choice. All **170/170** focused palette/settings/language/project/Unit
+  tests pass (**15/15** palette/settings cases). Independent review, syntax,
+  documentation links and whitespace pass. Fictional FR/NL browser checks
+  verify selection, twenty-person repetition, unchanged chart paths, saved
+  restoration after reload and no errors/overflow. Screenshot saved; preview
+  resources released. Full suite not repeated; no separate build/lint/typecheck
+  command exists. Refresh and choose Settings > Vibrant Emotions. No Odoo,
+  main-server, private configuration, dependency, commit or publication change.
+
+- Historical experiment, reverted on 2026-10-23: expanded two-bank Sankeys routed far-bank flows
+  through internal gaps between near-bank purchase rows wherever their whole
+  thickness fits. Complete bars and 16px label frames retain 1px clearance;
+  thicker ribbons receive fitting gaps first, near their targets. Only overflow
+  uses the lower route, and only that overflow reserves additional height.
+  Amounts, grouping, links, colours, normal geometry and in-place interactions
+  remain intact. All **113/113** focused Sankey/Budget tests pass (**53/53**
+  Sankey cases, four new regressions). Independent review/static checks and
+  fictional FR/NL expansion, 1280px-to-2560px resize, isolated exact-value tooltip
+  and Escape restoration pass, with all 95 details and no errors/overflow.
+  The 90-purchase example sends **32/45** far links through gaps and reduces
+  expanded height from **1264.96** to **1161.60** at the same **1820px** width.
+  Screenshot saved; temporary viewport and preview resources released. Full
+  suite not repeated for this renderer-only change; prior 1195-case result is
+  historical. No separate build/lint/typecheck command exists. Refresh Budget
+  and expand the Sankey. No main-server restart, Odoo request/write, private
+  configuration change, dependency installation, commit or publication.
+
+- Completed on 2026-10-23: the permanent top toolbar now has a native
+  **Paramètres / Instellingen** menu with palette previews and two radio choices:
+  **Dico vibes** (the new fifteen-colour default) and **Classique / Klassiek**
+  (the previous twenty colours). Each palette repeats after its own length.
+  Only the selected enum is saved in browser-local storage; initialization
+  performs no write, and blocked storage keeps a usable session choice.
+  Project actual/planned areas and person lines, Unit/programme concurrency
+  areas/lines, and legacy imported-data line charts update immediately.
+  Mounted SVG attributes/styles and legacy line swatches repaint in place,
+  preserving focus, selections, pinned tooltips, open tables, source data,
+  geometry and reveal state. Existing bar/pie/Sankey/cloud/calendar and semantic
+  reference/milestone colours remain independent. Cleanup disposes chart
+  subscriptions. The new shared module is an authenticated browser asset.
+  All **1195/1195** final full offline tests pass in **32.90 seconds**; focused
+  palette/settings/project-renderer/unit sets pass **5/10/84/67** cases.
+  Independent review, syntax, CSS balance, relative documentation links and
+  whitespace pass. Fictional browser checks verify default fifteen-colour
+  Dico, immediate twenty-colour Classic with unchanged geometry, persistence
+  after reload, return to Dico, FR 2560px wide graphs and NL 390px settings
+  without overflow/errors; Escape restores focus. Screenshots saved, temporary
+  viewport reset and preview tab/server released. The local app was restarted
+  as standard-user PID **36916**, session **3291**, loopback **8765** to serve the
+  new module: workspace-matching login **200**, protected palette asset **303**,
+  anonymous unit API **401**. Sign in again if prompted. No Odoo request/write,
+  private configuration change, dependency installation, commit or publication
+  occurred. No separate build/lint/typecheck command exists; prior work remains.
+
+- Historical experiment, reverted on 2026-10-23: expanded purchase Sankeys split a grouped purchase
+  stack exceeding twice the convention-category node/gap extent into two
+  ordered columns. The height-minimizing contiguous cut includes safe lower
+  ribbon-routing space; a split that would not shorten the diagram is omitted.
+  The later gap-routing refinement above replaces the original lower-only
+  routes; width grows while the existing name/amount space stays intact. Nodes,
+  ribbons and gradients move in place, keeping identities, hover/focus, amounts,
+  grouping, detail rows and common currency/correction scales. Restore returns
+  the exact inline geometry. All **109/109** focused Sankey/Budget tests pass in
+  **0.25 seconds**, including six new Sankey cases (**49/49** Sankey cases).
+  Independent review, syntax, local documentation links and whitespace pass.
+  Fictional FR/NL browser checks at 1280px and live resize to 2560x1440 verify
+  two purchase columns, one credit column, far-ribbon isolation, native restore,
+  all **95** detail allocations and no errors/overflow. The 90-purchase diagram
+  changes from **1300x2050.29** to **1820x1264.96** (about **38% shorter**).
+  Screenshot saved, viewport reset and temporary preview tab/server released.
+  Full suite not rerun; no separate build/lint/typecheck command exists. Refresh
+  Budget and expand the Sankey to review. No main-server restart, Odoo request/
+  write, private configuration change, commit or publication occurred.
+
+- Completed on 2026-10-23: annual Budget total bars **Budgeted / Consumed /
+  Committed** now expose exact localized amounts and currency through the same
+  tooltip as category bars. Native buttons support hover, focus, tap/click
+  pinning, blur and Escape, with focus restored by budget/measure on rerender.
+  The tooltip is mounted even without category codes, so zero/unavailable
+  totals remain accessible. Existing filtered amounts, signed geometry,
+  category navigation and bill dialogs are preserved. All **60/60** budget
+  renderer tests pass in **0.24 seconds**, including four new regression cases;
+  independent review, syntax, CSS balance, local links and whitespace pass.
+  Fictional FR/NL desktop browser checks confirm exact decimal amounts, Escape
+  and keyboard access to a zero total without categories, with no errors or
+  horizontal overflow. Screenshot saved; temporary preview tab/server released.
+  The broader full suite was not rerun for this local renderer fix. No separate
+  build/lint/typecheck command exists. Refresh Projects > Budget to review;
+  no main-server restart, Odoo request/write, configuration change, commit or
+  publication occurred. Prior local work remains intact.
+
+- Completed on 2026-10-22: **Projets · 02 / 03** milestone labels now tilt at
+  **30°**, keeping compact two-line names, full source titles, exact-date leaders
+  and solid black markers. Rotated text bounds pack nearby dates into separated
+  lanes without changing hours, plot scales or source data. The follow-up replaces
+  the initial thirteen-colour set with the user's exact **twenty-colour palette**
+  recorded in DECISIONS.md, assigning new identities in the supplied order and
+  looping from the first colour after twenty. Exact employee identities
+  retain matching area, legend, avatar, selected-line and tooltip colours across
+  both charts, filters, cumulative mode and FR/NL. Horizontal bars and fixed
+  total/convention/planning reference styles retain their existing palettes.
+  The palette replacement passes **81/81** renderer tests, including **61** actors
+  across repeated cycles, filtering/reordering and paired chart cues; syntax,
+  local links and whitespace pass. Its fictional FR 2560px browser check shows
+  all twenty colours, unchanged 30° labels and no errors. The preceding
+  **1165/1165** full offline run passed in **34.69 seconds**, including
+  **91/91** focused renderer/milestone cases; it was not rerun for the palette-only
+  replacement. The earlier independent **108-case / 2664-label**
+  rotated-bounds audit found no overlap or clipping, including dense same-date
+  names. Earlier fictional browser checks passed for FR 2560px, NL 1600px, NL 390px and
+  twelve crowded milestones at 1600px, with the previous palette, 30° labels,
+  working employee/month details and no errors or horizontal overflow.
+  Screenshots saved; temporary preview tab/server released. Syntax, local links
+  and whitespace checks pass. No separate build/lint/typecheck command exists.
+  Refresh Projects > Hours to review; no main-server restart, Odoo request/write,
+  private configuration change, commit or publication occurred.
+
+- Completed on 2026-10-22: the shared Normal/Large switch also controls selected
+  **Projects > Hours**. The top wide row keeps a 528.75px stacked overview and
+  bar graphs in the remaining space. The four primary macro cards now measure
+  **91.19px** high (half their normal **182.39px**) with compact text and natural
+  growth for longer notes. Actual and planned area charts occupy a separate
+  full-width row in equal columns, retaining compact 220px right legends.
+  A single area chart spans the whole row. The header switch stays visible and
+  usable in every view; unsupported Budget/list/unit/programme views retain
+  normal width and show a neutral FR/NL hint when Wide is selected. Normal remains the
+  default; the 1600px boundary and shared browser preference are preserved.
+  Monthly SVG geometry now uses the actual plot width up to 4096px only in this
+  wide Hours context, retaining the normal 1200px limit. Frame-batched redraws
+  coalesce the latest width and cancel on cleanup, fixing a ResizeObserver
+  notification warning discovered during browser verification.
+  All **1162/1162** final full offline tests pass in 33.85 seconds; **118/118**
+  controller/scope/language and **79/79** renderer cases pass, with independent
+  review, inline/module syntax, CSS balance, **100** relative documentation
+  links and whitespace checks. Fictional FR/NL browser checks confirm the exact
+  **423 → 528.75px** card/left-column ratio and **220px** legends. The latest FR
+  2560px and NL 1600px checks show all four cards at 91.19px and equal area panels
+  of **1193/1193px** and **714.61/714.61px** respectively, spanning both top-row
+  tracks. At 3440px the panels are **1633/1633px**. The 1600px boundary, normal
+  1280px fallback, always-visible switch in Budget/list, native click/Space there,
+  neutral translated hints, open tables,
+  native switch/Space operation and repeated same-DOM 3440→1280→3440 resizing
+  pass with retained choices and no final browser errors or horizontal overflow.
+  Screenshots saved and temporary preview resources released. Refresh selected
+  Projects > Hours to review. No main-server restart, Odoo request/write,
+  private configuration change, commit or publication occurred; prior local
+  work is preserved. No separate build/lint/typecheck command exists.
+
+- Completed on 2026-10-22: **Mon temps** now has a binary **Normal / Large**
+  header switch (**Normaal / Breed** in Dutch), replacing the initial dropdown.
+  The rounded thumb/glow follows the user's reference in the app's teal palette;
+  a native checkbox/switch retains Space-key operation, visible focus and a
+  translated accessible name. It initially appeared only in Mon temps, before the account
+  controls. Normal is the default; the browser remembers only `standard`/`wide`.
+  A previously saved `auto` becomes `wide` in memory without an initialization
+  write. Wide uses the available
+  window width for four visual columns: recommendations narrowed by **30%**,
+  capacity/planning by **50%**, the graph at its previous wide-layout width,
+  and the project legend in the remaining space. Groups and metrics stack
+  vertically. Wide needs at least **1600 CSS px**, retaining the checked choice
+  with safe vertical fallback below that width. Other menus retain their normal width.
+  Layout changes only update presentation, preserving controls, disclosures,
+  focus, calculations and caches. The existing personal resize path no longer
+  rebuilds responsive SVG content; legacy canvas behavior remains intact.
+  Actual hours now appear above planned hours in a compact **120px** summary
+  sharing the chart row. The pie starts directly below the period, **175px**
+  higher than before; normal/standalone presentation and calculations stay intact.
+  Notes remain accessible and the summary passes pointer input through to sectors.
+  The header/summary refinement passes all **1152/1152** full offline tests in
+  32.76 seconds and **57/57** focused layout/renderer tests. Independent review,
+  inline/module syntax, CSS checks, **100** relative documentation links and
+  whitespace pass. At 2560px the tracks measure **532 / 380 / 874 / 584px**;
+  the previous graph track is preserved, with its 540px SVG cap unchanged.
+  Fictional browser checks confirm mouse/Space switching, Normal at 2560px,
+  French 2560px and Dutch 1600px four-column layouts, actual-above-planned
+  placement, a 26-project long legend without shifting the graph downward,
+  chart tooltips/Escape, hide-all/restore, live 1600→1280→3440 resizing with
+  open details and the checked choice retained, and the 390px Dutch fallback without
+  errors/overflow. Screenshots saved; preview
+  tab/server released. Refresh Mon temps to review; no main-server restart,
+  Odoo request/write, private config change, commit or publication occurred.
+  No separate build/lint/typecheck command exists; prior local work is preserved.
+
+- Completed on 2026-10-22: Sankey NF/FK entries with the same exact initials now
+  merge across label months, summing amounts and showing the chronological range
+  (for example **NF/FK 10-2024 --> 02-2025: MLU**). Single-month groups retain their
+  original label. Valid full references tolerate source asterisks; other names,
+  malformed dates and different initials keep separate identities. Stable family
+  and ribbon keys preserve focus when months are added and cannot collide with
+  arbitrary source labels. Raw allocation rows, category/code links, gradients,
+  currency boundaries and separate signed-correction diagrams remain intact.
+  All **43/43** Sankey and **1141/1141** full offline tests pass, along with
+  independent review, syntax, **159** relative documentation links and whitespace.
+  A fictional French browser check confirms the range and **6200 EUR** sum with
+  both contributing code connections. Screenshot saved and preview tab/server
+  released. Refresh Budget to load it; no main-server restart, Odoo request/write,
+  private config edit, commit or publication occurred. Prior local work is intact.
+
+- Completed on 2026-10-22: three compact text cards now sit directly below the
+  four project-hours macro figures: **Mes heures · planning**, **Total · planning**
+  and **Total · convention**, with Dutch equivalents. Their minimum heights are
+  half the macro cards (91.2/80/74px across desktop/tablet/phone); they stack on
+  phones and retain the pale borders and orange excess treatment. Each states
+  signed under/over usage through today, balance or unavailable data. The two
+  existing global comparisons keep their calculations; personal usage is added
+  to the same pure calculator using exact session employee/resource identities,
+  authoritative planning snapshots and the existing dated-slot proration.
+  TH/Ormitter exclusion, signed credits, Brussels/DST boundaries and independent
+  source statuses are covered. All three use project-start-to-today values,
+  independent of selected graph periods and local graph filters. No percentage
+  or large extra macro figure is introduced. All **1136/1136** full offline tests
+  and **124/124** focused tests pass, along with independent review, six-file
+  syntax, **156** local documentation links and whitespace checks. Fictional FR
+  desktop and NL 390px browser checks confirm the half-height sizing, translated
+  results and contained layout without errors. Proof screenshots saved; preview
+  tab/server released. No separate build/lint/typecheck command exists. Refresh
+  the Hours view to review; no main-server restart, Odoo request/write, private
+  config change, commit or publication occurred. Prior local work is preserved.
+
+- Completed on 2026-10-22: the unit proximity graph now visibly settles under
+  deterministic physical attraction, repulsion and collision separation over
+  **2.2 seconds**, then stops. Theme and programme modes keep separate final
+  layouts; **850ms** transitions start at current displayed positions and restore
+  each saved target exactly, including after rapid reversals. Programme centres
+  group their projects while Other projects keep weaker tag-based positioning.
+  Bubbles and moving cloud envelopes share the active grouping colours; an
+  explicit legend explains them and overlapping memberships use multicolour
+  bubbles. Link identities, shared tags, similarity weights, colours and widths
+  remain unchanged; both visible and hit-test endpoints follow moving bubbles.
+  Replay, reduced motion, cleanup/cancellation and retained FR/NL focus/details
+  are covered. Cached/language rerenders do not replay the introduction.
+  Distance-weighted physical playback prevents late collision snaps: actual
+  **36-project / 266-link** 60Hz checks peak at **11.08 / 6.97 px per frame**
+  for theme/programme replay. Both final layouts have no pinned boundary nodes,
+  bubble/label overlaps or clipping. All **1123/1123** final offline tests and
+  **46/46** focused tests pass, with independent review, syntax, **156** local
+  documentation links and whitespace checks. Isolated desktop FR and 390px NL
+  browser checks pass in both modes; screenshots saved and temporary preview
+  tab/server released. No separate build/lint/typecheck command exists; Docker
+  and live Odoo checks were unnecessary. Refresh to load the frontend change;
+  the main server was not restarted. No Odoo/config change, commit or publication;
+  unrelated local work remains preserved.
+
+- Completed earlier on 2026-10-22: the initial cloud-only toggle below is
+  superseded by the animated layouts above. A compact **Thématiques / Programmes** radio toggle
+  above the unit graph changes only its cloud layer, legend and caption.
+  The **36** bubbles and **266** links retain their exact DOM identities,
+  coordinates, colours, widths, weights and active emphasis. Theme mode remains
+  the default; programme clouds reuse the existing fixed DC1/DC2/DC3 reference
+  lists. A pure optional unit-API projection intersects already-visible exact
+  IDs with the same ambiguity-safe matcher as the programme view; no new RPC.
+  Current plotted membership is **7 / 7 / 5**, plus **17 Autres projets**.
+  Untagged projects stay omitted and isolated projects retain their panel.
+  Mode/toggle focus survives cached/language refreshes; missing mapping disables
+  programme mode without blocking the graph. Fixed-position programme envelopes
+  overlap and may enclose nonmembers; the caption explains this and legend
+  counts/tooltips expose exact plotted members. Full **1109/1109** tests,
+  independent source/data/geometry review, syntax, local links and whitespace
+  pass. Desktop FR round-trip and 390px NL browser checks pass; screenshots
+  saved and task-owned preview resources released. No Docker/live Odoo check
+  or separate build/lint/typecheck command. Standard-user backend restarted as
+  PID **48048**, session **30928**, loopback **8765**: workspace login **200**,
+  anonymous unit API **401**, protected graph asset **303**. Sign in again to
+  review. No Odoo call/write, private-config edit, commit or publication;
+  unrelated local work is preserved.
+
+- Completed on 2026-10-22: the tag explorer now orders tags by descending
+  number of associated visible projects. Equal counts use the localized label,
+  then canonical ID; duplicate source tags and hidden projects cannot inflate
+  popularity. All **27/27** renderer/unit-map tests, syntax and whitespace pass.
+  No browser/full-suite rerun; refresh loads the frontend change without an
+  Odoo call, backend restart, config edit, commit or publication.
+
+- Completed on 2026-10-22: the product-data / data-governance cloud now uses
+  warm terracotta **#a36a4d**, distinct from the BIM/prefabrication blue
+  **#556a99**. The current other four community colours and graph topology are
+  preserved; legend, bubbles, guides and within-community links inherit the
+  cloud colour. All **27/27** renderer/unit-map tests, independent palette review,
+  syntax and whitespace pass. Browser/full-suite checks were not repeated for
+  this colour-only refinement. Refresh loads it; no Odoo call, backend restart,
+  config edit, commit or publication.
+
+- Completed on 2026-10-22: the similarity map replaces its all-project disclosure
+  with **Explorer par tag** / **Verkennen op tag**. It lists unique canonical
+  tags used by visible projects, now sorted by popularity with localized ties. Selecting a tag
+  lists every exact matching project in the right panel and highlights its
+  projects/shared-tag links, including singleton/isolate results. Project opening
+  remains explicit. Selected tag, expanded disclosure and tag/result focus survive
+  cached/language rerenders; Escape, stale exits and cleanup retain safe behavior.
+  The desktop info column is **345px**, up from **230px** (+50%); narrow layouts
+  keep the existing stacked panel and locally scrolling graph. All **118/118**
+  affected renderer/unit/language tests, independent review, syntax and whitespace
+  pass. Isolated IAB checks at desktop 1280px FR and 390px NL confirm the tag
+  list, BIM's 19 results, contained layout, no label collisions or runtime errors.
+  Proof screenshots saved; task-owned preview tab/server released. Full suite
+  was not repeated; no separate build/lint/typecheck command exists. Refresh
+  loads the frontend change. No Odoo call/write, main-server restart, config
+  edit, commit or publication; prior local work is preserved.
+
+- Completed on 2026-10-22: leaving a project bubble/label or graph link restores
+  all project colours and the initial link emphasis. Project details and their
+  actions stay available. Cleared emphasis survives cached/language rerenders;
+  fresh keyboard focus still highlights its project/relation. Stale leave events
+  cannot clear a newer selection, and retired controls remain inert.
+  All **91/91** affected renderer/unit/language tests pass; independent review,
+  syntax and whitespace pass. Full suite was not repeated (previous
+  **1091/1091** is historical).
+  No separate build/lint/typecheck command exists; browser QA was not repeated.
+  Refresh loads this frontend change; no Odoo call, backend restart, config edit,
+  commit or publication occurred. Prior local work is preserved.
+
+- Completed on 2026-10-22: user-requested Buildwise showroom enrichment for
+  all **32** completed missing/short-description results. Inventoried **520**
+  French/Dutch project URLs, including **229** French parent pages; candidate
+  narratives and official supplements supplied **22** accepted source responses.
+  **18** projects gained reviewed canonical tags, bringing coverage to **36/50**;
+  **14** remain untagged (8 not found, 4 ambiguous, 2 insufficient).
+  The [web-enrichment report](PROJECT_TAG_WEB_ENRICHMENT.md) lists every result,
+  source, caveat and eight public/local date discrepancies. Original Odoo
+  description findings, source fields and completion times are preserved; the
+  original 18 tagged rows are unchanged. Local public summaries, source hashes
+  and **80** per-tag evidence entries remain outside the session DTO. Completed
+  rows still never automatically rescan; no Odoo call/write or guard change.
+  Independent data/source reconciliation and review pass. The enlarged map has
+  **36 bubbles, 266 links, five communities and zero isolates**. Geometry uses
+  available width, separates bubbles/labels and adds subtle guides for displaced
+  labels; actual SVG/PNG and measured bold text bounds show no overlap/clipping.
+  Full suite **1091/1091** passes with `node --test --test-concurrency=4`;
+  syntax, 154 local documentation links and whitespace pass. No separate
+  build/lint/typecheck command exists. Browser/Docker/live-Odoo QA was not
+  repeated; native UI input remains stopped after earlier detected user activity.
+  Standard-user backend restarted as PID **51044**, session **95924**, loopback
+  **8765**: workspace login **200**, anonymous unit API **401**, protected graph
+  asset **303**. Sign in again and review the enriched map/report. No private
+  config edit, commit or publication; unrelated local work is preserved.
+
+- Completed on 2026-10-22: interactive **Carte des proximités technologiques**
+  in the unit overview, immediately above **Unité DiCo · 02 / Calendrier des
+  projets**. Equal-size bubbles, rarity-weighted exact canonical tag links,
+  soft communities, hover/keyboard shared-tag details and explicit project
+  opening reuse the existing detail view. Untagged projects are omitted;
+  tagged isolates remain in a specialties panel. Personal/programme views stay
+  opted out; FR/NL cached rerenders retain active project/relation and focus.
+  The existing unit API projects only exact session-visible IDs and used FR/NL
+  definitions from the matching saved source namespace. Full snapshots, source
+  metadata and hidden projects remain private. Optional local-data failures
+  preserve the calendar; no description reads, rescans or Odoo writes were added.
+  Full suite **1083/1083** passes with `node --test --test-concurrency=4`;
+  a default-parallel attempt first had one isolated server startup timeout.
+  Independent review and numerical reconciliation confirm **18 projects,
+  62 links, four communities and two isolates**, with no estimated label overlap.
+  Actual SVG/PNG at 1600x936 was visually checked. Isolated browser checks at
+  553px and 390px in French confirm no page overflow, no label collisions,
+  all graph entries, no runtime errors and correct project detail/emphasis.
+  Dutch controller/renderer tests pass; a fresh Dutch browser check was not
+  completed after Computer Use detected user activity. Native UI input stopped.
+  Syntax, 97 local documentation links and whitespace pass; no separate
+  build/lint/typecheck command exists. No Docker/live Odoo check was required.
+  The local backend restarted as standard-user Node PID **43204**, loopback
+  **8765**, terminal session **17520**: login **200** matches workspace bytes,
+  anonymous unit API **401**, protected map asset **303** to login. Sign in
+  again and review the map. The task-owned preview server was stopped; a loaded
+  preview tab was left untouched after detected user activity. No private config
+  change, commit or publication occurred; prior local changes are preserved.
+
+- Completed on 2026-10-22: shipped local tag catalogue in
+  `data/project-tags.json`, canonical English/French/Dutch labels and a manual
+  read-only new-project scanner. All **50** currently accessible exact unit-206
+  projects were scanned, including **5 archived**: **18** have reviewed tags,
+  **31** have no usable summary and **1** is very short (eDIH WallonIA Hub,
+  **76** meaningful characters; threshold **200**). FireBIM has links only.
+  The [full report](PROJECT_TAG_SCAN.md) lists every project, tags and source
+  links. All 51 older versions across the 32 flagged projects were checked and
+  contained no additional narrative. Exact project/version ownership was verified
+  through the existing guarded reads; no Odoo write or guard change occurred.
+  Completed entries, including missing/short results, never automatically rescan
+  after source edits. Failures and uncertain extraction remain retryable.
+  Raw source summaries stay out of the catalogue; CLI candidate reports default
+  to `.local/`, excluded from Git/Docker. Canonical output path checks protect
+  configuration/catalogue from junction aliases. No production route/UI change,
+  backend restart, private-config change, commit or publication occurred.
+  Full suite **1059/1059** passed before final scanner edge-case refinements;
+  all **32/32** final tag/extraction/scanner/bundled-data tests pass afterward,
+  including real standard-user Windows junction tests. Independent review,
+  syntax, 50-source version/hash/count reconciliation, report coverage,
+  90 local documentation links, packaging exclusions and whitespace pass.
+  The bundled-data scan skips all 50 before description reads. No separate
+  build/lint/typecheck command exists; Docker runtime was not run. Review the
+  report/catalogue; future manual scans prepare only previously unseen projects.
+
+- Read-only investigation completed on 2026-10-22: eXtRAI (project **2083**,
+  code **54252043**) exposes its macro-info narrative through
+  `project.project.description_version_ids` ->
+  `bw.project.description.version.description` (HTML). The latest linked version
+  **2511**, dated **2026-03-31 12:44:04**, contains the user's supplied paragraph.
+  The standard `project.project.description` contains the generic template and
+  is not the requested source. Exact-ID/ownership checks and the existing guarded
+  RPC were used with the configured account. The production DTO/UI remains
+  unchanged; technical tags were suggested only, with no Odoo write, app change,
+  backend restart, config change or commit. No test rerun for this diagnostic.
+
+- Completed on 2026-10-22: milestone markers are solid black and both project
+  hour charts have a compact lower x axis: 9px titles on two balanced lines,
+  tilted at -75 degrees. Month ticks and plot stay fixed; the month/current-month
+  caption now follows all milestone names. Measured multiline bounds and extra
+  lanes handle long/crowded names. All **145/145** affected tests and
+  independent review, syntax/local-link/whitespace checks pass. Full names stay
+  available in SVG title/ARIA, month details and the native list. Offline SVG/PNG
+  rendering of the actual renderer was visually checked and saved. Browser QA
+  was not repeated after the earlier Computer Use URL policy stop; no live
+  browser/source interaction occurred for this refinement.
+  Refresh to review; no backend restart, Odoo access, config change or commit.
+
+- Completed on 2026-10-22: corrected both scoped **Heures du projet en [année]**
+  and lifetime convention segments to descending booked hours, largest on the
+  left, using each period's own values. Name/ID ties, colours, focus, alphabetical legends
+  and ignored/signed fallbacks are preserved. All **141/141** affected project/
+  monthly/milestone/i18n tests pass, including updated descending-order cases.
+  Scoped independent review and syntax/whitespace checks pass; browser visual
+  checks were not repeated. Refresh loads the change; no backend restart, Odoo
+  access, config change, commit or publication occurred.
+
+- Completed on 2026-10-22: Sankey right-column names and inline amounts now use
+  10px text instead of 10.5px in embedded and expanded views. Scoped CSS review,
+  **38/38** purchase-flow tests and whitespace checks pass. No new tests were
+  needed for this small style change; browser visual checks were not repeated.
+  Refresh loads it; no backend restart, Odoo access, config change or commit.
+
+- Completed on 2026-10-21: both project-hours charts now show dated Odoo
+  milestones as vertical dashed markers, with exact dates/names in month
+  tooltips and a compact list. An independent exact-project cache keeps optional
+  milestone reads from blocking hours. Date clipping, narrow layouts, both chart
+  modes and FR/NL browser checks pass. The final full suite passed **1026/1026**;
+  all **141/141** chart/monthly/i18n checks also pass after the final defensive
+  month-axis guard. Independent review confirmed exact relations, optional/stale
+  cache handling, one2many field support and exclusion of audit timestamps from
+  scheduled dates. Static syntax, local links and whitespace pass; no separate
+  build/lint/typecheck command exists. Screenshot saved and previews released.
+  The local backend was restarted as standard-user Node PID **31108**, port
+  **8765** (login 200, unauthenticated milestones 401). Refresh/sign in to review.
+  No live Odoo read/write, config change, commit or publication occurred.
+
+- Completed on 2026-10-21: horizontal people segments in the scoped project-hours
+  and lifetime convention comparisons now run from smallest to largest actual
+  contribution, independently using each comparison's own hours. Equal values
+  retain the existing name/ID order. Alphabetical legends, identity colours,
+  source totals, ignored-hours tail and signed/incomplete fallbacks are preserved.
+  All **136/136** affected project-browser/monthly/i18n tests pass, with existing
+  regressions covering ascending ties and opposite annual/lifetime rankings.
+  Independent review and fictional browser checks confirm rendered order,
+  cross-bar colours and tooltip values; browser logs are empty. Screenshot saved
+  and preview resources released. Syntax/local links/whitespace pass. No separate
+  build/lint/typecheck command exists; previous full-suite results are historical.
+  Refresh to review; no Odoo call, backend restart, config change, commit or
+  publication occurred. All prior local work remains intact.
+
+- Completed on 2026-10-21: Sankey right-hand entries with identical full
+  description/document-fallback names now merge with signed summed amounts,
+  within each currency and purchase/correction diagram. Original allocations
+  and their table rows remain intact; category/internal-code connections and
+  ribbon thicknesses are conserved. Same-code merges keep their palette colour;
+  mixed-code merges use a stable name-derived colour with matching incoming
+  gradients. Name-derived keys retain focus across reorder/membership changes.
+  All **184/184** affected tests pass, including exact-name/fallback matching,
+  totals, signed zero/currency separation, conservation, retained rows and
+  mixed-code gradients. Independent review and fictional desktop/390px FR/NL
+  checks confirm one 6,200 EUR example node with separate 1,450/4,750 EUR code
+  flows and three original table rows. Browser logs are empty; screenshot saved
+  and preview resources released. Syntax/local links/whitespace pass; no separate
+  build/lint/typecheck command exists. Earlier full-suite results predate this
+  frontend refinement. Refresh to review; no Odoo call, backend restart, config
+  change, commit or publication occurred.
+
+- Completed on 2026-10-21: purchases without an internal code now share one
+  middle node per currency/purchase-or-credit diagram, retaining all purchase
+  leaves, source identities, mapping warnings and totals. The FR/NL heading now
+  names the Sankey diagram. A second square beside expand hides/shows its body
+  while retaining the title/controls, graph and open details. Hidden state
+  survives direct/budget/project cached refresh and language rerenders; hiding
+  from fullscreen closes native modality, clears emphasis and focuses the
+  toggle. Expanding a hidden diagram reveals it first. All **178/178** affected
+  model/renderer/budget/project/i18n tests, independent review and fictional
+  desktop/390px FR/NL browser checks pass, including grouped 530/-50 EUR nodes,
+  hidden keyboard navigation, refresh persistence and complete inline amounts.
+  Browser logs are empty; screenshots saved and preview resources released.
+  Syntax, local links and whitespace pass; no separate build/lint/typecheck
+  command exists. Refresh loads this frontend change. No Odoo call, backend
+  restart, config change, commit or publication occurred; earlier full-suite
+  results below remain historical. Next action: review the local Budget view.
+
+  Follow-up completed: full internal-code source labels now appear on grouped
+  code/ribbon hovers as well as individual purchases. Available labels are
+  deduplicated across the same exact code identity; mixed-code and unassigned
+  aggregates do not inherit an arbitrary description. Supplier/document/purchase
+  details remain individual-only. All **180/180** affected tests, independent
+  review and fictional browser grouped-node/ribbon checks pass; screenshot
+  saved, browser logs empty and preview resources released. Syntax, local links
+  and whitespace pass. Refresh loads the correction without a backend restart
+  or Odoo call; changes remain local/uncommitted.
+
+- Completed on 2026-10-21: each convention category in the purchase Sankey now
+  has its own stable colour, keyed by exact category identity using the existing
+  HSL scheme. Allocation gradients start at the matching category colour;
+  internal-code/purchase colours remain intact. The subsequent compact-layout
+  follow-up halves right-column gaps from 36 to 18 SVG units, with centred
+  16-unit label frames retaining the 10.5px font and complete inline amounts.
+  All **175/175** affected tests, independent review and fictional embedded/
+  expanded/40-entry browser colour/gradient/non-overlap checks pass; browser
+  logs are empty. Screenshot saved and preview resources released. Syntax,
+  local links and whitespace pass. Refresh to review; no Odoo call, backend
+  restart, config change, commit or publication occurred. Previous full-suite
+  results below predate this frontend refinement.
+
+- Completed on 2026-10-21: right-hand purchase/credit names and localized EUR
+  amounts now share one line at 10.5px. A bounded flex row preserves the entire
+  amount and ellipsizes only an overflowing name; full source text remains in
+  the accessible name, tooltip and detail table. Ribbons joining different
+  endpoint colours use matching source-to-target SVG gradients, retained by
+  foreground hover/focus; equal endpoint colours stay solid. All **174/174**
+  affected purchase/budget/project/i18n tests pass. Independent review and
+  fictional desktop/390px, expanded/embedded and FR/NL browser checks confirm
+  intact amounts, including a 50-W name with 1,234,567.89 EUR, and no browser
+  warnings/errors. Screenshot saved; preview tab/viewport/helper released.
+  Syntax, local links and whitespace pass. No separate build/lint/typecheck
+  command exists; earlier full-suite results below predate this display change.
+  Refresh loads the change; no backend restart, Odoo call, config change,
+  commit or publication occurred. Next action: refresh and review Budget.
+
+- Completed on 2026-10-21: expanded purchase diagrams now fit the limiting
+  available width or height proportionally, centred rather than stretched to
+  viewport width. The available height accounts for the preceding title,
+  financial notices and totals. All diagrams retain one shared physical scale
+  so purchase/credit ribbon widths remain comparable. Resize recalculates the
+  fit; restoring/cleanup clears inline sizes, observers and resize listeners.
+  All **172/172** affected tests pass, including fit/aspect/scale and cleanup
+  regressions. Independent review and fictional desktop/short-landscape/390px/
+  40-entry browser checks confirm complete diagrams within the available frame,
+  preserved aspect ratios, equal purchase/credit scale, retained tooltips and
+  normal embedded sizing on return. Browser logs are empty. Screenshot saved;
+  preview resources released. Syntax, local links and whitespace pass. Refresh
+  loads this frontend-only correction; no backend restart, Odoo call, config
+  change or publication occurred. Earlier full-suite results remain historical.
+  Next action: refresh and review the fitted expanded graph.
+
+- Completed on 2026-10-21: requested top-left square expand control opens the
+  purchase Sankey in a viewport-filling native dialog with a sticky restore
+  control. The same graph/amounts/details remain intact; toggle and Escape close
+  it, return focus and restore the embedded view. Parent refresh captures focus
+  before modal teardown, preserving the selected ribbon after native reparenting.
+  All **170/170** affected model/renderer/integration/i18n tests pass, including
+  modal focus boundaries, cancellation, stale callbacks and navigation cleanup.
+  Independent review and fictional 1280px/390px browser checks confirm full
+  viewport bounds, sticky control, retained ribbon interactions, bounded phone
+  tooltips, FR/NL labels, Tab wrapping and Escape/toggle restoration, with no
+  console warnings/errors. Screenshots are saved; preview resources released.
+  Syntax, local links and whitespace pass. This frontend-only follow-up loads
+  on refresh; backend/runtime PID **56096** and all data scopes remain unchanged.
+  No Odoo call, private-config change, restart, commit or publication occurred.
+  The prior 989-test full-suite result below predates this display refinement.
+  Next action: refresh and review the expand control in Budget.
+
+- Completed on 2026-10-21 (approved plan): purchase Sankey directly below the
+  first budget-consumption comparison, using exact convention categories,
+  internal codes and individual project allocations from posted supplier
+  invoices/credit notes. Scope is project start through inclusive Brussels today;
+  existing lifetime/annual calculations and earlier local experiments remain
+  intact. Native SVG preserves the current palette, one-ribbon hover/focus,
+  bounded tooltips, separate signed corrections on a shared currency scale and
+  a complete accessible detail table. All interface text is FR/NL; missing
+  mappings, amounts, currency/document access remain explicit.
+  The final offline suite passes **989/989** in 73.85 seconds, including new
+  source, HTTP, model/geometry and renderer/navigation regressions. The focused
+  frontend/integration suite passes **166/166** and finance source/HTTP tests
+  **85/85**. Independent review found no remaining actionable issue. Fictional
+  1280px/390px browser checks confirm native SVG focus, Escape, desktop fit,
+  bounded phone tooltips/scrolling, 40 retained entries, detail-state refresh,
+  translated labels/literal source text and navigation cleanup; no page
+  overflow or browser warnings/errors. Screenshots and test logs are saved in
+  the chat visualization directory. Preview tab/viewport/helper are released.
+  An initial programme fixture-startup timeout passed on exact retry and the
+  final unchanged full run. Syntax and whitespace checks pass; there is no
+  separate build/lint/typecheck setup. The verified old workspace server was
+  replaced with hidden standard-user Node PID **56096**, loopback **8765**:
+  welcome **200**, anonymous finance **401**, stderr empty. Sign in again after
+  this reload. No live Odoo call, private-config modification, commit, push or
+  publication occurred; actual purchase-document access remains unverified.
+  Next action: user visual review of the local Budget view.
+
+- Completed on 2026-10-20 (approved plan) on `codex/project-card-outline`,
+  preserving the earlier local card experiment: planned section 03 now includes
+  the convention's dotted monthly/cumulative linear hours reference over the
+  full project lifetime, including future months. It remains project-wide when
+  filtering people/resources or toggling Ormitters; unavailable/nonpositive
+  budgets are disclosed in FR/NL without inventing zero. Actual section 02 now
+  explicitly says **Heures réalisées · jusqu’à aujourd’hui** (also translated
+  into Dutch). Small project-card circles are visually clipped while native
+  keyboard/label selection and Back focus restoration remain intact; the three
+  large programme selectors retain visible circles. The full offline suite
+  passes **949/949** in 57.29 seconds; model **46/46**, renderer **74/74**,
+  independent review, 30-script syntax, eight-document link and whitespace
+  checks pass. Fictional desktop/390px UI checks confirm the final convention
+  total and TH-filter invariance, FR/NL rendering, all three project-card
+  contexts, programme isolation, no page overflow or console warnings/errors.
+  Screenshots are saved; preview tab/viewport/helper are released and its exact
+  owned fixture is removed after the unexpected shutdown. Rechecked saved
+  files and test log on resumption. The local server was stopped and has been
+  relaunched as hidden standard-user Node PID **15228**, loopback 8765 (welcome
+  200, current public translation catalogue, empty stderr). Sign in again after
+  restart. No live Odoo access or private-config changes occurred; changes remain
+  local/uncommitted and unpublished. Next action: user visual review.
+
+- Completed on 2026-10-16 on `codex/project-card-outline`, after the successful
+  publication/checkpoint push (`main` / `origin/main`: `32d7211`, feature parent
+  `104b533`): shared project cards show the short name/manager portrait at rest,
+  then trace a turquoise outline and reveal full name, source number and strict
+  start/end dates on hover or keyboard focus. The three programme selectors
+  retain their explicit flip variant. Native selection, cached metadata and
+  FR/NL labels remain intact; touch cards show details statically and reduced
+  motion removes transitions. The full offline suite passes **940/940** in
+  55.69 seconds; all **178/178** affected tests pass again after the final SVG
+  viewport correction. Independent review and fictional desktop/390px browser
+  checks confirm hover/focus, programme isolation, no overflow or console
+  warnings/errors, and a complete outline at both card sizes. A controlled
+  fixture also exercises touch/reduced-motion CSS and Dutch missing-date text;
+  this is not real-device/OS emulation. Syntax/link/whitespace checks pass.
+  Screenshot saved; preview tab/viewport/helper/fixture released. Existing
+  server welcome is 200; refresh loads this frontend-only update without a
+  restart. No Odoo access, private-config change or new publication occurred;
+  this experiment remains local/uncommitted. Next action: user visual review.
+
 - Publication completed on 2026-10-16 after the user's explicit request to
   commit all changes and push `main`: feature commit `104b533` contains the
   reviewed 57-file FR/NL/project-controls implementation, tests and docs.
@@ -9,10 +743,10 @@
   `refs/heads/main` was verified at `104b533d039a8f4d6f352fb098905bcf1c054b2c`.
   Existing final **936/936** offline tests apply to the unchanged source snapshot;
   publication review found no secrets/private files or Odoo guard changes.
-  The user next requested branch `codex/project-card-outline` for a different
+  The next experiment uses branch `codex/project-card-outline` for a different
   project-card presentation inspired by the supplied Uiverse reference. That
-  implementation plan is awaiting the repository-required approval; no card
-  code has changed. This documentation checkpoint records the publication.
+  implementation plan is now approved and completed on that branch, separately
+  from the published main snapshot. This checkpoint records the publication.
 
 - Completed on 2026-10-16 (approved plan) on `codex/fr-nl-dashboard`, created
   from clean `main` at `dad8b58`: complete French/Dutch presentation, header
@@ -468,6 +1202,11 @@
 
 ## In Progress
 
+- The approved 2026-10-21 purchase Sankey is completed and verified as recorded
+  in Functional State. Local Budget visual review is the next action; actual
+  account/schema permissions remain a verification limit. Earlier uncommitted
+  project-card/planning changes on `codex/project-card-outline` are preserved.
+
 - Completed four-card macro refinement on 2026-10-13, started 2026-10-12: convention, actuals since
   project start through Brussels today, future planning from tomorrow with
   remaining TH subtotal, and actual-plus-future minus convention. All macro
@@ -684,6 +1423,26 @@
 A runnable dashboard, authenticated local connector and authentication integration suite are implemented. Production deployment and real-account verification remain unestablished.
 
 ## Last Verified
+
+- 2026-10-21 expanded-fit correction: **172/172** affected tests pass;
+  independent review and fictional desktop, short/wide, phone and 40-entry
+  browser checks confirm proportional fitting, shared physical currency scale,
+  resize/restore cleanup and empty console logs. Syntax/local links/whitespace
+  pass. Frontend only; no server restart or Odoo access.
+
+- 2026-10-21 full-screen follow-up: **170/170** affected tests pass, with
+  independent review and fictional desktop/390px native dialog/focus/hover/
+  translation checks. Syntax, documentation links and whitespace pass. No
+  backend restart or live Odoo access; the prior full suite remains historical.
+
+- 2026-10-21 purchase Sankey: **989/989** final offline tests (73.85 s),
+  **166/166** focused frontend/integration and **85/85** finance source/HTTP;
+  independent review, fictional desktop/phone/dense-list interactions, all
+  root/inline JavaScript syntax and whitespace pass. Initial programme fixture
+  startup timeout passed isolated retry and final full run. Reloaded workspace
+  server PID **56096**, welcome 200, anonymous finance 401 and empty stderr.
+  No live Odoo calls or private-config changes; no separate build/lint/typecheck
+  command exists. Earlier check results below are historical.
 
 - Four-card macro refinement on 2026-10-12/13: **721/721** full offline tests
   pass, with no failures/cancellations/skips (61.87s). Pure calculation tests
@@ -1390,13 +2149,397 @@ A runnable dashboard, authenticated local connector and authentication integrati
 
 ## Session handoff
 
+- Latest publication completed on 2026-10-23: the user requested commits/push.
+  App/tests/catalogue commit `3c66e67` is published on the matching tracked
+  `origin/codex/project-card-outline` branch, based on `32d7211`.
+  Companion documentation captures this checkpoint and prior feature work.
+  Final full offline suite **1204/1204** (32.52s), **63** syntax checks,
+  independent scope/private-file reviews and staged whitespace checks pass.
+  Private config/raw reports stay ignored. No Odoo read/write or server restart
+  occurred during publication. Earlier uncommitted/unpublished milestone notes
+  describe their implementation-time state and are superseded by this entry.
+
+- Previous follow-up completed on 2026-10-23: right-hand Sankey text/spacing adapt
+  toward twice the left connector/text extent, with 8–10 SVG-unit fonts,
+  12.8–16 line height, 2–18 nominal gaps and collision-safe frame clearance.
+  Sparse maxima remain; minimum-size overflow is allowed. Single column,
+  financial scale and fullscreen geometry lifecycle remain intact. Focused
+  **112/112**, independent review/static checks and fictional browser checks
+  pass. Screenshot saved and preview/viewport resources released. Refresh
+  Budget; no Odoo/server change. Full suite not repeated for this layout change.
+
+- Previous follow-up completed on 2026-10-23: Sankeys retain one right-hand purchase
+  column inline and fullscreen; split/routing/geometry-switch code removed.
+  Focused **106/106**, independent review/static checks and dense fictional
+  fitting/isolation/restore browser checks pass. Screenshot saved; viewport and
+  preview resources released. Refresh Budget; no Odoo/server change. Full suite
+  not repeated for this reversion.
+
+- Previous follow-up completed on 2026-10-23: Viktor de Groote has a precise local
+  `named-override` Ormitter classification across hours/planning/contributors
+  and strict personnel totals, preserving genuine source evidence. Full offline
+  **1205/1205**, focused **78/78**, review and static checks pass. App restarted
+  in session **37191**, port **8765**; local login/access guards verified.
+  Refresh/sign in again. No live Odoo/configuration/dependency/publication change.
+
+- Previous follow-up completed on 2026-10-23: DiCo/programme project-card grids
+  sort by visible short name, independent of source-code prefixes. Focused
+  **175/175** tests and static checks pass; calendar/map source ordering stays
+  intact. Refresh either view; no Odoo/server change.
+
+- Previous follow-up completed on 2026-10-23: main Projects navigation, view heading
+  and document title renamed **Mes Projets / Mijn projecten**. Focused **117/117**
+  tests and static/scope review pass. Refresh; no Odoo/server change.
+
+- Previous follow-up completed on 2026-10-23: programme selectors now use the same
+  outline reveal as project cards while retaining 230/210px dimensions and
+  programme-specific content. All **182/182** focused cases, independent review,
+  static checks and fictional FR desktop/NL phone selection/fit checks pass.
+  Screenshot saved; viewport and preview resources released. Refresh Programmes.
+  Full suite/physical touch not repeated; no Odoo/server/configuration change.
+
+- Previous follow-up completed on 2026-10-23: open Settings stacks above sticky
+  date/navigation controls; all palette rows remain clickable. Focused
+  **108/108** tests, independent review/static checks and fictional overlap/
+  selection/Escape checks pass. Screenshot saved; preview resources released.
+  Refresh to review. Full suite not repeated; no Odoo/server/configuration change.
+
+- Previous follow-up completed on 2026-10-23: Settings includes Vibrant Emotions
+  with the exact ten colours and cyclic reuse, matching preview, immediate
+  repaint and persisted enum. Dico remains the default. All **170/170** focused
+  cases pass; independent review/static checks and fictional FR/NL browser
+  selection, unchanged paths and reload persistence pass. Screenshot saved;
+  preview resources released. Refresh and choose the palette in Settings.
+  Full suite not repeated; no Odoo/main-server/configuration/publication change.
+
+- Previous follow-up completed on 2026-10-23: expanded Sankey far-bank flows use
+  safe gaps between near-bank rows first, retaining lower fallback only for
+  ribbons that cannot fit. Whole-stroke/bar/label clearance, amounts, grouping,
+  inline restoration and interactions pass **113/113** focused tests, including
+  **53/53** Sankey cases. Fictional FR/NL resize/isolation/restore checks pass;
+  the 90-purchase example uses gaps for 32/45 far flows and is 103.36px shorter.
+  Screenshot saved; temporary viewport and preview resources released. Review
+  and static checks pass; full suite not repeated. Refresh Budget and expand.
+  No main-server/Odoo/configuration/dependency/publication change.
+
+- Previous follow-up completed on 2026-10-23: header Settings offers default
+  Dico vibes (15 colours) and previous Classic (20), with native FR/NL radios,
+  previews and browser-local enum persistence. Active project, Unit/programme
+  and legacy line/area charts repaint without replacing controls, focus,
+  tooltips, tables, geometry or data. Other chart families and semantic styles
+  retain their colours. Final full **1195/1195**, focused **5/10/84/67**, review,
+  static and fictional FR wide/NL phone switching/persistence checks pass.
+  Screenshots saved; viewport reset and preview resources released. Standard-user
+  app restart verified as PID **36916**, session **3291**, port **8765**; sign in
+  again if prompted. No Odoo/configuration/dependency/publication change.
+
+- Previous follow-up completed on 2026-10-23: expanded Sankeys split tall grouped
+  purchase lists into two columns at a strict 2:1 node/gap threshold when the
+  resulting total height improves. The gap-routing refinement above replaces
+  the original lower-only routes. Inline text width,
+  amount scales, grouping and all connections remain intact. Existing SVG DOM
+  controls/gradients update in place and restore exactly. Focused **109/109**
+  Sankey/Budget cases, independent review/static checks and fictional FR/NL
+  expansion/resize/isolation/restore checks pass. The 90-item example is about
+  38% shorter; screenshot saved, viewport reset and preview resources released.
+  Full suite not rerun; no main-server/Odoo/configuration/publication change.
+
+- Previous follow-up completed on 2026-10-23: annual Budget total bars now share
+  category tooltips for exact localized amounts/currency. Native total buttons
+  support hover/focus/tap, pin/unpin, blur/Escape and keyed rerender focus;
+  zero/unavailable/no-category cases retain accessible amounts. Category arrows,
+  bill dialogs, financial filters and source data remain intact. All **60/60**
+  focused budget tests, independent review/static checks and fictional FR/NL
+  desktop exact-value/Escape/keyboard checks pass. Screenshot saved; preview
+  resources released. Full suite not rerun for this renderer-only fix. Refresh
+  Projects > Budget; no main-server/Odoo/configuration/Git publication change.
+
+- Previous follow-up completed on 2026-10-22: Projects area charts 02/03 use a
+  dedicated twenty-colour palette in the user's exact order, looping after
+  twenty new identities. Matching employee cues remain stable across both
+  charts, filters, cumulative mode and FR/NL; bars and reference styles retain
+  their prior colours. Milestone titles use 30° two-line labels with measured
+  bounds, separated lanes, exact-date leaders and complete accessible titles.
+  The replacement passes **81/81** renderer cases, exact order/repeat checks
+  across **61** actors, syntax, links, whitespace and FR 2560px browser verification
+  with all twenty colours and no errors. The previous full **1165/1165**, focused
+  **91/91**, independent **108-case / 2664-label** geometry audit and FR/NL
+  wide/phone/dense checks remain the broader baseline; no full rerun for this
+  palette-only change. Screenshots saved and temporary preview resources released.
+  Refresh Projects > Hours; main server, Odoo and private configuration remain
+  untouched, with no commit or publication.
+
+- Previous follow-up completed on 2026-10-22: the shared header switch stays
+  visible and usable on every view; unsupported views keep normal layout with a
+  neutral FR/NL hint. Selected Projects > Hours has a 528.75px overview with four
+  half-height primary cards (91.19px), bar graphs alongside, and a separate
+  full-width 50/50 actual/planned area-chart row. All legends stay compact on the
+  right. Normal card width is 423px; the requested column ratio is exactly 125%.
+  Wide-only actual-width SVG geometry and frame-batched,
+  cancellable redraws retain employee/month focus and open tables through
+  switching/resizing without dashboard rebuilding or requests. Final full
+  **1162/1162**, focused **118/118 + 79/79**, independent review/static checks
+  and fictional FR/NL wide/narrow/interaction checks pass. The observed RO
+  warning is fixed and repeated resize checks are error-free. Screenshots saved;
+  preview resources released. Refresh Projects > Hours; main server, Odoo and
+  private configuration remain untouched, with no commit or publication.
+
+- Previous follow-up completed on 2026-10-22: Mon temps has a binary Normal/Large
+  header switch in FR/NL, with native keyboard/focus semantics and a single
+  1600px boundary. Legacy saved Automatic migrates to Wide without an init write.
+  Actual then planned hours share the chart row in a compact 120px summary,
+  bringing the pie 175px higher. The wide view keeps
+  four visual columns: recommendations 30% narrower, capacity/planning 50%
+  narrower, graph width retained, and the project legend in the remaining space.
+  Nested grids preserve the existing positioned tooltip card and live DOM;
+  long legends do not push the chart downward. Normal remains default; the browser stores only
+  the selected binary enum. Wide requires 1600 CSS px and narrower windows
+  fall back safely. Switching/resizing preserves live DOM, focus, details and
+  cached data without requests. All **1152/1152** full and **57/57** focused
+  tests, independent review/static checks and FR/NL wide/narrow/live-resize,
+  long-legend, tooltip and filtering browser checks pass. Proof screenshots
+  saved and previews released. Refresh
+  Mon temps; main server, Odoo and private config remain untouched.
+
+- Previous follow-up completed on 2026-10-22: NF/FK Sankey purchases group across
+  months by exact initials and show an earliest/latest label-month range with
+  summed amounts. Original rows, code/category connections and currency/credit
+  isolation remain intact; typed family/ribbon keys prevent source-name collisions.
+  All **43/43** scoped and **1141/1141** full tests, independent review, syntax,
+  links and whitespace pass. Fictional browser range/sum proof saved; temporary
+  preview resources released. Refresh Budget; main server and Odoo/config/Git
+  state were untouched by this presentation refinement.
+
+- Previous follow-up completed on 2026-10-22: three half-height project-hours usage
+  cards under the four macros, with personal/planning, total/planning and total/
+  convention comparisons in FR/NL. Personal values reuse raw exact-own source
+  identities and the existing dated interpolation; global comparisons, fixed
+  cohort and graph-filter independence are preserved. All **1136/1136** full and
+  **124/124** focused tests pass, with independent review, syntax/link/whitespace
+  checks and fictional desktop FR/mobile NL browser verification. Screenshots
+  saved and previews released. Refresh Hours to review; main server untouched,
+  with no Odoo/config/Git mutation or publication.
+
+- Previous follow-up completed on 2026-10-22: animated physical project map with
+  separately cached theme/programme targets, smooth exact restoration, matching
+  bubble/cloud colours and unchanged **266** tag links across **36** projects.
+  Replay, reduced motion, cancellation and retained focus/details are verified;
+  arc-length playback removes late collision snaps. Final **1123/1123** full and
+  **46/46** scoped tests, independent geometry/source review, syntax, links and
+  whitespace pass. Desktop FR/390px NL browser checks pass; proof screenshots
+  saved and isolated preview tab/server released. Refresh/sign in if needed to
+  review; the main server remains untouched by this frontend-only refinement.
+  No new Odoo access, config edit, Git mutation or publication occurred.
+
+- Previous follow-up completed on 2026-10-22: the original cloud-only toggle
+  (superseded by the animation above) changes
+  only background zones/legend/caption, preserving all 36 bubbles/266 links and
+  active details. Pure visible-ID programme projection reuses the fixed lists
+  without new Odoo calls; plotted counts **7/7/5 + 17 other**. Overlapping hulls
+  are labelled approximate, with exact legend member tooltips. Full **1109/1109**
+  tests, independent review, static checks and desktop FR/mobile NL checks pass.
+  Backend PID **48048**, session **30928**, port **8765** restarted and protected
+  probes pass. Sign in again; temporary previews released. No Odoo/config/Git
+  mutation or publication. All implementation changes remain local/uncommitted.
+
+- Previous follow-up completed on 2026-10-22: tag explorer sorts by visible-project
+  popularity descending, with localized alphabetical ties. All **27/27** affected
+  tests and syntax/whitespace pass; refresh to review. No browser/full-suite rerun,
+  Odoo call or backend restart. Work remains local/uncommitted.
+
+- Previous follow-up completed on 2026-10-22: product-data/governance cloud changed
+  from blue-grey to terracotta **#a36a4d**; BIM/prefabrication stays blue.
+  All **27/27** renderer/unit-map tests, independent review and syntax/whitespace
+  pass. Refresh loads it; no browser/full-suite rerun or backend/Odoo change.
+
+- Previous follow-up completed on 2026-10-22: **Explorer par tag** replaces the
+  project list with localized used tags and exact related-project results in a
+  345px desktop info column (+50%). Tag/open/focus state survives cached/language
+  rerenders, and existing hover reset/explicit opening remain covered. All
+  **118/118** affected tests, independent review/static checks and desktop FR /
+  390px NL isolated browser checks pass. Temporary preview resources released.
+  Refresh to review; no Odoo call, main-server restart, config edit or publication.
+  Changes remain local/uncommitted; previous full-suite results are historical.
+
+- Previous follow-up completed on 2026-10-22: similarity-map pointer leave restores
+  all graph colours while retaining usable project details. Cached/language
+  refresh keeps that cleared state; fresh keyboard exploration still highlights.
+  Stale leave/cleanup guards and **91/91** affected tests pass, with independent
+  review, syntax and whitespace checks. No fresh browser/full-suite run. Refresh to review; no
+  backend restart, Odoo call or publication. All work remains local/uncommitted.
+
+- Previous follow-up completed on 2026-10-22: Buildwise public-source enrichment
+  adds **18** tag sets for the **32** Odoo-description gaps, giving **36 tagged /
+  14 unresolved**. See [complete report](PROJECT_TAG_WEB_ENRICHMENT.md).
+  All original Odoo facts and the original 18 tag sets are preserved; **22**
+  response hashes and **80** tag-evidence entries reconcile. No automatic
+  rescan or Odoo call/write was added. Current map **36/266/5** (projects/links/
+  communities) has collision-free labels/bubbles and guides for displaced names.
+  Full **1091/1091** tests, independent review, actual SVG/PNG, syntax, 154 local
+  links and whitespace pass. No fresh browser/Docker/live-Odoo QA. Backend
+  PID **51044**, session **95924**, port **8765** restarted and protected probes
+  pass; sign in again. All changes remain local/uncommitted and unpublished.
+
+- Previous follow-up completed on 2026-10-22: Unit-only interactive similarity
+  map above calendar 02, using saved tags and exact session-visible projects.
+  No description rescans or Odoo writes. Full **1083/1083** tests, independent
+  review/static/source checks pass. FR browser checks at 553/390 and full actual
+  SVG pass; fresh NL browser QA stopped after detected user activity, with NL
+  tests passing. Local server PID **43204**, session **17520**, port **8765**
+  restarted; sign in again to review. Optional data failures retain the calendar.
+  All work remains local/uncommitted; no private-config change or publication.
+
+- Previous follow-up completed on 2026-10-22: permanent shipped project-tag
+  catalogue and guarded manual scanner, with all **50** accessible unit-206
+  projects scanned (**18 tagged, 31 missing, 1 short**). Includes archived
+  projects; missing/short completion is permanent by request. No Odoo writes.
+  See [scan report](PROJECT_TAG_SCAN.md) and [workflow](../../data/README.md).
+  Full suite **1059/1059** passed before final scanner refinements; final focused
+  **32/32** pass, including 50-project no-rescan and real junction safety checks.
+  Source reconciliation/static checks pass. No UI/backend runtime change,
+  private config change, commit or publication. Next: review the stored tags and
+  description-gap report; no mandatory implementation work remains for this task.
+
+- Previous follow-up completed on 2026-10-22: verified eXtRAI's supplied narrative
+  in its latest linked description version, **2511** (2026-03-31), via guarded
+  exact-project reads. Source is `bw.project.description.version.description`,
+  linked by `project.project.description_version_ids`; the standard project
+  description is the generic template. Suggested technical tags only; no feature
+  implementation, tests, Odoo write, config edit or runtime change.
+
+- Previous follow-up completed on 2026-10-22: compact black milestone axis with
+  9px two-line names at -75 degrees and the month caption below all titles.
+  Month ticks/plot stay fixed; measured bounds, dense lanes and conditional
+  height retain fit. **145/145** affected tests and independent/static checks
+  pass. Offline SVG/PNG visual proof saved; no fresh browser QA after the earlier
+  Computer Use URL policy stop. Refresh to review; all work
+  remains local/uncommitted, with no Odoo access or backend restart.
+
+- Previous follow-up completed on 2026-10-22: both scoped project-hours and lifetime
+  convention bars now sort largest-to-smallest, using their own period totals.
+  **141/141** affected tests, scoped independent review, syntax and whitespace
+  pass. Browser visual checks were not repeated. Refresh to review; all changes
+  remain local/uncommitted, with no backend restart or Odoo access.
+
+- Previous follow-up completed on 2026-10-22: reduced Sankey right-column text
+  from 10.5px to 10px, shared by names/amounts and embedded/expanded modes.
+  Scoped independent review, **38/38** purchase-flow tests and whitespace pass;
+  no repeated browser visual check. Temporary preview released. Refresh to
+  review. Changes remain local/uncommitted; no backend restart or Odoo access.
+
+- Previous follow-up completed on 2026-10-21: project-hour milestone overlays, optional
+  exact-ID source/cache, strict date clipping and FR/NL details implemented.
+  Fictional desktop/390px checks pass; screenshot saved and preview released.
+  Final full suite **1026/1026** and final chart/monthly/i18n **141/141** pass.
+  Independent source review findings are fixed and verified with regressions;
+  static syntax/links/whitespace pass. Local backend restarted as Node PID
+  **31108** on loopback **8765**, login 200 and anonymous milestones 401.
+  Next action: refresh/sign in and review real-project milestone markers.
+  Changes remain local/uncommitted; no live Odoo source access or write occurred.
+
+- Previous follow-up completed on 2026-10-21: scoped project-hours and lifetime
+  convention bars sort their people segments by ascending actual contribution,
+  using their own period totals. Legends and all prior scopes/colours/fallbacks
+  remain intact. **136/136** affected tests, independent review, static and
+  fictional browser order/colour/tooltip checks pass. Screenshot saved; preview
+  resources released. Changes remain local/uncommitted. Refresh to review;
+  no Odoo call, backend restart, config change or publication.
+
+- Previous follow-up completed on 2026-10-21: identical full right-hand purchase
+  names merge with summed amounts and separate code connections. Original rows,
+  currency/purchase-credit boundaries and monetary/ribbon totals remain intact;
+  mixed-code incoming gradients match the stable merged-node colour. **184/184**
+  affected tests, independent review, static and fictional desktop/390px FR/NL
+  checks pass. Screenshot saved; preview resources released. Changes remain
+  local/uncommitted. Refresh to review; no Odoo call, backend restart, config
+  change or publication.
+
+- Previous follow-up completed on 2026-10-21: blank internal codes share one
+  middle node per diagram; the heading names Sankey and a square hide/show
+  toggle sits beside expand. Collapsed state survives cached/language refresh;
+  fullscreen hide closes safely and expand reveals hidden content. Full source
+  code labels also appear on grouped hovers, while purchase-specific details
+  remain individual-only. **180/180**
+  affected tests, independent review, static and fictional desktop/390px FR/NL
+  browser checks pass. Screenshots saved; preview resources released. Changes
+  remain local/uncommitted. Refresh to review; no Odoo call, backend restart,
+  config change or publication.
+
+- Previous follow-up completed on 2026-10-21: convention category identities each
+  determine a stable colour and matching allocation-gradient start. Internal
+  code colours stay intact. Right-column gaps are now halved to 18 units and
+  label frames reduced to 16 units, retaining full amounts and readable text.
+  **175/175** affected tests, independent review, static checks and fictional
+  embedded/expanded/40-entry browser verification pass; screenshot saved and
+  preview resources released. Changes remain local/uncommitted. Refresh to
+  review; no backend restart, Odoo call, config change or publication.
+
+- Previous follow-up completed on 2026-10-21: right-hand names and complete EUR
+  amounts share one line; differently coloured endpoints use matching gradients
+  during normal display and foreground emphasis. **174/174** affected tests,
+  independent review, syntax/local links/whitespace and fictional desktop/phone,
+  embedded/expanded, wide-name/large-amount and FR/NL checks pass. Screenshot
+  saved; preview resources released. Changes remain local/uncommitted; refresh
+  to review. No backend restart, Odoo call, config change or publication.
+
+- Previous correction completed on 2026-10-21: expanded purchase Sankey scales
+  to whichever available dimension is limiting, preserving proportions and
+  one physical scale across purchase/credit diagrams. **172/172** affected
+  tests, independent review, static and fictional multi-viewport/dense-list UI
+  checks pass. Screenshot saved and preview resources released. Refresh to
+  review; no backend/data/config/restart/publication change. Earlier full-screen
+  geometry descriptions below are superseded by this fit behavior.
+
+- Previous follow-up completed on 2026-10-21: the purchase graph now has its
+  requested top-left expand square and viewport-filling dialog, with sticky
+  restore, Escape/toggle close and preserved focus/data on return or refresh.
+  **170/170** affected tests, independent review, static and fictional
+  desktop/390px browser checks pass. Screenshot evidence is saved; preview
+  resources are released. Refresh the current local dashboard to review;
+  backend PID **56096** is unchanged. All earlier local changes remain
+  uncommitted; no Odoo access/config change/restart/publication occurred.
+
+- Original objective completed on 2026-10-21: the approved purchase Sankey is
+  implemented in the shared Budget panel on `codex/project-card-outline`, HEAD
+  `32d7211`, with all earlier local experiments preserved. See Functional State
+  for scope and verification. Final **989/989** offline tests, independent review,
+  static and fictional desktop/390px/dense-list UI checks pass. New source
+  modules, fixtures/tests and documentation remain local/uncommitted. Preview
+  resources are released and screenshot/test evidence is in the chat
+  visualization directory. Current server is hidden standard-user Node PID
+  **56096** at `http://127.0.0.1:8765/` (welcome 200, anonymous finance 401,
+  empty stderr); sign in again after reload. No live Odoo access, private-config
+  change or publication occurred. Next: user review of Budget after sign-in.
+  Previous runtime/next-action entries below are historical.
+
+- Latest objective completed and rechecked on 2026-10-20 after an unexpected
+  exit: planned-chart full-life convention, actual02 today title and hidden
+  small project radios are implemented in FR/NL on `codex/project-card-outline`.
+  Full **949/949** offline tests, independent/static and fictional desktop/390px
+  browser checks pass. Preserve both this task and the October 16 outline-card
+  experiment; neither has been committed/pushed. Preview resources are released
+  and screenshots saved. Server relaunched as hidden standard-user PID **15228**
+  at `http://127.0.0.1:8765/` (welcome 200, empty stderr); user must sign in again.
+  No live Odoo call or private-config modification occurred. Next: user review.
+  Earlier runtime and pending-verification notes below are historical.
+
+- Publication and branch creation are complete: remote `main` verified at
+  `32d7211174202470bfc14cc8ef98860e7f7f75c5`; active branch is
+  `codex/project-card-outline` from that checkpoint. The user approved the
+  outline-card plan, now completed locally. Full suite **940/940**, post-SVG-fix
+  affected tests **178/178**, independent/static checks and fictional desktop/
+  390px browser checks pass. Preview resources are released and screenshot is
+  saved. Refresh loads the frontend change; no backend restart or Odoo access
+  occurred. Main still contains the prior 936-test snapshot; this card
+  experiment remains uncommitted/unpublished pending user review.
+
 - On 2026-10-16 the user explicitly requested commit-all, push to `main`, then
   a new card-design branch. Feature `104b533` is published and remote-verified;
-  the 936-test source snapshot is unchanged. Next: create
-  `codex/project-card-outline` after this publication checkpoint, then implement
-  the pending card plan after approval. Keep white/black/turquoise project
+  the 936-test source snapshot is unchanged. The next branch has now been
+  created as recorded above and the approved card plan is completed locally.
+  Keep white/black/turquoise project
   cards with short name/portrait at rest and animated outline/full metadata
-  on hover/focus; the proposed scope preserves the separate programme cards.
+  on hover/focus; the implemented scope preserves the separate programme cards.
 
 - Current objective completed on 2026-10-16 on `codex/fr-nl-dashboard`:
   FR/NL selector/persistence, calendar full/near mode and short left labels,
@@ -1724,19 +2867,37 @@ A runnable dashboard, authenticated local connector and authentication integrati
   The earlier 24-hour password-login work remains in `stash@{0}`
   (`password-login work before pulling main (2026-10-06)`). Private config is
   untouched, and sessions retain main's eight-hour default.
-- Current verified runtime: http://127.0.0.1:8765/ runs this branch as hidden
-  standard-user Node PID 33592 after restart on 2026-10-16. Output/error logs are
-  `odoo-dashboard-current-20261016-fr-nl.out.log` / `.err.log`
-  in the user's Temp directory; no persistent terminal session is attached.
-  Welcome is 200, public language preferences have the expected schema, served
-  i18n bytes match this checkout, anonymous project-hours is 401 and stderr is
-  empty. The previous listener PID 35540 was identified as the workspace Node
-  server by command and exact served login bytes before replacement. Starting
-  a new process requires signing in again.
-  Isolated synthetic preview processes are no longer running.
-- Next action: new project-card experiment on `codex/project-card-outline`,
-  after the pending implementation-plan approval. All prior dashboard features
-  are published on `main` as recorded above.
+- Current verified runtime: http://127.0.0.1:8765/ runs this branch as
+  standard-user Node after restart on 2026-10-23, attached to terminal session
+  **37191**. Login is 200 with matching workspace bytes,
+  anonymous unit API is 401 and protected palette asset redirects 303 to login.
+  The previous task-owned listener in session **3291** was stopped before
+  replacement. Sign in again; no live Odoo call was used for these probes.
+- Next action: refresh/sign in again to reload Viktor de Groote's records with
+  the Ormitter exception, then review the larger outline-style
+  programme cards, including keyboard focus and translated details. Open the top-toolbar Settings menu
+  to review default Dico vibes or select Classic or Vibrant Emotions for line/area charts. The
+  preference survives reload; charts repaint immediately. Select Projects > Budget to review
+  the restored single purchase column with adaptive font/spacing in the expanded Sankey for all lists, and
+  exact-amount tooltips on the three annual total bars, including keyboard access.
+  Select Projects > Hours to review
+  the selected-palette area charts 02/03 and flatter 30° milestone labels. Use the
+  Normal/Large header switch to review the half-height macro cards, overview/bar
+  row and independent equal-width area charts with compact right legends. The
+  switch now remains visible on every view. It retains Mon temps' four columns,
+  separate project legend and raised pie
+  with actual/planned summary, including keyboard operation and resizing. The grouped NF/FK month
+  ranges and summed amounts remain available in the Budget Sankey. The three compact usage cards below
+  the project-hours macro figures retain their personal/planning and project-wide
+  planning/convention comparisons. The unit similarity map above
+  calendar 02 also retains animated settling, replay, matching colours,
+  theme/programme layout restoration and the tag explorer, together with the enriched local tags and
+  [public-source/gap report](PROJECT_TAG_WEB_ENRICHMENT.md). Earlier visual
+  review remains available for the lower milestone title axis, descending project/convention bars and prior
+  local refinements on `codex/project-card-outline` after refreshing/signing in.
+  Earlier published dashboard features remain on `main` as recorded above;
+  this map and the accumulated refinements are now committed and published in
+  `3c66e67` on `origin/codex/project-card-outline`.
   Previously targeted configured-token authentication
   and targeted Extrai budget/date/personal planning reads are verified;
   staffing-assignment, profile-photo access, broader personal/project access and

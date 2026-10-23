@@ -1,6 +1,803 @@
 # Testing
 
-## Latest verification (2026-10-16 French/Dutch and project controls)
+## Latest verification (2026-10-23 publication of accumulated app features)
+
+The full offline `node --test --test-concurrency=4 --test-reporter=spec` suite
+passes **1204/1204** in **32.52 seconds**, without failures, cancellations or
+skips. All **63** changed JavaScript files pass `node --check`. The staged app
+patch passes whitespace checks after removing one extra EOF blank line in a
+test; independent scope/packaging reviews find no blocker. Private configuration
+and raw local reports remain outside the commit set. No separate build, lint
+or typecheck command exists; no live Odoo or Docker verification was performed.
+Prior per-feature browser evidence below remains the visual verification basis.
+
+## Latest verification (2026-10-23 adaptive Sankey purchase density)
+
+All **112/112** focused Sankey/Budget cases pass in **0.22 seconds**, including
+**52/52** Sankey cases and six new regressions. These verify unchanged sparse
+maxima, spacing before font reduction, the actual 2:1 connector/text target,
+minimum-size overflow, collision-free label frames, conserved ribbon widths,
+rendered purchase/credit styles and single-column fullscreen lifecycle.
+Independent review and syntax/whitespace checks pass.
+
+Fictional browser checks confirm 8 purchases retain 10px/16px typography;
+40 purchases use 9.390625px text and a 640-unit right extent against 320 left;
+90 purchases stop at 8px/12.8px with all 90 detail rows and separated labels.
+The dense SVG height is 1376 units. FR/NL text, exact 10 EUR keyboard isolation,
+identical fullscreen paths/viewBox, resizing from 1600x1100 to 1280x900,
+proportional fitting and Escape restoration pass without console warnings or
+errors. Screenshot saved; viewport, temporary tab and preview server released.
+No full-suite repeat was needed for this isolated layout change. No separate
+build/lint/typecheck command exists. No Odoo or main-server change.
+
+## Latest verification (2026-10-23 restore one Sankey purchase column)
+
+All **106/106** focused Sankey/Budget cases pass in **0.20 seconds**, including
+**46/46** Sankey cases. The original 43 cases remain; three dense single-column
+regressions replace ten experimental split/routing cases. Checks cover unchanged
+normal/fullscreen viewBoxes and DOM geometry, exact grouped values, native
+hover/focus, shared currency/correction scale and FR/NL resize/refresh/close cleanup.
+Fictional browser verification with 90 purchases and five credits confirms one
+purchase stack at x=990 per SVG, three column headings, identical paths on
+expansion, all 95 detail rows, isolated 12 EUR detail, fitting at 1280px and after
+resize to 2560x1440, and Escape restoration without errors/overflow. Screenshot
+saved; viewport and preview resources released. Independent review, syntax,
+documentation links and whitespace pass. Full suite not repeated for this
+renderer-only reversion; the earlier 1205-case result is historical. No separate
+build/lint/typecheck command exists. No Odoo or main-server change.
+
+## Latest verification (2026-10-23 named Ormitter exception)
+
+All **1205/1205** full offline tests pass in **46.02 seconds**; the focused
+classification/hours/personnel set passes **78/78**. Six new regression cases
+cover retained names after HR deletion or denial, resource-only planning,
+conflicting functions with preserved evidence, exact normalized full-name
+matching and near misses, signed inclusive/exclusive totals, honest unknown
+warnings, strict personnel totals and backend-only colleague privacy. Existing
+malformed/duplicate source validation and read-only RPC protections pass.
+Independent review, syntax, documentation links and whitespace pass.
+The app was restarted as a standard user in terminal session **37191** on
+loopback **8765**: login **200** matches workspace bytes, a protected asset
+redirects **303** to login and an anonymous API is **401**. No live Odoo call,
+configuration change or dependency installation occurred. No separate build,
+lint or typecheck command exists. Actual missing/deleted Odoo identities were
+not read; the exception requires an available retained or resolved full name.
+
+## Latest verification (2026-10-23 alphabetical project cards)
+
+All **175/175** focused Unit/similarity/sticky-scope/dashboard-language tests
+pass in **0.47 seconds** after sorting DiCo/programme card copies by their
+displayed short titles. Existing timeline, selection and map behavior remains
+covered. Independent FR/NL unit/programme fixtures confirm natural-number and
+case/accent ordering, ID ties, native selection/focus, immutable source data
+and unchanged calendar chronology. Syntax and whitespace pass; full suite not repeated for this display
+ordering change. No separate build/lint/typecheck command exists.
+
+## Latest verification (2026-10-23 programme outline cards)
+
+All **182/182** focused card/programme/project-browser/Unit/language tests pass
+in **0.56 seconds**. Existing programme/card cases now verify shared decorative
+outline semantics while preserving bespoke content, native selection/focus,
+safe photos/initials, translations and loading/error/retry behavior. Independent
+review finds no project-content or responsive cascade regression.
+Fictional browser checks compare 230px programme cards with 190px project cards,
+verify keyboard selection/reveal and complete detail bounds, and retain 210px
+single-column cards at Dutch 390px width without overflow/errors. Screenshot
+saved; viewport and preview resources released. Syntax/CSS balance, relative
+documentation links and whitespace pass. Physical touch hardware was not used.
+Full suite not repeated; no separate build/lint/typecheck command exists.
+No Odoo, main-server, configuration or dependency change.
+
+## Latest verification (2026-10-23 Settings overlap)
+
+All **108/108** focused settings/sticky-scope tests pass in **0.49 seconds**.
+A fictional browser fixture with the actual sticky navigation/year bar verifies
+that Settings wins hit-testing in their overlapping region, the last palette
+can be selected, and Escape closes and restores summary focus. No errors or
+horizontal overflow. Screenshot saved; preview resources released. Independent
+review, inline-script syntax, CSS balance, documentation links and whitespace
+pass. Full suite not repeated for this CSS-only fix; no separate build/lint/
+typecheck command exists. No Odoo or main-server change.
+
+## Latest verification (2026-10-23 Vibrant Emotions palette)
+
+All **170/170** focused palette/settings/language/project-renderer/Unit tests
+pass in **0.70 seconds**, including **15/15** palette/settings cases extended
+for the third choice. These verify the exact ten colours, cycling, immutable
+arrays, stored enum restoration, matching previews, native selection/focus,
+FR/NL names, blocked storage and immediate chart/legend repainting.
+Fictional browser checks verify selection, twenty-person colour repetition,
+unchanged path geometry, persistence after reload, Dutch restoration and no
+overflow or console errors. Screenshot saved; preview tab/server released.
+Independent review, JavaScript/inline-script syntax, documentation links and
+whitespace pass. Full suite not repeated for this palette-only addition; no
+separate build/lint/typecheck command exists. No Odoo or main-server change.
+
+## Latest verification (2026-10-23 Sankey gap routing)
+
+All **113/113** focused Sankey/Budget tests pass in **0.21 seconds**, including
+**53/53** Sankey cases and four new routing regressions. Stroke envelopes clear
+near-bank bars and complete 16px labels, internal gaps fill before overflow,
+oversized ribbons retain a safe lower route, and mixed-code merged purchases
+keep their flows and amounts. Existing inline geometry, gradients, hover,
+focus, FR/NL lifecycle and common currency/correction scale checks pass.
+
+Fictional FR/NL browser checks at 1280px and live resize to 2560x1440 retain
+two purchase columns, one credit column, all 95 detail rows, exact isolated-flow
+tooltips and Escape restoration. In the 90-purchase sample, 32 of 45 far ribbons
+pass between near-column labels; height falls from 1264.96 to 1161.60 at the
+same 1820px width. No horizontal overflow or console errors. Screenshot saved;
+temporary viewport and preview resources released. Independent review, syntax,
+documentation links and whitespace pass. The full suite was not repeated for
+this renderer-only refinement; its prior 1195-case result is historical.
+No separate build/lint/typecheck command exists. No Odoo or main-server change.
+
+## Latest verification (2026-10-23 toolbar chart palettes)
+
+All **1195/1195** final full offline tests pass in **32.90 seconds**. Focused
+palette/settings/project-renderer/Unit sets pass **5/10/84/67** cases. Twenty new
+cases cover exact fifteen/twenty-colour cycling, browser-only enum persistence,
+no initialization writes, blocked storage and disposed subscriptions; native
+FR/NL settings, previews, keyboard/outside dismissal and legacy line-only
+repaints; and direct SVG area/line/legend/avatar/tooltip updates with retained
+DOM, focus, pinned details, open tables, geometry, source data and reveal state.
+Unit/programme gradient updates and lifecycle cleanup also retain calendar
+colours. Existing semantic references, black milestones and other chart
+families remain verified. Older controller fixtures without a browser global
+are supported by guarded palette initialization. Authentication tests verify
+the new module redirects anonymously and is served for a mocked session.
+
+Fictional browser checks confirm default Dico's fifteen colours, immediate
+Classic switching with identical path/viewBox geometry, persistence after
+reload and return to Dico. The menu remains open on selection; Escape closes
+and restores summary focus. FR 2560px wide charts and NL 390px settings fit
+without horizontal overflow or console errors. Screenshots saved; temporary
+viewport reset and preview tab/server released. Independent review, syntax,
+CSS balance, relative links and whitespace pass. The standard-user app restart
+is verified on loopback 8765 (PID 36916): workspace-matching login 200, palette
+asset 303 to login, anonymous unit API 401. No live Odoo call, private config
+change or dependency installation occurred. No separate build/lint/typecheck
+command exists.
+
+## Latest verification (2026-10-23 expanded Sankey purchase columns)
+
+All **109/109** focused Sankey/Budget tests pass in **0.25 seconds**, including
+**49/49** Sankey cases and six new regressions. They cover the strict 2:1
+grouped node/gap threshold; contiguous groups, tiny/dominant amounts, an
+unhelpful tall-middle fallback, conserved allocations and disjoint routing
+lanes. Existing paths, nodes, text frames and gradients retain identity through
+expansion/restore, with updated endpoints, labels and unchanged raw details.
+Far-ribbon hover isolation, exact focus keys, FR/NL, resize/cleanup and common
+physical scaling across mixed-width currency/correction diagrams pass.
+
+Fictional browser checks confirm two purchase columns and one unchanged credit
+column at 1280px, resizing the expanded dialog to 2560x1440 without overflow or
+console errors. The 90-purchase SVG changes from **1300x2050.29** to
+**1820x1264.96**, about **38% shorter**, retaining 97 nodes, 102 ribbons and all
+95 raw purchase/credit detail rows. Far-ribbon keyboard isolation works and
+Escape restores the exact original viewBox; Dutch re-expansion also passes.
+Screenshot saved, temporary viewport reset and preview tab/server released.
+Independent review, syntax, relative documentation links and whitespace pass.
+The full suite was not repeated; no separate build/lint/typecheck command
+exists. Odoo, private configuration and the main server were untouched.
+
+## Latest verification (2026-10-23 annual total amount tooltips)
+
+All **60/60** budget renderer tests pass in **0.24 seconds**, including four new
+regression cases. They cover exact decimal totals/currency for all three
+measures, hover/leave, focus/blur, click pin/unpin and Escape; no category dialog
+is opened by a total. Zero, signed, unavailable and no-category totals, separate
+annual tooltip IDs, updated amounts after keyed focus restoration, personnel/
+Ormit filtering, FR/NL formatting and immutable source data are verified.
+Existing category navigation and bill-dialog tests remain passing.
+
+Fictional FR/NL desktop browser checks show the exact consumed/committed decimal
+amounts and currency, working Escape and native Enter access to a zero total
+without category codes, with no errors or horizontal overflow. Screenshot saved;
+temporary preview tab/server released. Independent review, JavaScript syntax,
+CSS brace balance, relative documentation links and whitespace checks pass.
+The full suite was not repeated for this renderer-only fix. No separate build,
+lint or typecheck command exists; Odoo, configuration and the main server were
+untouched.
+
+## Latest verification (2026-10-22 twenty-colour repeating palette)
+
+All **81/81** renderer tests pass in **0.56 seconds**. The revised palette case
+checks the exact supplied twenty-colour order and **61** identities, including
+wraparound at identities 21, 41 and 61, matching actual/planned areas, legends
+and avatar borders, stable cached colours after filtering/reordering/restoring,
+and unchanged horizontal-bar colours. Existing selection/reference/tooltip,
+cumulative-mode and FR/NL colour checks pass. No new test file was needed.
+
+A fictional FR 2560px browser preview confirms all twenty supplied colours,
+unchanged 30-degree milestone labels and no JavaScript errors. Screenshot saved;
+the temporary preview tab and verified task-owned server were closed. Syntax,
+relative Markdown links and whitespace checks pass. The previous **1165/1165**
+full-suite run below remains the broader baseline; it was not repeated for this
+palette-only change. No separate build/lint/typecheck command exists, and the
+main server, Odoo and private configuration were untouched.
+
+## Latest verification (2026-10-22 area-chart palette and flatter milestones)
+
+All **1165/1165** full offline tests pass in **34.69 seconds**. The affected
+renderer/milestone set passes **91/91** (81 renderer and 10 milestone cases).
+Palette checks cover all thirteen specified colours, distinct overflow colours
+after thirteen employees, matching areas/legends/avatars/selected actual and
+planned-reference lines/tooltips, exact-identity stability across both charts,
+filters, cumulative mode and FR/NL, and unchanged horizontal-bar colours.
+
+Milestone tests independently rotate text corners at **30°** and assert separate
+bounded labels, full source names, exact-date leaders and unchanged input,
+series and plot values. Dense same-date Unicode/long-name fixtures exercise
+actual/planned and monthly/cumulative modes across narrow and wide plots. An
+independent **108-case / 2664-label** audit finds no overlap or clipping, with
+10px gutters and at least 6px separation; ordinary narrow labels remain compact.
+
+Fictional browser checks confirm thirteen colours and 30° titles in FR 2560px,
+NL 1600px and NL 390px. Twelve crowded milestones at a 1600px viewport remain
+inside both plots, with leaders and complete details. Employee selection,
+selected lines, monthly tooltips and Escape remain usable. Browser error lists
+are empty and the phone page has no horizontal overflow. Screenshots saved and
+temporary preview tab/server released. Inline/module syntax, relative Markdown
+links and whitespace checks pass. No separate build/lint/typecheck command
+exists; Odoo, private configuration and the main server were untouched.
+
+## Latest verification (2026-10-22 compact Project Hours and paired area charts)
+
+All **1162/1162** full offline tests pass in 33.85 seconds; controller/scope/
+language cases pass **118/118** (16 switch cases), and renderer cases **79/79**.
+The new switch regression covers visibility and enabled native changes across
+unsupported views, neutral FR/NL status, retained focus/preference/cache and
+unchanged active-layout flags without render or network side effects. Renderer
+checks retain exact actual/planned section identities in one monthly group,
+including the single-chart case and existing controls/lifecycles.
+
+Fictional browser checks measure all four primary cards at **91.19px**, against
+**182.39px** in the normal fallback, with TH and date notes intact in FR and NL.
+At 2560px the monthly panels are **1193/1193px**; at 1600px **714.61/714.61px**;
+at 3440px **1633/1633px**. Each pair starts on one row across the full content
+width, independently of the 528.75px overview/bar grid above, with a 28px gap
+and compact 220px right legends. Normal mode stacks the charts vertically.
+Repeated same-DOM 3440→1280→3440 resizing retains the open exact-value table,
+returns the card heights/layout correctly and reports no browser errors or
+horizontal overflow. Budget and project-list switches remain visible; native
+click/Space changes retain the choice and show the neutral localized hint.
+Screenshots saved and temporary previews released. Syntax, CSS balance, 100
+relative Markdown links, source review and whitespace checks pass. No separate
+build/lint/typecheck command exists; no Odoo/main-server/configuration change.
+
+## Latest verification (2026-10-22 selected Project Hours wide layout)
+
+The final full offline suite passes **1161/1161** in 35.77 seconds. The affected
+controller/scope/language set passes **117/117** (15 switch cases); the renderer
+set passes **79/79**. Added cases protect exact Hours/view flags, shared choice,
+project-specific FR/NL status, real selection/panel/Back/scope invalidation,
+mounted-only resize handling, retained DOM/focus/disclosures/cache evidence,
+wrapper/legend interactions and normal versus opt-in wide geometry bounds.
+
+Browser resizing exposed synchronous ResizeObserver drawing changing the observed
+chart height. The verified repair coalesces notifications into one animation
+frame, uses the latest width/current cap and cancels pending work on cleanup.
+The lifecycle test covers no synchronous writes, frame ID zero, reverted widths,
+employee/month focus, an open table, no replay, rerender cancellation and late
+retired callbacks. Repeated real 3440→1280→3440 round trips now retain the table
+and employee choice without browser errors; SVG viewBox width matches the plot.
+
+Fictional browser checks confirm the normal **423px** macro-card baseline and
+**528.75px** overview column (125%), **220px** right legends, monthly plot widths
+of about **606/1563/2443px** at 1600/2560/3440px and steady graph/text height.
+Normal keeps the 1880px main cap. Dutch 1600px and 390px fit without horizontal
+overflow. Budget and the project list hide the switch and return to normal;
+Hours restores the choice. Native mouse/Space switching, legend selection,
+month tooltips/Escape and open exact-value tables remain usable. Screenshots
+saved and temporary previews released. Independent review, inline/module syntax,
+CSS balance, 100 relative Markdown links and whitespace pass. No separate
+build/lint/typecheck command is defined. Odoo, private configuration and the
+main server were untouched.
+
+## Latest verification (2026-10-22 header layout switch and compact pie summary)
+
+All **1152/1152** full offline tests pass in 32.76 seconds, with **57/57** focused
+layout/renderer cases passing. Ten switch cases cover actual header placement,
+native checkbox/switch semantics, checked-state changes, a single inclusive
+1600px boundary, legacy `auto` migration without an initialization write,
+blocked storage, localization, view containment and retained DOM/data/focus.
+One added renderer case protects stable planned/actual metric identities,
+signed visible totals, normal ordering, accessible notes and tooltip ownership.
+
+Fictional browser checks confirm mouse and Space activation, normal 1880px
+content cap, French 2560px and Dutch 1600px wide layouts, unchanged track/pie
+widths, and actual-above-planned placement inside the chart row. The pie starts
+175px higher relative to its column. A 26-project legend does not lower it;
+tooltips/Escape, hiding all projects and restoring them remain usable.
+An open capacity disclosure and checked Wide preference survive a same-DOM
+1600→1280→3440 resize sequence. Dutch 390px falls back without overflow; all
+browser error lists are empty. Screenshots saved and previews released.
+Independent review, inline/module syntax, CSS balance, 100 relative Markdown
+links and whitespace checks pass. No separate build/lint/typecheck command is
+defined. Main server, private configuration and Odoo remained untouched.
+
+## Latest verification (2026-10-22 four-column superwide refinement)
+
+All **1150/1150** full offline tests pass in 33.85 seconds, with **55/55** focused
+layout/renderer cases passing. The nine layout-controller cases now assert
+four-column French/Dutch status messages. Independent review, inline/module
+syntax, CSS balance, 100 relative documentation links and whitespace checks pass.
+
+Fictional browser checks measure recommendation/capacity/graph/legend tracks of
+approximately **532/380/874/584px** at a 2560px CSS viewport, matching the requested
+30%/50% reductions and retained graph width. The pie keeps its existing 540px
+maximum. Manual 1600px, automatic 3440px, Dutch 2560px, the unchanged Standard
+1880px cap, and Dutch 390px fallback fit without horizontal overflow or errors.
+A 26-project legend stays beside the graph without changing its vertical start;
+intrinsic first rows prevent a tall spanning legend from displacing the pie.
+Chart tooltip positioning, legend hide/show and an open capacity disclosure
+through a same-DOM 3440→1280→3440 resize round trip pass. Screenshots were saved
+and temporary preview resources released. No main-server restart, configuration
+change, Odoo request or data calculation change was involved.
+
+## Latest verification (2026-10-22 opt-in superwide Mon temps)
+
+The final full offline suite passes **1150/1150** in 31.94 seconds; the affected
+set passes **210/210**, including nine new layout-controller tests. They cover
+the Standard default, exact manual/automatic viewport boundaries, one-time
+initialization, enum-only storage and blocked storage, modern/legacy/missing
+media APIs, navigation containment, French/Dutch hints and retained live
+controls, focus, disclosures, tolerance and cached evidence. The existing
+debounced resize path is verified to avoid rebuilding loaded personal content
+while retaining its legacy rendering behavior elsewhere.
+
+Fictional browser checks use actual iframe CSS viewports. French Standard at
+2560px remains vertical with the main width capped at 1880px; manual wide at
+2560px gives three aligned hosts approximately 760/760/874px wide and a 2560px
+main container. Automatic mode at 3440px uses three columns and the full main
+width. Resizing the same DOM from 3440 to 1280 and back changes effective layout
+while keeping the capacity disclosure open. Dutch wide at 2560px is translated;
+at 390px it safely falls back to the vertical layout without horizontal overflow.
+All browser error lists are empty. Screenshots were saved and preview resources
+released; the main server, configuration and Odoo were untouched.
+
+Inline script/two-file JavaScript syntax, CSS balance/cascade, 160 relative
+Markdown links and whitespace checks pass. The preference adds no network
+request, backend field or data recalculation.
+
+## Latest verification (2026-10-22 NF/FK month-range grouping)
+
+All **43/43** Sankey cases and **1141/1141** full offline tests pass. New cases
+cover chronological cross-year ranges, repeated months, exact initials, optional
+source asterisks, document fallback, invalid/partial references, currency/credit
+isolation and signed zero corrections. Mixed-code gradients, conserved ribbon
+thickness, original detail rows, hover totals, immutable inputs and focus when a
+range extends remain verified. A literal internal-key-like source name cannot
+collide with the typed NF/FK ribbon namespace. Independent review, syntax,
+159 relative Markdown links and whitespace checks pass. Fictional French browser
+verification shows the range, 6200 EUR sum and both code connections; screenshot
+saved and preview resources released. No main-server restart or Odoo access.
+
+## Latest verification (2026-10-22 compact project-hours usage cards)
+
+The final full offline suite passes **1136/1136** in 33.7 seconds, and the final
+focused browser/helper/planning/dashboard-language set passes **124/124**.
+Syntax checks for six changed/new JavaScript files, relative Markdown links and
+whitespace checks pass.
+New calculation tests distinguish personal and project-wide raw cohorts,
+employee/resource and immutable snapshot precedence, TH exclusion, uncertain
+ownership, known zero versus denied sources, signed corrections, post-end
+actuals, Brussels 23/25-hour proration and nonfinite arithmetic. Renderer tests
+cover exactly three cards after the four primary metrics, independent source
+failures and stale deltas, the 0.005h balance tolerance, French/Dutch text and
+unchanged macro results when graph scope or contributor filters change.
+
+Isolated fictional browser checks pass in French at 1280px and Dutch at 390px,
+with no errors or page overflow. Desktop primary/compact cards measure
+182.39/91.19px; compact phone cards measure 74px against the primary 148px
+minimum. A longer remaining-planning primary card expands naturally to 172px.
+The fixture shows +5 personal, -15 total-planning and +5 convention hours with
+the appropriate localized signed statements. Screenshots were saved and the
+preview tab/server were released. The main server, private configuration and
+Odoo sources were untouched; no new RPC or backend contract was introduced.
+See [Current State](../ai-context/CURRENT_STATE.md) for final task checks.
+
+## Latest verification (2026-10-22 animated physical project map)
+
+The final full offline suite passes **1123/1123** with
+`node --test --test-concurrency=4` in 33.8 seconds; the final affected set passes
+**46/46**. Syntax checks for five changed/new JavaScript files, 156 relative
+Markdown links and whitespace checks pass.
+
+The five pure solver tests in
+[`tests/project-similarity-physics.test.js`](../../tests/project-similarity-physics.test.js)
+pass independently. They cover deterministic independent physical frames,
+unchanged graph evidence and inputs, exact final snapshots, genuine force
+trajectories, separate cohesive programme targets, weakly grouped Other nodes,
+bounds, visible separation, label clearance and empty/hidden-ID handling.
+
+Numerical checks against the actual saved catalogue retain 36 nodes, 266 edges
+and thematic community sizes 12/8/7/7/2. Both final layouts have zero pinned
+boundary nodes, bubble overlaps, label/label or label/bubble overlaps and clipping.
+Named programme mean radii are approximately 66/63/56px, compared with 164px for
+Other projects. Five offline pure-layout timing samples per mode remain below
+200ms on this workstation. SVG/PNG inspection confirms the distinct layouts and
+matching active bubble/cloud colours. Exact cached targets and node DOM identity
+survive a mode round trip; link endpoints follow their existing project IDs.
+
+Physical replay timing uses cumulative maximum particle displacement and
+smoothstep easing rather than equal time for unequal solver segments. This
+gives the final contact-relaxation movement enough time to remain smooth within
+the 2.2-second replay. Actual 36-project animation-clock regressions at 60Hz
+limit maximum node displacement to 11.08px per frame in themes and 6.97px in
+programme mode, including the final quarter of the animation.
+
+Isolated browser checks pass for the French 1280px theme/programme round trip
+and Dutch 390px layouts in both modes, with no errors, label collisions or page
+overflow. Screenshots were saved and the preview tab/server were closed. The
+main server was untouched. No live Odoo request or Docker runtime was needed;
+no separate build/lint/typecheck command exists. The independent numerical
+checks use the offline DOM fixture. See
+[Current State](../ai-context/CURRENT_STATE.md) for the task outcome.
+
+## Latest verification (2026-10-22 programme cloud toggle)
+
+The final full offline suite passes **1109/1109** with
+`node --test --test-concurrency=4`. Projection tests cover shared reference
+resolution, ambiguity, fixed lists, detached outputs, two-session visibility,
+ignored caller overrides, unchanged RPC counts and optional-failure recovery.
+Renderer/parent cases retain exact circle/link DOM identities and attributes,
+model, layout and active tag/details across cloud toggles and round trips.
+Overlap/singleton/Other groups, hidden/unplotted IDs, empty/unavailable mapping,
+retired handlers and FR/NL mode/focus restoration are covered. Independent
+source/data/geometry review and numerical reconciliation pass: 36 nodes,
+266 edges, programme membership 7/7/5 plus17 Other. Existing hulls overlap and
+may enclose nonmembers; exact legend membership and caption clarify this.
+Desktop French round-trip and Dutch390px isolated IAB checks pass with no page
+overflow or label collisions. Screenshots saved and preview resources released.
+Syntax, local links and whitespace pass. No live Odoo call or Docker runtime;
+no separate build/lint/typecheck command exists. The standard-user backend was
+restarted and anonymous route/asset protection rechecked.
+
+## Latest verification (2026-10-22 tag popularity order)
+
+All **27/27** renderer/unit-map tests pass. The ordering regression puts a
+popular Z-labelled tag before rarer alphabetic predecessors, checks localized
+equal-count ties in French/Dutch, and prevents duplicate tags or hidden-project
+rows from inflating popularity. Syntax and whitespace pass. No browser/full-suite
+rerun was needed for the ordering change; refresh loads it without a restart.
+
+## Latest verification (2026-10-22 tag explorer)
+
+All **118/118** affected renderer, unit integration, unit, dashboard-language,
+i18n and language-client tests pass. New cases cover unique localized used tags,
+hidden/unused-definition exclusion, exact multi-project and isolated matches,
+tag-specific link emphasis, explicit project opening, Escape/stale exits/cleanup,
+removed tags and disclosure/tag/result focus across parent/language rerenders.
+CSS retains the contained SVG scroller and stacking with a 345px desktop panel.
+Independent review, syntax and whitespace pass. Isolated IAB checks confirm the
+French desktop tag explorer and Dutch 390px stacked results, including BIM's
+19 matches, zero label collisions, no page overflow and no runtime errors.
+Screenshots saved and preview resources released. No full-suite rerun, Odoo call
+or main-server restart; no separate build/lint/typecheck command exists.
+
+## Latest verification (2026-10-22 similarity hover reset)
+
+All **91/91** affected renderer, unit-map integration, unit and dashboard-language
+tests pass. Pointer leave restores initial node/link opacity without removing
+project actions; cached/language rerenders preserve that reset. Regressions
+cover direct bubble transitions, stale leave after newer pointer/keyboard
+selection, cleanup and renewed keyboard emphasis. Syntax and whitespace pass.
+No fresh browser/full-suite run; the full result below predates this change.
+No separate build/lint/typecheck command exists. Refresh loads the frontend fix.
+
+## Latest verification (2026-10-22 public-source tag enrichment)
+
+The final full offline suite passes **1091/1091** with
+`node --test --test-concurrency=4`. Enrichment validation requires complete
+per-tag Buildwise source evidence; partial/duplicate evidence and unrelated
+URLs fail. Permanent completion and no-description-read scanner tests still
+pass after local enrichment. Session projection tests prove public summaries,
+URLs and hashes remain private. The original Odoo-described subset retains its
+18-node/62-link semantic baseline; all enriched links independently reconcile
+with exact shared tags. The current 36-node/266-link map has finite bounded
+positions, separated bubbles, collision-free label boxes, deterministic input
+order and noninteractive guides for displaced names. Actual SVG/PNG was visually
+inspected; bold glyph widths including text stroke were measured separately.
+Independent source/data review reconciled 22 response hashes, 80 tag-evidence
+entries and preservation of all original Odoo fields and 18 original tag sets.
+Syntax, 154 local documentation links and whitespace pass. No separate
+build/lint/typecheck command exists; no fresh browser, Docker or live Odoo test
+was needed. See [Current State](../ai-context/CURRENT_STATE.md) and the
+[source report](../ai-context/PROJECT_TAG_WEB_ENRICHMENT.md).
+
+## Latest verification (2026-10-22 unit similarity map)
+
+The full suite passes **1083/1083** with `node --test --test-concurrency=4`.
+An earlier default-parallel attempt had one isolated fixture startup timeout;
+the bounded-concurrency rerun passed. Tests cover optional namespaced tag
+projection, two session visibility scopes, unused-definition removal, protected
+assets and no-description-read guarantees. Renderer/model and parent tests cover
+weighted overlaps, exact filtering, deterministic geometry, local scrolling,
+FR/NL project/relation focus, incident-edge emphasis, explicit navigation,
+cleanup and Unit-only insertion before the unchanged calendar. Actual catalogue
+geometry reconciles to 18 projects, 62 links, four communities and two isolates.
+Independent review is clear. See [Current State](../ai-context/CURRENT_STATE.md)
+for executed browser/runtime checks. No separate build/lint/typecheck command
+exists; no Docker runtime or live Odoo access was needed for this feature.
+
+## Project-tag catalogue checks
+
+On 2026-10-22 the full suite passed **1059/1059** before final scanner edge-case
+refinements; the final focused suite below passed **32/32** afterward. A real
+standard-user Windows directory junction verified protected report paths. Initial
+sandboxed HTTP/junction attempts were restricted by the sandbox; successful
+runs used standard-user execution with loopback/temp-filesystem access. No live
+Odoo is used by these tests. The separately authorized live read-only scan was
+reconciled for all 50 source-version IDs, text hashes and meaningful counts.
+
+```powershell
+node --test tests/project-tags.test.js tests/project-description.test.js tests/project-tag-scan.test.js tests/project-tags-data.test.js
+```
+
+These offline tests cover completed-scan retention, source namespaces, localized
+canonical tags, extraction of actual narrative sections, template/link-only
+quality, latest owned versions, archived scope, access failures, inert CLI import,
+protected output paths and the actual shipped catalogue. The bundled-data scan
+test allows only metadata and project listing calls, proving saved projects skip
+description/version reads. Test results from the latest run are recorded in
+[Current State](../ai-context/CURRENT_STATE.md). Live scan coverage and gaps are
+recorded separately in the [scan report](../ai-context/PROJECT_TAG_SCAN.md).
+
+## Latest verification (2026-10-22 compact two-line milestone axis)
+
+All **145/145** affected project-browser/monthly/milestone/i18n tests pass,
+including **9/9** milestone cases. Cases check black solid markers, 9px two-line
+labels at -75 degrees, the month caption below every name, long/same-date/crowded
+titles at 280/390/800/1200 widths, multiline rotated bounds/right-edge padding,
+lane spacing, compact ordinary footer height, safe full titles, unchanged hour
+geometry and no extra height for empty sources. Independent review, syntax/
+local-link/whitespace checks pass. An offline SVG/PNG generated through the
+actual renderer was visually inspected and saved; browser QA was not repeated
+after the earlier Computer Use URL policy stop. Refresh loads it without a backend
+restart or Odoo access. No full-suite rerun or separate build/lint/typecheck
+command; the earlier full result below remains historical.
+
+## Latest verification (2026-10-22 descending project/convention hour segments)
+
+All **141/141** affected project-browser/monthly/milestone/i18n tests pass.
+The existing 14-person case now asserts descending hours with stable name/ID
+ties; the lifetime case checks descending annual and lifetime segments using
+each period's own values, with exact identity colours and focus. Independent scoped review,
+syntax and whitespace pass. No browser visual check or full-suite rerun was
+performed for this ordering correction; the full result below is historical.
+Refresh loads it without restarting the backend or accessing Odoo.
+
+## Latest verification (2026-10-21 project-hour milestones)
+
+The full automated suite passes **1026/1026** with simulated Odoo; no live source
+access was performed. The chart/monthly/i18n subset also passes **141/141** after
+the final defensive month-axis guard. New cases cover exact-project independent
+cache/loading/stale-response handling, confirmed-empty versus unavailable data,
+strict relation metadata and returned ownership, union/deduplication, supported
+one-to-many fields, read-only RPC and sanitized failures. Scheduled dates cannot
+fall back to creation/modification timestamps. Chart cases cover partial/leap/
+single months, strict current/future clipping, safe labels, nonblocking month
+interactions, both modes/employee filters and FR/NL rerenders. Independent review
+and fictional desktop/390px browser checks pass; logs are empty, screenshot saved
+and preview resources released. Syntax, inline script parsing, local links and
+whitespace pass. No separate build/lint/typecheck command exists. The local app
+was restarted; login returns 200 and anonymous milestone access remains 401.
+
+## Latest verification (2026-10-21 ascending horizontal hour segments)
+
+All **136/136** affected project-browser/project-monthly/i18n tests pass.
+Existing contributor cases now assert ascending actual-hour order with ties;
+the lifetime fixture uses different annual/lifetime rankings and verifies
+independent ordering with stable colours and focus. Negative, incomplete,
+ignored-hour and immutable-source checks continue to pass. Independent review
+and fictional browser checks confirm left-to-right orders of 10/30/90 and
+100/200/300 hours, matching identity colours and tooltip values. Browser logs
+are empty; screenshot saved and preview resources released. Syntax/local links/
+whitespace pass. No separate build/lint/typecheck command exists; earlier full
+suite results predate this frontend change. Refresh loads it without a backend
+restart or Odoo access.
+
+## Latest verification (2026-10-21 merged right-hand purchase names)
+
+All **184/184** affected purchase/budget/project/i18n tests pass, including
+**38/38** purchase model/geometry/renderer cases. New regressions cover exact
+full-name/document-fallback grouping, case/long-prefix distinctions, conserved
+category/code/node thicknesses, signed sums/zero, currency/credit boundaries,
+raw source/detail retention, stable focus/colours and mixed-code gradients.
+Independent review found no actionable issue; synthetic layout conservation
+checks passed. Fictional desktop/390px FR/NL browser checks confirm one 6,200 EUR
+example node with 1,450/4,750 EUR incoming code flows and three separate original
+amounts in the table, bounded tooltips and complete inline amounts. Browser logs
+are empty; screenshot saved and preview tab/viewport/helper released.
+Syntax/local links/whitespace pass. No separate build/lint/typecheck command
+exists; earlier full-suite results predate this frontend refinement. Refresh
+loads it without a backend restart or Odoo access.
+
+## Latest verification (2026-10-21 full labels on grouped code tooltips)
+
+All **180/180** affected purchase/budget/project/i18n tests pass. Regressions
+cover grouped code-node/allocation-ribbon full labels, missing first-row labels,
+deduplication, individual-only purchase details, mixed/unassigned exclusions and
+literal source-text safety. Independent review and fictional browser checks
+confirm the full label on grouped nodes/ribbons with preserved hover emphasis.
+Browser logs are empty; screenshot saved and preview resources released.
+Syntax/local links/whitespace pass. No separate build/lint/typecheck command
+exists; earlier full-suite results predate this frontend correction. Refresh
+loads it without a backend restart or Odoo access.
+
+## Latest verification (2026-10-21 missing-code grouping and hide/show control)
+
+All **178/178** affected purchase/budget/project/i18n tests pass. Missing-code
+cases verify one middle bucket, distinct leaves/currencies/credit diagrams,
+preserved source identities/warnings/totals and incoming/outgoing conservation.
+Hide/show cases cover retained graph/details, direct and parent refresh state,
+tooltip reset, native fullscreen close/reopen, focus and FR/NL labels/heading.
+Independent review and fictional 1280px/390px browser checks confirm grouped
+530/-50 EUR nodes, title/control layout, hidden keyboard exclusion, cached and
+language-refresh persistence, native modal cleanup and intact inline amounts.
+Browser logs are empty. Screenshots saved; preview tab/viewport/helper released.
+Syntax/local links/whitespace pass. No separate build/lint/typecheck command
+exists; earlier full-suite results predate these frontend changes. Refresh loads
+them without a backend restart or Odoo access.
+
+## Latest verification (2026-10-21 convention category colours and compact spacing)
+
+All **175/175** affected purchase/budget/project/i18n tests pass. Category colours
+remain stable across purchase/credit/currency diagrams, label changes, source
+order and language changes; identical labels with different IDs stay distinct.
+Gradient starts match category fills, while internal-code colours stay intact.
+The compact-layout rerun retains **175/175** passes; the existing dense case
+keeps 90 allocations and conserved ribbon widths with the reduced extent.
+Fictional embedded/expanded and 40-entry browser checks confirm non-overlapping
+right-hand label frames and intact inline amounts after halving the gaps.
+Independent review, fictional browser checks, syntax/local links/whitespace
+pass; browser logs are empty. Screenshot saved and preview resources released.
+No separate build/lint/typecheck command exists; earlier full-suite results
+predate this display refinement. Refresh loads it without a backend restart.
+
+## Latest verification (2026-10-21 inline amounts and endpoint gradients)
+
+All **174/174** affected purchase/budget/project/i18n tests pass. Renderer cases
+verify complete localized inline amounts with full accessible/tooltip names,
+gradient endpoints and coordinates, retained foreground gradients, solid equal
+colours and unique IDs across purchase/credit diagrams, graphs and rerenders.
+Independent review found no remaining actionable issue. Fictional 1280px/390px
+browser checks confirm one-line names/amounts in embedded and expanded views,
+including ellipsis for a 50-W name beside a complete 1,234,567.89 EUR amount,
+FR/NL formatting and gradient emphasis. Browser logs are empty. Screenshot
+saved; preview tab, viewport override and helper released. Syntax, local links
+and whitespace pass. No separate build/lint/typecheck command exists; the full
+989-test run below predates these display changes. No Odoo calls or backend
+restart were needed; refresh loads the frontend changes.
+
+## Latest verification (2026-10-21 proportional expanded fit)
+
+All **172/172** affected purchase/budget/project/i18n tests pass. Additional
+geometry cases cover width- and height-limited rectangles, preserved aspect
+ratios, equal physical scales across purchase/credit diagrams and missing
+available space. Resize observers/listeners and inline dimensions are released
+on restore or cleanup. Independent review found no actionable issue.
+
+Fictional browser checks confirm a height-limited desktop chart of about
+531×344px fully within the 1280×720 viewport's remaining frame, proportional
+short/wide resizing, width-limited phone diagrams (362×235px in a 390×844 view)
+and a complete 40-entry diagram fitting the remaining phone height. Actual
+rendered purchase/credit scales match; closing restores the original embedded
+minimum width and clears fit dimensions. Tooltip interaction remains intact,
+and console logs have no errors or ResizeObserver-loop warnings. Screenshot
+saved; preview tab/viewport/helper released. Syntax/local links/whitespace pass;
+no backend restart, live Odoo access or configuration change is needed.
+
+## Latest verification (2026-10-21 graph full-screen control)
+
+All **170/170** affected purchase/budget/project/i18n tests pass. Four new modal
+cases verify the same graph/amounts and open details survive expansion, toggle/
+Escape/native cancellation restore the control, Tab wraps within the dialog,
+stale close callbacks cannot close a newer modal, cleanup/rerender release the
+native modal and FR/NL labels remain correct. Parent integration tests model
+native focus loss while reparenting and verify restoration across refresh and
+cleanup on Hours navigation.
+
+Independent review and fictional desktop/390px browser checks confirm viewport
+filling, a sticky top-left restore control, retained ribbon tooltips, contained
+phone scrolling, translated labels, native Escape, Tab/Shift+Tab focus boundaries
+and toggle restoration. Browser warnings/errors are empty. Screenshots are saved
+and preview resources released. Syntax, local links and whitespace pass. No
+backend restart/source/config change is needed; refresh loads the frontend.
+The previous 989-test full-suite result below predates this display refinement;
+the relevant suites were rerun for this change. No separate build/lint/typecheck
+command exists. Physical touchscreen behavior remains outside these checks.
+
+## Latest verification (2026-10-21 purchase Sankey)
+
+The sequential full offline suite passes **989/989** in 73.85 seconds, with no
+failures, cancellations or skips. The focused purchase/budget/project/i18n set
+passes **166/166**, including 20 purchase model/geometry/renderer cases; finance
+source and authenticated HTTP cases pass **85/85**. Coverage includes exact
+posted supplier document types, both category dimensions, inclusive Brussels
+cutoffs, duplicate/contradictory allocations, signed credits, shared diagram
+scales, unknown amounts/currencies, denied optional reads, literal safe text,
+source privacy and unchanged prior finance totals. Budget/project integrations
+cover exact placement, independent existing controls, stable focused allocations,
+open details and cleanup on Hours navigation.
+
+Independent review found no remaining actionable issue. Fictional desktop and
+390px browser checks confirm native SVG focus, Escape/reset, fit without desktop
+chart scrolling, bounded mobile tooltips, contained dense scrolling, all 40
+entries in the detail table, disclosure persistence after refresh, FR/NL labels
+and literal source descriptions. Navigation removes the graph/tooltips, with no
+horizontal page overflow or browser warning/error. Screenshot evidence is saved;
+the preview tab, viewport and helper are released. This checks click/keyboard and
+responsive CSS, not a physical touchscreen device.
+
+An initial full run had one known 15-second programme fixture-startup timeout;
+its exact case and the final unchanged complete suite pass. Test commands using
+temporary localhost servers required sandbox escalation for local socket access,
+not Windows administrator rights. No live Odoo call or private-config change
+occurred. Root/inline scripts parse, documentation links and whitespace pass;
+there is no separate build, lint or typecheck command. The local dashboard was
+reloaded with current backend code; welcome is 200, anonymous finance is 401 and
+stderr is empty. Live purchase-document/schema permission coverage is unverified.
+
+## Latest verification (2026-10-20 planned convention reference)
+
+The project-monthly model suite passes **46/46** and the project-browser
+renderer suite passes **74/74**. Model cases cover full-project daily convention
+proration in monthly/cumulative mode, future months, precise totals, partial and
+leap periods, filter independence and unavailable/nonpositive budgets. Renderer
+cases retain the dotted project-wide reference when an employee or TH resource
+is selected, keep areas and future points, bound responsive geometry, preserve
+exact table precision and show translated reference-availability notes. Actual
+history headings explicitly state today's cutoff in FR/NL while their caption
+retains the actual-through date. Targeted whitespace checks pass.
+
+The outline-only CSS visually clips small project radio circles while retaining
+the native inputs and existing label/focus/accessibility semantics; the three
+large programme radio controls are unchanged. The sequential full offline suite
+passes **949/949 tests** in 57.29 seconds, with no failures, skips or cancellations.
+Independent review found no actionable issue. Fictional desktop and 390px
+browser checks confirm the full future convention curve, its final cumulative
+total through a TH-only filter, FR/NL headings and notes, keyboard selection and
+Back focus restoration, clipped personal/unit/programme-project radios, and
+unchanged visible programme selectors. There is no horizontal page overflow or
+browser warning/error. Screenshot evidence is saved; no live Odoo call is used.
+Preview resources and the verified owned fixture are released. After the
+unexpected exit, saved code/test evidence was rechecked and the stopped local
+server relaunched as a hidden standard-user process (welcome 200, current
+public translation catalogue and empty stderr). Sign in again after restart.
+All 30 root/inline scripts parse, eight context/wiki pages have no missing local
+links, and whitespace checks pass. No separate build/lint/typecheck command exists.
+The completed October 16 checks below remain historical evidence.
+
+## Previous verification (2026-10-16 project-card outline)
+
+The sequential offline suite passes **940/940 tests** in 55.69 seconds with no
+failures, cancellations or skips. After the final SVG geometry correction,
+all **178/178** affected project-card/project-browser/unit-dico/programme-browser/
+i18n cases pass again. New cases retain real business codes, strict valid and
+unknown dates, literal source text, safe portrait fallbacks, checked state,
+native input/listeners, one accessible description and explicit programme
+variant isolation.
+
+Fictional desktop and 390px browser checks confirm hover and keyboard reveal
+without accidental selection, homogeneous card sizes, full outline closure,
+FR/NL labels, unchanged programme flips and first-click project opening.
+An isolated copied fixture enables the touch/reduced-motion media rules and
+missing Dutch dates to check static details, wrapping, zero-duration transitions
+and first-tap selection. This does not emulate actual device input or OS media
+preferences. No page overflow or browser warnings/errors were observed.
+
+Visual QA caught normalized stroke truncation from a scaled viewBox with a
+non-scaling stroke. The outline now uses viewport-pixel coordinates with
+percentage dimensions and a normalized path, preserving the full trace on both
+personal and compact cards. The corrected desktop screenshot is saved. Preview
+tab, temporary viewport, helper and fixture are released. Syntax, local-link
+and whitespace checks pass; no separate build/lint/typecheck command exists.
+Existing server welcome remains 200; no restart or live Odoo call was needed.
+
+## Previous verification (2026-10-16 French/Dutch and project controls)
 
 The final sequential offline suite passes **936/936 tests** in 55.75 seconds,
 with no failures, cancellations or skips. All Odoo responses are simulated;
@@ -921,24 +1718,26 @@ Run `node --test tests/steering.test.js tests/steering-http.test.js` for calcula
   widths, confirm matching date positions and horizontal scrolling in either chart
   moves the other; navigation and rerenders must release old listeners. Personal
   scope changes must leave this Unit chart unchanged.
-- In both project grids, check white backgrounds and black type. Fronts show
-  the manager portrait and bold unbracketed short title, with a moving `#00bfb6`
-  border. Hover/focus reveals a white back with gently moving `#00bfb6`,
-  `#0087b7` and `#ffce00` background colors beneath readable content. Check the
-  number without brackets beside a mini portrait, then short title, manager
-  name and smaller italic two-line full title; no extra green icon should
-  appear. Leaving restores the front, with no sibling filtering. Without an
-  acronym, verify the remaining title is not duplicated; without a code, verify
-  an empty number rather than an Odoo ID. Missing managers use the explicit
-  fallback. Long names must retain equal heights: 190px personal desktop, 180px
-  phone and 112px Unit. Check ellipsis, clear stationary radios, full
-  source-name/date/budget native tooltips, image-error initials, selection from
-  either face, Back/native-radio focus and no page/card overflow. Dates and
-  budget stay in tooltips/descriptions, not visible rows. On actual
-  touch/no-hover devices both faces remain visible without rotation at twice
-  the card height. Reduced motion removes the flip transition, border rotation
-  and background animation. These CSS behaviors require browser checks beyond
-  DOM fixtures.
+- In personal, Unit and programme-associated project grids, check white
+  backgrounds, black type, manager portraits and bold unbracketed short titles
+  with a turquoise underline. Hover/focus should trace the `#00bfb6` SVG outline
+  in 650ms and reveal the mini portrait, unbracketed source number, full title
+  and visible start/end dates, without a flip or moving color orbs. Leaving
+  restores the front without sibling filtering. Check long-title clamping,
+  empty source-code fallback, explicit missing managers/dates in FR and NL,
+  wrapping unknown date values and image-error initials. Native radios remain
+  stationary/selectable from either face, retain Back/focus behavior and expose
+  one description with the manager, dates and budget; budget stays outside the
+  visible details. Verify equal desktop heights (190px personal, 112px Unit)
+  and no page/card overflow. On touch/no-hover devices projects show the front
+  and details together with a minimum 190px height, including at narrow widths;
+  reduced motion makes hover/focus changes immediate. Browser checks must
+  distinguish viewport sizing from media capabilities: a fixture that forces
+  coarse-pointer/reduced-motion rules is a synthetic media-rule exercise, not
+  evidence from a real touch device or emulated operating-system preference.
+  Project circles should be visually absent while Tab/arrow selection, whole-card
+  clicking and Back focus still work; the three large programme circles remain
+  visible.
 - Open Programmes with legacy steering disabled: all three DC choices must
   remain available while portraits load, fail or retry. Check fixed subtitles,
   catchphrases and responsible names, safe portraits/initials and absence of
@@ -946,7 +1745,10 @@ Run `node --test tests/steering.test.js tests/steering-http.test.js` for calcula
   and portrait; backs reuse the white animated colors with the catchphrase
   badge, code, responsible and italic one-line subtitle. Desktop cards are
   230px in three columns; up to 700px they are 210px in one column. Check native
-  radio selection/focus and retained choice after tab navigation. Before
+  radio selection/focus, retained choice after tab navigation and explicit flip
+  variant isolation from project cards. The programme touch/no-hover fallback
+  retains both faces at twice its fixed height; reduced motion removes the
+  flip, border rotation and orb animation. Before
   choosing a programme, only these three cards appear. Choose each DC and
   verify its fixed associated project cards, lifetime timeline and monthly
   concurrency chart below, with every lower section replaced on a DC change.
@@ -965,10 +1767,18 @@ There is no dedicated lint/typecheck setup or CI workflow. Legacy XLSX parsing a
 
 ## Refresh
 
-- Last refreshed: 2026-10-16
+- Last refreshed: 2026-10-23
+- Tag source basis: tests/project-tags.test.js, tests/project-description.test.js,
+  tests/project-tag-scan.test.js, tests/project-tags-data.test.js,
+  tests/project-tags-enrichment.test.js, tests/project-tag-view.test.js and
+  tests/project-similarity.test.js, tests/project-similarity-physics.test.js.
+- Purchase source basis: project-purchase-service.js, project-purchase-flow.js/css,
+  project-finance-service.js, project-budget.js, project-browser.js,
+  tests/project-purchase-flow.test.js and finance/budget/project integration tests.
 - Additional source basis: tests/i18n.test.js, tests/language-client.test.js,
   tests/language-preferences.test.js, tests/language-preferences-http.test.js,
-  tests/dashboard-language.test.js, tests/unit-dico.test.js and tests/steering.test.js.
+  tests/dashboard-language.test.js, tests/personal-superwide.test.js, tests/project-hour-usage.test.js,
+  tests/project-hour-usage-ui.test.js, tests/unit-dico.test.js and tests/steering.test.js.
 - Source basis: tests/personal-time.test.js, tests/personal-recommendations.test.js, tests/personal-personnel-budget.test.js, tests/project-planning.test.js, tests/project-planning-service.test.js, tests/project-planning-http.test.js, project-planning.js, project-planning-service.js, tests/project-card.test.js, tests/programme-browser.test.js, tests/programme-service.test.js, tests/programme-http.test.js, tests/unit-dico-service.test.js, tests/unit-dico.test.js, tests/unit-dico-http.test.js, tests/project-monthly.test.js, tests/project-browser.test.js, tests/project-budget.test.js, tests/sticky-scope.test.js, tests/auth.test.js (including local config-login/manager/contributor/assignment/lifetime/finance fixtures), server.js, project-card.js/css, programme-browser.js/css, programme-service.js, unit-dico-service.js, unit-dico.js/css, project-finance-service.js, personal-time.js, project-monthly.js, project-browser.js/css, project-budget.js/css, index.html, login.html and Docker configuration.
 - Limitations: simulated authentication is not proof of compatibility with real Buildwise accounts.
 

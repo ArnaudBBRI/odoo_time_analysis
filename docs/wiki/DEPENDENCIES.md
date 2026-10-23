@@ -11,6 +11,14 @@
 - FR/NL presentation uses repository-owned UMD/CommonJS `i18n.js` and explicit
   message fragments; browser locale formatting uses native `Intl` APIs. No
   translation service, package installation or external asset request is used.
+- `chart-palette.js` is a repository-owned Browser/CommonJS dependency of
+  project and Unit/programme area charts and header settings. It uses native
+  browser storage and disposable listeners; no chart package or remote service
+  is added. The authenticated script loads before its chart consumers.
+- Project-map settling, replay and grouping transitions use the repository's
+  own deterministic particle solver, native `requestAnimationFrame`/
+  `cancelAnimationFrame` and `matchMedia` reduced-motion preference. Missing
+  animation APIs retain the final static SVG. No graph/animation package is used.
 
 ## Internal relationships
 
@@ -25,7 +33,8 @@ build context into /app and starts that same server. See
 
 ## Refresh
 
-- Last refreshed: 2026-10-16
+- Last refreshed: 2026-10-22
 - Source basis: index.html, server.js, i18n.js, i18n-*-messages.js,
-  language-client.js, language-preferences.js, Dockerfile and root inventory.
+  language-client.js, language-preferences.js, project-similarity.js,
+  Dockerfile and root inventory.
 - Limitations: no browser compatibility matrix or live Odoo compatibility test is present.

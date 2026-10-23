@@ -2,6 +2,41 @@
 
 ## Active Issues
 
+- Programme mode now has its own physical grouping layout, but convex envelopes
+  remain approximate and can still overlap or enclose nonmembers, especially
+  the weakly grouped Other projects. Current plotted memberships remain DC1=7,
+  DC2=7, DC3=5 and Other=17. The UI labels contours as indicative and exposes
+  exact member counts/names in legend tooltips. Distances and boundaries are
+  presentation, not additional tag evidence. The programme projection reflects
+  the existing curated lists, not an authoritative Odoo membership field.
+
+- The 2026-10-22 Digital Construction Odoo snapshot has 31 projects without a
+  usable macro-info narrative and one very short narrative (eDIH WallonIA Hub,
+  76 meaningful characters). On explicit request, public Buildwise evidence
+  supplied tags for 18 of these 32 projects, bringing the tagged total to 36.
+  Fourteen remain untagged: eight without a verified matching page, four with
+  ambiguous identity/phase/year and two with insufficient project specificity.
+  The [web-enrichment report](PROJECT_TAG_WEB_ENRICHMENT.md) lists sources and
+  remaining gaps; the [original Odoo report](PROJECT_TAG_SCAN.md) retains the
+  underlying description findings. Public/local BIMup dates differ and the
+  discrepancy is recorded without changing Odoo-derived fields.
+  Coverage is the configured account's accessible exact
+  unit-206 catalogue, including archived projects; other units are outside this
+  scan. Completed missing/short results remain frozen by the user's requested
+  policy, so future source edits require an explicit local retagging decision.
+  The unit map omits untagged projects and currently uses exact shared canonical
+  tags; broader parent/subtype relations (for example ML within AI) are not
+  inferred. Synonym canonicalization was manual during the saved scan.
+
+- Purchase Sankey document/schema access is verified with fictional fixtures,
+  not live Odoo accounts. It requires readable exact `account.move` document
+  types/posting states; missing permission/schema stays unavailable or partial.
+  Its supplier-purchase scope starts at the known project start, while the
+  existing lifetime bar also retains earlier costs and other expense types.
+  Separate source reads and record rules limit completeness. A small minimum
+  visible ribbon width preserves tiny allocations; tooltips/tables retain exact
+  monetary values. Physical touchscreen behavior remains unverified.
+
 - Work capacity uses the currently linked attendance calendar; denied contract
   history cannot establish employment dates or past/future schedule changes.
   Other-year schedule use is labelled estimated. Future publication is inferred
