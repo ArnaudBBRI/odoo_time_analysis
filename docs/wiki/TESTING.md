@@ -1,5 +1,31 @@
 # Testing
 
+## Latest verification (2026-10-26 fullscreen Sankey navigation and presentation)
+
+`node --test --test-reporter=spec tests/project-purchase-flow.test.js
+tests/project-budget.test.js tests/i18n.test.js tests/dashboard-language.test.js`
+passes **137/137** in **0.23 seconds**, including **58/58** Sankey cases and
+six new regressions. They cover fullscreen-only wheel handling, repeated
+pointer anchoring, wheel-unit normalization, zoom bounds, right-button capture,
+pan cancellation/window blur, release-outside context-menu suppression,
+independent diagrams, unchanged geometry/data,
+tooltips, French/Dutch catalogue coverage, hidden metadata/control exclusion
+from the keyboard loop, inline instruction/detail restoration and
+resize/close/hide/rerender cleanup. Independent code review finds no blocker;
+both changed JavaScript files pass syntax checks and whitespace checks pass.
+Offline headless Microsoft Edge checks with fictional 40/90-purchase, credit
+and multi-currency fixtures verify genuine wheel anchoring, clipping, captured
+right-drags outside the plot and their delayed context-menu suppression, ordinary
+outside right-clicks, keyboard tooltips and focus scrolling, independent diagrams,
+FR/NL labels and resize/close/reopen resets. Desktop and 390px checks confirm
+only the diagrams and exit button are visible, the first plot starts about 50px
+from the top, hidden controls are excluded from Tab/Shift+Tab, and inline content
+and open details restore after exit. No browser warnings/errors;
+screenshot saved and browser resources released. Bundled Chromium was absent;
+installed Edge ran as a standard user outside the Windows sandbox.
+No separate build, lint or typecheck command exists. Full suite, live Odoo and
+Docker checks were not run for this frontend-only change.
+
 ## Latest verification (2026-10-23 publication of accumulated app features)
 
 The full offline `node --test --test-concurrency=4 --test-reporter=spec` suite
@@ -1767,7 +1793,7 @@ There is no dedicated lint/typecheck setup or CI workflow. Legacy XLSX parsing a
 
 ## Refresh
 
-- Last refreshed: 2026-10-23
+- Last refreshed: 2026-10-26
 - Tag source basis: tests/project-tags.test.js, tests/project-description.test.js,
   tests/project-tag-scan.test.js, tests/project-tags-data.test.js,
   tests/project-tags-enrichment.test.js, tests/project-tag-view.test.js and

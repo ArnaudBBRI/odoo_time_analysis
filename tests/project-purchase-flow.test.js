@@ -12,6 +12,44 @@ const find = (host, selector) => host.querySelectorAll(selector)[0];
 const links = host => host.querySelectorAll("[data-purchase-flow-link]");
 const purchaseLink = (host, label, codeKey = "code-category:20:6010") => links(host)
   .find(link => link.getAttribute("data-purchase-flow-link") === `purchase:${JSON.stringify([codeKey, label])}`);
+function navigationState(svg) {
+  if (!svg.style.transform) return { x: 0, y: 0, scale: 1 };
+  const values = /^translate\(([-+\d.eE]+)px,\s*([-+\d.eE]+)px\) scale\(([-+\d.eE]+)\)$/.exec(svg.style.transform);
+  assert.ok(values, `Expected a finite diagram transform, received ${svg.style.transform}`);
+  const [x, y, scale] = values.slice(1).map(Number);
+  assert.ok([x, y, scale].every(Number.isFinite));
+  return { x, y, scale };
+}
+function navigationFixture(data = source()) {
+  const host = domFixture(), resizeListeners = new Set(), blurListeners = new Set(), observers = [];
+  host.ownerDocument.defaultView = {
+    addEventListener(name, callback) { if (name === "resize") resizeListeners.add(callback); if (name === "blur") blurListeners.add(callback); },
+    removeEventListener(name, callback) { if (name === "resize") resizeListeners.delete(callback); if (name === "blur") blurListeners.delete(callback); },
+    ResizeObserver: class { constructor(callback) { this.callback = callback; observers.push(this); } observe() {} disconnect() { this.disconnected = true; } }
+  };
+  render(host, data);
+  const diagrams = host.querySelectorAll(".purchase-flow-scroll").map(scroller => {
+    const svg = find(scroller, ".purchase-flow-svg"), captured = new Set();
+    scroller.clientHeight = 600;
+    scroller.getBoundingClientRect = () => ({ left: 50, top: 40, width: 1000, height: 600 });
+    // Native bounds include the current CSS translation and scale. This keeps
+    // repeated-wheel tests sensitive to anchoring against transformed content.
+    svg.getBoundingClientRect = () => {
+      const { x, y, scale } = navigationState(svg);
+      return { left: 100 + x, top: 60 + y, width: 800 * scale, height: 500 * scale };
+    };
+    scroller.setPointerCapture = pointerId => captured.add(pointerId);
+    scroller.hasPointerCapture = pointerId => captured.has(pointerId);
+    scroller.releasePointerCapture = pointerId => captured.delete(pointerId);
+    return { svg, scroller, captured };
+  });
+  return { host, diagrams, resizeListeners, blurListeners, observers, expand: find(host, '[data-purchase-flow-control="expand"]') };
+}
+function navigationEvent(target, type, values = {}) {
+  let prevented = false;
+  target.dispatch(type, { type, clientX: 300, clientY: 200, pointerId: 7, ...values, preventDefault() { prevented = true; } });
+  return prevented;
+}
 const contentBounds = (column, labelTop, labelBottom) => column.length ? {
   top: Math.min(...column.flatMap(row => [row.y, row.y + row.height / 2 + labelTop])),
   bottom: Math.max(...column.flatMap(row => [row.y + Math.max(1, row.height), row.y + row.height / 2 + labelBottom]))
@@ -332,6 +370,39 @@ test("top-left expand control opens the existing graph modally and restores it w
   assert.equal(button.getAttribute("aria-expanded"), "false"); assert.equal(host.ownerDocument.activeElement, button);
 });
 
+test("fullscreen shows only the diagrams and exit control while restoring surrounding content and open details exactly", () => {
+  const data = { ...source([entry(1, 100), entry(2, -20, { documentType: "in_refund" }),
+    entry(3, 30, { currencyId: 2, currency: "USD" })]), status: "partial", issues: ["documentUnavailable"] };
+  const original = structuredClone(data), host = domFixture(); render(host, data);
+  const button = find(host, '[data-purchase-flow-control="expand"]'), toggle = find(host, '[data-purchase-flow-control="visibility"]');
+  const body = find(host, "[data-purchase-flow-body]"), heading = find(host, ".purchase-flow-heading"), details = find(host, "[data-purchase-flow-details]");
+  const diagrams = host.querySelectorAll(".purchase-flow-diagram"), diagramTitles = host.querySelectorAll(".purchase-flow-diagram-title");
+  const bodyChildren = [...body.children], metadata = bodyChildren.filter(element => !diagrams.includes(element));
+  const surrounding = [toggle, heading, ...metadata, ...diagramTitles];
+  const svgs = host.querySelectorAll(".purchase-flow-svg"), paths = links(host), geometry = paths.map(path => path.getAttribute("d"));
+  const columnLabels = host.querySelectorAll(".purchase-flow-column-title"), originalLabels = columnLabels.map(label => label.textContent);
+  const originalVisibility = surrounding.map(element => element.hidden); details.open = true;
+  assert.equal(diagrams.length, 3); assert.ok(find(host, ".purchase-flow-status")); assert.ok(find(host, ".purchase-flow-issues"));
+  try {
+    for (const close of [dialog => button.dispatch("click"), dialog => dialog.dispatch("cancel", { preventDefault() {} }),
+      dialog => dialog.close(), () => cleanup(host)]) {
+      button.dispatch("click"); const dialog = find(host, "[data-purchase-flow-fullscreen]");
+      assert.equal(dialog.open, true); assert.ok(surrounding.every(element => element.hidden));
+      assert.equal(button.hidden, false); assert.equal(body.hidden, false);
+      assert.ok(diagrams.every(element => !element.hidden)); assert.ok(svgs.every(element => !element.hidden));
+      assert.ok(columnLabels.every(label => !label.hidden)); assert.equal(details.open, true);
+      assert.deepEqual(columnLabels.map(label => label.textContent), originalLabels);
+      assert.deepEqual(host.querySelectorAll(".purchase-flow-svg"), svgs); assert.deepEqual(links(host), paths);
+      paths[0].dispatch("pointerenter"); assert.equal(find(host, ".purchase-flow-tooltip").hidden, false);
+      close(dialog);
+      assert.deepEqual(surrounding.map(element => element.hidden), originalVisibility);
+      assert.deepEqual(body.children, bodyChildren); assert.equal(details.open, true);
+      assert.deepEqual(paths.map(path => path.getAttribute("d")), geometry); assert.deepEqual(data, original);
+      assert.equal(host.ownerDocument.modalElement, null);
+    }
+  } finally { cleanup(host); }
+});
+
 test("square hide/show control retains the graph and details while clearing emphasis and preserving collapsed rerenders", () => {
   const host = domFixture(); render(host, source());
   const panel = find(host, "[data-purchase-flow]"), body = find(host, "[data-purchase-flow-body]");
@@ -382,8 +453,12 @@ test("expanded graph Escape and native cancellation close the modal while retain
 test("expanded graph wraps keyboard focus and cleanup closes before rerender without stale modal callbacks", () => {
   const host = domFixture(); render(host, source()); let button = find(host, '[data-purchase-flow-control="expand"]');
   button.dispatch("click"); const dialog = find(host, "[data-purchase-flow-fullscreen]");
-  const last = host.querySelectorAll("[data-purchase-flow-control]").at(-1);
+  const last = host.querySelectorAll(".purchase-flow-node").at(-1);
+  assert.equal(find(host, '[data-purchase-flow-control="visibility"]').hidden, true);
+  assert.equal(find(host, "[data-purchase-flow-details]").hidden, true);
   dialog.dispatch("keydown", { key: "Tab", shiftKey: true, preventDefault() {} }); assert.equal(host.ownerDocument.activeElement, last);
+  dialog.dispatch("keydown", { key: "Tab", preventDefault() {} }); assert.equal(host.ownerDocument.activeElement, button);
+  find(host, '[data-purchase-flow-control="visibility"]').focus();
   dialog.dispatch("keydown", { key: "Tab", preventDefault() {} }); assert.equal(host.ownerDocument.activeElement, button);
   render(host, source()); assert.equal(dialog.open, false); assert.equal(dialog.parentElement, null); assert.equal(host.ownerDocument.modalElement, null);
   button = find(host, '[data-purchase-flow-control="expand"]'); button.dispatch("click");
@@ -397,14 +472,166 @@ test("expand and restore labels follow Dutch while original purchase data remain
   const host = domFixture(), data = source(), original = structuredClone(data); I18n.setLanguage("nl");
   try {
     render(host, data); const button = find(host, '[data-purchase-flow-control="expand"]');
+    const instruction = find(host, ".purchase-flow-instruction");
+    assert.equal(instruction.textContent, "Beweeg over een stroom om die te markeren en de details te zien.");
     assert.equal(find(host, ".purchase-flow-heading").textContent, "Aankopen sinds de projectstart - Sankeydiagram");
     const toggle = find(host, '[data-purchase-flow-control="visibility"]');
     assert.equal(toggle.getAttribute("aria-label"), "Diagram verbergen"); toggle.dispatch("click");
     assert.equal(toggle.getAttribute("aria-label"), "Diagram weergeven");
     assert.equal(button.getAttribute("aria-label"), "Grafiek schermvullend weergeven"); button.dispatch("click");
     assert.equal(button.getAttribute("aria-label"), "Grafiek verkleinen");
+    assert.equal(instruction.textContent, "Beweeg over een stroom om die te markeren en de details te zien.");
+    assert.equal(instruction.hidden, true);
+    button.dispatch("click");
+    assert.equal(instruction.textContent, "Beweeg over een stroom om die te markeren en de details te zien.");
+    assert.equal(instruction.hidden, false);
     assert.deepEqual(data, original); cleanup(host);
   } finally { I18n.setLanguage("fr"); }
+});
+
+test("embedded purchase diagrams retain native wheel and right-button behavior", () => {
+  const { host, diagrams: [{ svg, scroller, captured }] } = navigationFixture();
+  assert.equal(navigationEvent(scroller, "wheel", { deltaY: -120, deltaMode: 0 }), false);
+  assert.equal(navigationEvent(scroller, "pointerdown", { button: 2, buttons: 2 }), false);
+  navigationEvent(scroller, "pointermove", { buttons: 2, clientX: 430, clientY: 280 });
+  assert.equal(navigationEvent(scroller, "contextmenu"), false);
+  assert.deepEqual(navigationState(svg), { x: 0, y: 0, scale: 1 });
+  assert.equal(captured.size, 0); assert.equal(host.querySelectorAll(".is-panning").length, 0);
+  cleanup(host);
+});
+
+test("fullscreen wheel zoom stays anchored under the pointer, normalizes wheel units and respects readable limits", () => {
+  const { host, expand, diagrams: [{ svg, scroller }] } = navigationFixture();
+  try {
+    expand.dispatch("click");
+    const point = () => { const { x, y, scale } = navigationState(svg); return [(300 - 100 - x) / scale, (200 - 60 - y) / scale]; };
+    const originalPoint = point();
+    for (const deltaY of [-90, -40, 30]) {
+      assert.equal(navigationEvent(scroller, "wheel", { deltaY, deltaMode: 0 }), true);
+      point().forEach((value, index) => assert.ok(Math.abs(value - originalPoint[index]) < 1e-8));
+    }
+    assert.ok(navigationState(svg).scale > 1);
+    const scales = [];
+    for (const [deltaY, deltaMode] of [[-16, 0], [-1, 1], [-16 / 600, 2]]) {
+      expand.dispatch("click"); expand.dispatch("click");
+      navigationEvent(scroller, "wheel", { deltaY, deltaMode }); scales.push(navigationState(svg).scale);
+    }
+    assert.ok(scales.every(scale => Math.abs(scale - scales[0]) < 1e-10));
+    for (let index = 0; index < 12; index++) navigationEvent(scroller, "wheel", { deltaY: -500, deltaMode: 0 });
+    assert.equal(navigationState(svg).scale, 8);
+    for (let index = 0; index < 12; index++) navigationEvent(scroller, "wheel", { deltaY: 500, deltaMode: 0 });
+    assert.equal(navigationState(svg).scale, .5);
+  } finally { cleanup(host); }
+});
+
+test("fullscreen panning captures only the right pointer and ends on release, cancellation or lost capture", () => {
+  const { host, expand, diagrams: [{ svg, scroller, captured }], blurListeners } = navigationFixture();
+  try {
+    expand.dispatch("click");
+    const dialog = find(host, "[data-purchase-flow-fullscreen]"), outside = find(host, ".purchase-flow-heading");
+    assert.equal(navigationEvent(scroller, "pointerdown", { button: 0, buttons: 1 }), false);
+    navigationEvent(scroller, "pointermove", { buttons: 1, clientX: 450, clientY: 280 });
+    assert.deepEqual(navigationState(svg), { x: 0, y: 0, scale: 1 }); assert.equal(captured.size, 0);
+    assert.equal(navigationEvent(scroller, "contextmenu"), true);
+    for (const ending of ["pointerup", "pointercancel", "lostpointercapture", "buttons-released"]) {
+      const before = navigationState(svg);
+      // Emulate native capture before the plot's pointerdown handler. The
+      // minimal DOM fixture intentionally does not propagate events itself.
+      navigationEvent(dialog, "pointerdown", { button: 2, buttons: 2, target: scroller });
+      assert.equal(navigationEvent(scroller, "pointerdown", { button: 2, buttons: 2 }), true);
+      assert.equal(captured.has(7), true); assert.equal(host.querySelectorAll(".is-panning").length, 1);
+      navigationEvent(scroller, "pointermove", { pointerId: 8, buttons: 2, clientX: 900, clientY: 600 });
+      assert.deepEqual(navigationState(svg), before);
+      navigationEvent(scroller, "pointermove", { buttons: 2, clientX: 345, clientY: 180 });
+      assert.deepEqual(navigationState(svg), { x: before.x + 45, y: before.y - 20, scale: before.scale });
+      if (ending === "buttons-released") navigationEvent(scroller, "pointermove", { buttons: 0 });
+      else navigationEvent(scroller, ending, { button: 2, buttons: 0 });
+      assert.equal(host.querySelectorAll(".is-panning").length, 0); assert.equal(captured.size, 0);
+      const stopped = navigationState(svg);
+      navigationEvent(scroller, "pointermove", { buttons: 2, clientX: 800, clientY: 500 });
+      assert.deepEqual(navigationState(svg), stopped);
+      // Edge may emit contextmenu at the release point outside the plot.
+      assert.equal(navigationEvent(dialog, "contextmenu", { target: outside }), ending !== "pointercancel");
+      assert.equal(navigationEvent(dialog, "contextmenu", { target: outside }), false);
+    }
+    navigationEvent(dialog, "pointerdown", { button: 2, buttons: 2, target: scroller });
+    navigationEvent(scroller, "pointerdown", { button: 2, buttons: 2 });
+    navigationEvent(scroller, "pointerup", { button: 2, buttons: 0 });
+    navigationEvent(dialog, "pointerdown", { button: 2, buttons: 2, target: outside });
+    assert.equal(navigationEvent(dialog, "contextmenu", { target: outside }), false);
+    navigationEvent(scroller, "wheel", { deltaY: -120, deltaMode: 0 });
+    navigationEvent(dialog, "pointerdown", { button: 2, buttons: 2, target: scroller });
+    navigationEvent(scroller, "pointerdown", { button: 2, buttons: 2 });
+    navigationEvent(scroller, "pointermove", { buttons: 2, clientX: 380, clientY: 250 });
+    const beforeBlur = navigationState(svg);
+    assert.equal(captured.has(7), true); assert.equal(blurListeners.size, 1);
+    for (const blur of blurListeners) blur();
+    assert.equal(captured.size, 0); assert.equal(host.querySelectorAll(".is-panning").length, 0);
+    navigationEvent(scroller, "pointermove", { buttons: 2, clientX: 800, clientY: 500 });
+    assert.deepEqual(navigationState(svg), beforeBlur);
+    assert.equal(navigationEvent(dialog, "contextmenu", { target: outside }), false);
+  } finally { cleanup(host); assert.equal(blurListeners.size, 0); }
+});
+
+test("fullscreen navigation leaves other currencies, source geometry and native purchase details intact", () => {
+  const data = source([entry(1, 100), entry(2, -20, { documentType: "in_refund" }), entry(3, 30, { currencyId: 2, currency: "USD" })]);
+  const original = structuredClone(data), { host, expand, diagrams } = navigationFixture(data);
+  const paths = links(host), viewBoxes = diagrams.map(({ svg }) => svg.getAttribute("viewBox"));
+  const geometry = paths.map(path => [path.getAttribute("d"), path.getAttribute("stroke-width"), path.getAttribute("stroke")]);
+  try {
+    expand.dispatch("click");
+    const { svg, scroller } = diagrams[0], ribbon = paths[0], tooltip = find(host, ".purchase-flow-tooltip");
+    ribbon.focus(); assert.equal(tooltip.hidden, false);
+    navigationEvent(scroller, "wheel", { deltaY: -120, deltaMode: 0 }); assert.equal(tooltip.hidden, true);
+    assert.ok(navigationState(svg).scale > 1);
+    for (const other of diagrams.slice(1)) assert.deepEqual(navigationState(other.svg), { x: 0, y: 0, scale: 1 });
+    navigationEvent(scroller, "pointerdown", { button: 2, buttons: 2, target: ribbon });
+    navigationEvent(scroller, "pointermove", { buttons: 2, clientX: 360, clientY: 240 });
+    navigationEvent(scroller, "pointerup", { button: 2, buttons: 0 });
+    ribbon.dispatch("pointerenter"); assert.equal(tooltip.hidden, false);
+    ribbon.dispatch("pointerleave"); assert.equal(tooltip.hidden, true);
+    ribbon.dispatch("click"); assert.equal(tooltip.hidden, false);
+    assert.deepEqual(links(host), paths);
+    assert.deepEqual(paths.map(path => [path.getAttribute("d"), path.getAttribute("stroke-width"), path.getAttribute("stroke")]), geometry);
+    assert.deepEqual(diagrams.map(({ svg }) => svg.getAttribute("viewBox")), viewBoxes);
+    assert.equal(host.querySelectorAll("[data-purchase-flow-entry]").length, 3); assert.deepEqual(data, original);
+  } finally { cleanup(host); }
+});
+
+test("fullscreen resize, hide, native close, rerender and cleanup discard navigation state and release capture", () => {
+  const fixture = navigationFixture(), { host, expand, diagrams: [{ svg, scroller, captured }], resizeListeners, blurListeners, observers } = fixture;
+  const start = () => {
+    expand.dispatch("click"); navigationEvent(scroller, "wheel", { deltaY: -120, deltaMode: 0 });
+    navigationEvent(scroller, "pointerdown", { button: 2, buttons: 2 });
+    navigationEvent(scroller, "pointermove", { buttons: 2, clientX: 360, clientY: 240 });
+    assert.ok(navigationState(svg).scale > 1); assert.equal(captured.has(7), true);
+  };
+  const assertReset = () => {
+    assert.deepEqual(navigationState(svg), { x: 0, y: 0, scale: 1 });
+    assert.equal(captured.size, 0); assert.equal(host.querySelectorAll(".is-panning").length, 0);
+  };
+  try {
+    start(); for (const resize of resizeListeners) resize(); assertReset();
+    navigationEvent(scroller, "wheel", { deltaY: -120, deltaMode: 0 });
+    navigationEvent(scroller, "pointerdown", { button: 2, buttons: 2 }); observers[0].callback(); assertReset();
+    expand.dispatch("click"); start();
+    find(host, '[data-purchase-flow-control="visibility"]').dispatch("click"); assertReset();
+    assert.equal(host.ownerDocument.modalElement, null); assert.equal(resizeListeners.size, 0); assert.equal(blurListeners.size, 0);
+    start(); find(host, "[data-purchase-flow-fullscreen]").close(); assertReset();
+    assert.equal(resizeListeners.size, 0); assert.equal(blurListeners.size, 0); assert.equal(host.ownerDocument.activeElement, expand);
+    start(); render(host, source()); assertReset();
+    assert.equal(resizeListeners.size, 0); assert.equal(blurListeners.size, 0); assert.equal(host.ownerDocument.modalElement, null);
+    assert.ok(observers.every(observer => observer.disconnected));
+    // Old elements retained by native callbacks cannot reactivate navigation.
+    assert.equal(navigationEvent(scroller, "wheel", { deltaY: -120, deltaMode: 0 }), false);
+    assert.equal(navigationEvent(scroller, "pointerdown", { button: 2, buttons: 2 }), false); assertReset();
+    const fresh = find(host, '[data-purchase-flow-control="expand"]'); fresh.dispatch("click");
+    const freshScroller = find(host, ".purchase-flow-scroll"), freshSvg = find(host, ".purchase-flow-svg");
+    navigationEvent(freshScroller, "wheel", { deltaY: -120, deltaMode: 0 }); assert.ok(navigationState(freshSvg).scale > 1);
+    cleanup(host); cleanup(host);
+    assert.deepEqual(navigationState(freshSvg), { x: 0, y: 0, scale: 1 });
+    assert.equal(resizeListeners.size, 0); assert.equal(blurListeners.size, 0); assert.equal(host.ownerDocument.modalElement, null);
+  } finally { cleanup(host); }
 });
 
 test("expanded geometry fits the limiting dimension and retains one physical scale for purchases and credits", () => {

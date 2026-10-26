@@ -246,7 +246,7 @@
       scroller.setAttribute("data-purchase-flow-control", `scroll:${group.key}:${kind}`);
       const svg = svgNode("svg", { viewBox: `0 0 ${shape.width} ${shape.height}`, width: shape.width, height: shape.height, class: "purchase-flow-svg",
         role: "group", preserveAspectRatio: "xMidYMid meet", "aria-label": scroller.getAttribute("aria-label") });
-      const diagram = { svg, scroller, shape }; diagrams.push(diagram);
+      const diagram = { svg, scroller, shape, region, title }; diagrams.push(diagram);
       const definitions = svgNode("defs"), paths = svgNode("g", { class: "purchase-flow-paths" }), nodes = svgNode("g", { class: "purchase-flow-nodes" });
       // An inert foreground copy raises the selected ribbon without reparenting
       // its focusable SVG path (which would discard native keyboard focus).
@@ -258,6 +258,53 @@
       const hide = () => { if (active) { active.classList.remove("is-active"); active.setAttribute("stroke-opacity", "1"); } active = null;
         foreground.setAttribute("visibility", "hidden"); svg.classList.remove("is-hovering"); tooltip.hidden = true; };
       hides.push(hide);
+      const navigation = { scale: 1, x: 0, y: 0, drag: null };
+      function transform() {
+        svg.style.transformOrigin = "0 0";
+        svg.style.transform = `translate(${navigation.x}px, ${navigation.y}px) scale(${navigation.scale})`;
+      }
+      function endPan(event) {
+        const drag = navigation.drag;
+        if (!drag || event && event.pointerId !== drag.id) return;
+        navigation.drag = null; scroller.classList.remove("is-panning");
+        if (event?.type === "pointercancel") suppressPanContextMenu = false;
+        if (scroller.hasPointerCapture?.(drag.id)) scroller.releasePointerCapture(drag.id);
+      }
+      diagram.endPan = endPan;
+      diagram.resetNavigation = () => {
+        endPan(); navigation.scale = 1; navigation.x = 0; navigation.y = 0;
+        svg.style.transform = ""; svg.style.transformOrigin = "";
+      };
+      scroller.addEventListener("wheel", event => {
+        if (!fullscreenDialog || !Number.isFinite(event.deltaY) || !event.deltaY) return;
+        event.preventDefault(); endPan(); hide();
+        const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? scroller.clientHeight || scroller.getBoundingClientRect().height : 1;
+        const delta = Math.max(-500, Math.min(500, event.deltaY * unit));
+        const scale = Math.max(.5, Math.min(8, navigation.scale * Math.exp(-delta * .002)));
+        const ratio = scale / navigation.scale, bounds = svg.getBoundingClientRect();
+        // The current rect includes translation, scaling and flex centering.
+        // Keep the diagram point under the mouse fixed in screen coordinates.
+        navigation.x += (event.clientX - bounds.left) * (1 - ratio);
+        navigation.y += (event.clientY - bounds.top) * (1 - ratio);
+        navigation.scale = scale; transform();
+      }, { passive: false });
+      scroller.addEventListener("pointerdown", event => {
+        if (!fullscreenDialog || event.button !== 2 || navigation.drag) return;
+        event.preventDefault(); hide();
+        suppressPanContextMenu = true;
+        navigation.drag = { id: event.pointerId, x: event.clientX, y: event.clientY };
+        scroller.classList.add("is-panning"); scroller.setPointerCapture?.(event.pointerId);
+      });
+      scroller.addEventListener("pointermove", event => {
+        const drag = navigation.drag;
+        if (!fullscreenDialog || !drag || drag.id !== event.pointerId) return;
+        if (!(event.buttons & 2)) { endPan(event); return; }
+        event.preventDefault(); hide();
+        navigation.x += event.clientX - drag.x; navigation.y += event.clientY - drag.y;
+        drag.x = event.clientX; drag.y = event.clientY; transform();
+      });
+      for (const name of ["pointerup", "pointercancel", "lostpointercapture"]) scroller.addEventListener(name, endPan);
+      scroller.addEventListener("contextmenu", event => { if (fullscreenDialog) event.preventDefault(); });
       function place(event, target) {
         const bounds = region.getBoundingClientRect(), own = tooltip.getBoundingClientRect(), targetBounds = target.getBoundingClientRect();
         const x = Number.isFinite(event?.clientX) ? event.clientX - bounds.left : targetBounds.left + targetBounds.width / 2 - bounds.left;
@@ -267,6 +314,7 @@
       }
       function show(target, rows, label, event, ribbon) {
         hide();
+        if (navigation.drag) return;
         if (ribbon) {
           active = target; svg.classList.add("is-hovering"); target.classList.add("is-active"); target.setAttribute("stroke-opacity", "0");
           for (const key of ["d", "stroke", "stroke-width"]) foreground.setAttribute(key, target.getAttribute(key));
@@ -371,19 +419,24 @@
       }
       table.append(tableBody); scroll.append(table); details.append(scroll); body.append(details);
     }
-    let fullscreenDialog = null, resizeObserver = null, collapsed = oldCollapsed;
+    const fullscreenChrome = [toggle, heading, ...Array.from(body.children).filter(element => !diagrams.some(diagram => diagram.region === element)),
+      ...diagrams.map(diagram => diagram.title)].map(element => ({ element, hidden: element.hidden }));
+    let fullscreenDialog = null, resizeObserver = null, collapsed = oldCollapsed, suppressPanContextMenu = false;
     const view = doc.defaultView;
+    const stopPans = () => { suppressPanContextMenu = false; diagrams.forEach(diagram => diagram.endPan()); };
     function fitExpanded() {
       if (!fullscreenDialog || !diagrams.length) return;
+      suppressPanContextMenu = false;
       const bounds = fullscreenDialog.getBoundingClientRect(), first = diagrams[0].scroller.getBoundingClientRect();
       const availableWidth = Math.min(...diagrams.map(({ scroller }) => scroller.clientWidth || scroller.getBoundingClientRect().width)) - 2;
-      // Account for the title, source notices and totals above the first diagram.
-      // Add scrollTop so resizing while inspecting later content keeps the same
+      // Account for the exit button above the first diagram. Add scrollTop so
+      // resizing while inspecting later content keeps the same
       // available frame rather than changing scale with the scroll position.
       const precedingHeight = first.top - bounds.top + (fullscreenDialog.scrollTop || 0);
       const availableHeight = Math.max(1, (fullscreenDialog.clientHeight || bounds.height) - precedingHeight - 18);
       const sizes = fitGeometry(diagrams.map(({ shape }) => shape), availableWidth, availableHeight);
-      diagrams.forEach(({ svg }, index) => {
+      diagrams.forEach(({ svg, resetNavigation }, index) => {
+        resetNavigation();
         if (!sizes[index]) return;
         svg.style.width = `${sizes[index].width}px`; svg.style.height = `${sizes[index].height}px`;
       });
@@ -391,6 +444,7 @@
     }
     function updateExpand(expanded) {
       const label = t(expanded ? "purchaseFlow.restore" : "purchaseFlow.expand");
+      fullscreenChrome.forEach(({ element, hidden }) => { element.hidden = expanded || hidden; });
       expand.setAttribute("aria-label", label); expand.setAttribute("title", label); expand.setAttribute("aria-expanded", String(expanded));
       expandPath.setAttribute("d", expanded ? "M3 8h5V3 M16 3v5h5 M21 16h-5v5 M8 21v-5H3" : "M8 3H3v5 M16 3h5v5 M21 16v5h-5 M3 16v5h5");
     }
@@ -398,10 +452,12 @@
       const dialog = fullscreenDialog;
       if (!dialog) return;
       fullscreenDialog = null;
+      suppressPanContextMenu = false;
       resizeObserver?.disconnect(); resizeObserver = null;
       view?.removeEventListener?.("resize", fitExpanded);
+      view?.removeEventListener?.("blur", stopPans);
       hides.forEach(hide => hide());
-      diagrams.forEach(diagram => { diagram.svg.style.width = ""; diagram.svg.style.height = ""; });
+      diagrams.forEach(diagram => { diagram.resetNavigation(); diagram.svg.style.width = ""; diagram.svg.style.height = ""; });
       if (dialog.open && typeof dialog.close === "function") dialog.close();
       panel.remove(); container.append(panel); dialog.remove();
       updateExpand(false);
@@ -425,12 +481,21 @@
       hides.forEach(hide => hide());
       const dialog = node("dialog", "purchase-flow-fullscreen");
       dialog.setAttribute("data-purchase-flow-fullscreen", ""); dialog.setAttribute("aria-labelledby", heading.id);
+      // Chromium can target a right-drag's contextmenu at its release point,
+      // outside the plot. Consume only that gesture, not later outside clicks.
+      dialog.addEventListener("pointerdown", () => { suppressPanContextMenu = false; }, true);
+      dialog.addEventListener("contextmenu", event => {
+        if (suppressPanContextMenu) { event.preventDefault(); suppressPanContextMenu = false; }
+      }, true);
       dialog.addEventListener("cancel", event => { event.preventDefault?.(); closeExpanded(); });
       dialog.addEventListener("close", () => { if (fullscreenDialog === dialog) closeExpanded(); });
       dialog.addEventListener("keydown", event => {
         if (event.key === "Escape") { event.preventDefault?.(); closeExpanded(); return; }
         if (event.key !== "Tab") return;
-        const controls = Array.from(panel.querySelectorAll("[data-purchase-flow-control]")), current = controls.indexOf(doc.activeElement);
+        const controls = Array.from(panel.querySelectorAll("[data-purchase-flow-control]")).filter(element => {
+          for (let ancestor = element; ancestor && ancestor !== panel; ancestor = ancestor.parentElement) if (ancestor.hidden) return false;
+          return true;
+        }), current = controls.indexOf(doc.activeElement);
         if (current === -1 || event.shiftKey && current === 0 || !event.shiftKey && current === controls.length - 1) {
           event.preventDefault?.(); (event.shiftKey ? controls.at(-1) : controls[0])?.focus();
         }
@@ -440,6 +505,7 @@
       else { dialog.open = true; dialog.setAttribute("open", ""); }
       fitExpanded();
       view?.addEventListener?.("resize", fitExpanded);
+      view?.addEventListener?.("blur", stopPans);
       if (typeof view?.ResizeObserver === "function") {
         resizeObserver = new view.ResizeObserver(fitExpanded); resizeObserver.observe(dialog); resizeObserver.observe(header);
       }

@@ -1,5 +1,17 @@
 # Decisions
 
+## 2026-10-26: Navigate Sankeys only in fullscreen
+
+- The user requested mouse-wheel zoom and right-button drag panning on branch
+  `sankey`, exclusively in the existing fullscreen view.
+- Keep each diagram independent, anchor zoom under the pointer and bound it to
+  0.5–8 times its fitted size. Reset navigation when closing or resizing; release
+  dragging on pointer cancellation or window blur. Preserve inline behavior,
+  source geometry and all financial values.
+- Fullscreen should show only the Sankey diagrams and exit button. Hide the
+  surrounding panel text, totals, details and hide/show control; restore them
+  when leaving fullscreen. Retain SVG labels, tooltips and keyboard access.
+
 ## 2026-10-23: Adapt Sankey purchase typography to column density
 
 - Keep the restored single purchase column; aim for a connector/text extent

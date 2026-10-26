@@ -93,6 +93,15 @@ Purchase-budget additions (2026-10-21):
   layouts always retain one right-hand purchase stack with direct code-to-purchase
   curves. Fullscreen fits the existing SVG without changing its geometry, nodes,
   paths, gradients or heading count.
+  Only fullscreen diagram regions intercept the mouse wheel for pointer-anchored
+  zoom (0.5–8 times the fitted size) and capture right-button drags for panning.
+  Each currency/purchase/correction diagram has independent navigation. Moving
+  clears tooltips; close, hide, rerender and resize reset the view and release
+  capture. Window blur ends dragging. Inline scrolling and context menus retain
+  their native behavior. Fullscreen shows only the diagrams and exit button;
+  surrounding headings, instructions, totals, notices, details and the hide
+  control retain their DOM state while hidden, then return on close. The modal
+  keyboard loop skips hidden controls; existing FR/NL labels remain accessible.
   Right-hand labels use a bounded SVG foreignObject flex row with an ellipsized
   name and intact inline amount. Per-diagram spacing (18 to 2 units), then font
   size (10 to 8 units), adapt toward twice the left connector/text extent.
@@ -194,7 +203,7 @@ The DiCo steering extension separates shared calculations (`steering.js`), read 
 
 ## Refresh
 
-- Last refreshed: 2026-10-23
+- Last refreshed: 2026-10-26
 - Tag source basis: data/project-tags.json, project-tags.js,
   project-description.js, project-tag-scan.js, scripts/scan-project-tags.js,
   project-tag-view.js, project-similarity.js/css, unit-dico.js and index.html.

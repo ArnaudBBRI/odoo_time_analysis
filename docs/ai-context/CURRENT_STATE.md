@@ -2,6 +2,28 @@
 
 ## Functional State
 
+- Completed on 2026-10-26 on user-requested branch `sankey` from `main`
+  (`fe0eb37`): fullscreen purchase/correction/currency Sankeys support
+  pointer-anchored mouse-wheel zoom (0.5–8 times fitted size) and right-button
+  drag panning with pointer capture. Inline scrolling/context menus stay native.
+  Close, hide, resize and rerender reset the view; pointer cancellation/window
+  blur release capture. Fullscreen shows only diagrams and the exit button;
+  surrounding text, totals, details and extra controls are hidden and restored
+  on close, with hidden controls excluded from the keyboard loop. Tooltips,
+  existing FR/NL labels and source geometry/data remain intact. All **137/137**
+  focused Sankey/Budget/
+  i18n/dashboard-language tests pass (**58/58** Sankey, six new regressions),
+  with independent review and syntax/whitespace checks. Offline Microsoft Edge
+  checks verify genuine wheel anchoring, captured dragging beyond the plot,
+  gesture-limited context-menu suppression, clipping, keyboard tooltips and
+  focus-scroll reset, FR/NL, independent diagrams and resize/close/reopen reset.
+  Desktop and 390px checks confirm diagram-only fullscreen, hidden-control focus
+  exclusion, and full inline metadata/open-detail restoration on exit.
+  No browser warnings/errors; screenshot saved and browser resources released.
+  Changes are local/uncommitted. No separate build/lint/typecheck command exists;
+  full suite not repeated. No Odoo, main-server, private config or publication
+  change.
+
 - Completed on 2026-10-23 at the user's explicit request: `main` was
   fast-forwarded to `2e7746d` and pushed to `origin/main`, including the tested
   app commit `3c66e67` and its companion documentation. Removed merged local
@@ -2158,6 +2180,20 @@ A runnable dashboard, authenticated local connector and authentication integrati
 - No dedicated lint/typecheck command exists. Functional Odoo, workbook and deployment checks remain unverified.
 
 ## Session handoff
+
+- Current task completed on 2026-10-26: fullscreen-only wheel zoom/right-drag
+  panning on the new `sankey` branch based on `main` at `fe0eb37`. Implementation,
+  diagram-only fullscreen, existing FR/NL labels, focused regressions and
+  documentation are local.
+  Combined focused suite **137/137** (0.23s), independent review, syntax and
+  whitespace checks pass. Offline Edge verifies anchoring, outside-plot capture
+  and gesture-only context suppression, clipping, independent diagrams, keyboard
+  tooltips, reset and FR/NL without warnings/errors. Screenshot saved; browser
+  resources released. Desktop/390px checks verify diagram-only fullscreen and
+  restored inline metadata/details. Refresh Budget and expand a Sankey to review.
+  No live Odoo/server/private-config changes,
+  dependency installation, commit or push. Earlier publication entries describe
+  the inherited main baseline.
 
 - Latest publication completed on 2026-10-23: the user requested merge/push to
   main and cleanup of the feature and FR/NL branches. `origin/main` now contains
