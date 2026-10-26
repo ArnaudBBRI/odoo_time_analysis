@@ -1,5 +1,47 @@
 # Decisions
 
+## 2026-10-26: Hide partners and group the map by current funding organism
+
+- Temporarily hide **Partenaires / Partners** and suspend its partner-list source
+  reads. Add **Organisme / Financier** beside themes and programmes, grouping
+  projects by the verified `project.project.organism_id` many-to-one relation to
+  `res.partner`. A retained partner-mode preference returns to themes.
+- Fetch financing-body links and exact referenced names as part of each current
+  Unit DiCo catalogue load or explicit refresh. Reuse the existing catalogue's
+  in-memory browser cache between refreshes; introduce no static project/body
+  table, disk snapshot or shared server cache. The earlier discovery task supplies
+  field/schema evidence only, not runtime membership data.
+- Keep scope tied to exact current session-visible unit-206 projects, including
+  archived records. Missing, denied, incomplete or contradictory optional source
+  evidence disables only this mode. Known empty financing-body relations remain
+  a distinct colour without a cloud; funding type and collaboration partners
+  cannot supply a substitute financing body. Preserve tag-derived link evidence,
+  the existing programme Other-cloud correction, replay and FR/NL state/focus.
+
+## 2026-10-26: Group the technology-proximity map by Buildwise partners
+
+- Add **Partenaires / Partners** above the existing technology-proximity map as
+  a third deterministic layout beside themes and programmes. Use the verified
+  `project.project.bw_partner_ids` many-to-many relation to `res.partner`, not
+  the separate financing organisation or a name-based inference. Resolve only
+  exact linked partner IDs and their names for exact session-visible Unit DiCo
+  projects; missing, denied, incomplete or contradictory optional evidence
+  disables the mode without blocking the unit catalogue.
+- The later financing-organism decision temporarily hides this option and
+  suspends its runtime reads while retaining its backend helper for later use.
+- A project linked to several partners belongs to every corresponding force
+  group and uses a segmented bubble fill. Preserve the tag-derived links,
+  strengths and details in every mode. Projects without a partner retain their
+  separate colour and weaker tag-based placement but receive no background
+  cloud.
+- In Programme mode, likewise stop drawing a coloured cloud for **Autres
+  projets** while retaining their existing bubble colour, legend entry and weak
+  force behavior. This changes presentation only; curated programme membership
+  and exact tag evidence remain unchanged.
+- Keep FR/NL labels, native focus, cached mode restoration, reduced-motion and
+  cleanup behavior. All Odoo access remains behind the existing read-only RPC
+  guard; no create, update, delete or action call is authorized.
+
 ## 2026-10-26: Navigate Sankeys only in fullscreen
 
 - The user requested mouse-wheel zoom and right-button drag panning on branch

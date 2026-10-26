@@ -1,5 +1,49 @@
 # Testing
 
+## Latest verification (2026-10-26 dynamic financing-organism grouping)
+
+The full offline suite passes **1229/1229** with
+`node --test --test-concurrency=4 --test-reporter=spec` in **46.12 seconds**.
+Renderer/animation/physics/Unit/i18n tests pass **67/67** and service/HTTP tests
+pass **50/50**. All **10** changed JavaScript files pass `node --check`, and
+`git diff --check` passes. Independent review finds no blocker.
+
+Fixtures verify hidden Partenaires and suspended partner reads, retired-mode
+focus fallback, exact current `organism_id` and bounded body-name reads,
+changed financing bodies/names/new projects on refresh, known empty versus
+unavailable metadata, record scope, native controls, immutable tag evidence,
+exact saved layouts, cached FR/NL focus and reduced motion. Offline headless
+Edge with fictional 12-project/five-body data verifies French desktop1440px
+and Dutch390px layouts, native keyboard changes, bubble/cloud colours, counts,
+missing-body bubbles without clouds, exact thematic roundtrips and cached
+language state. Long source labels wrap without page overflow; mobile chart
+scrolling remains contained. No console warnings/errors or network requests;
+screenshots were inspected and browser resources closed. Subsequent guarded
+live verification on 2026-10-26 confirms available financing bodies for all
+**50/50** accessible unit projects, across seven exact body IDs. Two distinct
+Bureau de Normalisation IDs share a name and retain separate groups. Focused
+visibility/service checks pass **69/69**. The previously stale local server was
+restarted as standard-user PID **31728** on loopback **8765**: welcome **200**,
+anonymous unit API **401**, empty stderr. No Odoo write or Docker check was
+performed. No separate build, lint or typecheck command exists.
+
+## Latest verification (2026-10-26 partner proximity grouping)
+
+The full offline suite passes **1220/1220** with
+`node --test --test-concurrency=4 --test-reporter=spec`. The affected
+similarity/Unit/service/HTTP/i18n/authentication/read-only/controller set passes
+**301/301**. All **10** changed JavaScript files pass `node --check`, and
+`git diff --check` passes. No separate build, lint or typecheck command exists.
+
+New fixtures cover removal of the Programme Other polygon while retaining its
+bubble colour, legend and weak force group; exact `bw_partner_ids` metadata;
+bounded exact partner-name reads; overlapping partner memberships and segmented
+fills; multi-row layouts for more than three groups; absent/foreign/unsolicited,
+denied, incomplete, duplicate and contradictory evidence; caller override and
+session visibility isolation; FR/NL labels/focus retention; reduced motion; and
+unchanged Odoo mutation guards. HTTP tests use fictional isolated localhost RPC
+sources. No live Odoo, browser or Docker verification was performed.
+
 ## Latest verification (2026-10-26 fullscreen Sankey navigation and presentation)
 
 `node --test --test-reporter=spec tests/project-purchase-flow.test.js
@@ -1425,6 +1469,14 @@ exact department/ID postfilters and deduplication. It also covers precise
 Interne/Overhead exclusion, readable empty versus unavailable catalogues,
 strict dates/leap days/datetimes, reversed periods, optional core/date recovery
 scoped by exact IDs and unit, sanitized failures and minimal projected fields.
+Retained helper cases confirm the exact `bw_partner_ids` many-to-many type, bounded
+partner-ID/name reads, overlapping memberships, foreign/unsolicited filtering,
+and fail-closed denial, missing-name, duplicate and contradiction handling.
+Normal catalogue loads confirm those reads are suspended. Organism cases verify
+the exact `organism_id` many-to-one type, optional exact-ID links/name reads,
+known empty relations versus source denial, malformed/incomplete/conflicting
+evidence, discarded unsolicited records and dynamic changes to membership,
+body names and project catalogues across refreshes. No static mapping is used.
 
 `tests/unit-dico.test.js` exercises the Browser/CommonJS renderer and pure
 timeline calculations: exact IDs, safe literal names/warnings, immutable input,
@@ -1462,7 +1514,10 @@ authenticated assets and unserved service code, exact fixed-department/session
 visibility despite caller overrides and disabled steering, pagination beyond
 1,000 projects, optional dates/managers, exact-ID date recovery, sanitized
 critical failures and reauthenticated UID mismatch. Calls are checked for
-read-only methods; no hours or financial models are read for the catalogue.
+read-only methods. Financing-body fixtures additionally verify caller-map
+rejection, exact visible project links, bounded `res.partner` IDs,
+name-permission failure, catalogue preservation and changed memberships/names
+on the next catalogue request. No hours or financial models are read for the catalogue.
 
 Unit controller cases in `tests/sticky-scope.test.js` cover lazy catalogue
 loading/cache, fixed response identities, working retry and obsolete fetch

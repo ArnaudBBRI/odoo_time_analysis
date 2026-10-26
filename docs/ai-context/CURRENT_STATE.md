@@ -2,6 +2,55 @@
 
 ## Functional State
 
+- Completed locally on 2026-10-26 on user-requested branch `force-diagrams`
+  from `main` at `81f03b1`: **Carte des proximités technologiques** now offers
+  **Organisme / Financier** beside Thématiques and Programmes. **Partenaires**
+  is temporarily hidden and its reads are suspended. The new mode dynamically
+  reads metadata-confirmed `organism_id` for exact visible Unit DiCo projects,
+  then resolves bounded exact `res.partner` names on every catalogue load or
+  refresh. The existing browser catalogue cache retains the map between
+  refreshes; no historical project/body table or disk/shared cache is used.
+  Denied, incomplete or contradictory optional evidence disables only this
+  mode. Projects without a funding body retain a distinct colour and weak
+  placement without a cloud. Programme-mode **Autres projets** likewise keeps
+  its existing bubble colour, legend and forces without a cloud. Tag evidence,
+  replay, cached FR/NL focus and reduced-motion behavior remain intact; a
+  retained partner mode/focus returns to themes. Full offline **1229/1229**,
+  renderer/language **67/67** and service/HTTP **50/50** tests pass; all **10**
+  changed JavaScript files pass syntax checks and `git diff --check` passes.
+  Independent review finds no blocker. Offline Edge checks pass for French
+  desktop and Dutch 390px, including keyboard controls, exact graph roundtrips,
+  colours/counts, cached language state and long labels without page overflow
+  or console errors. Fictional screenshots are saved outside the repository;
+  browser resources are closed. No separate build/lint/typecheck command exists.
+  Follow-up live guarded reads on 2026-10-26 confirm **50/50** accessible unit
+  projects have financing bodies across seven exact body records; two distinct
+  source IDs share the name Bureau de Normalisation and remain separate groups.
+  The option was already visible in code, but the running server predated the
+  backend update. Restarted that verified local process as hidden standard-user
+  Node PID **31728**, loopback **8765**: welcome **200**, anonymous unit endpoint
+  **401**, empty stderr. Focused visibility/service checks pass **69/69**.
+  Reload and sign in again, then refresh Unit DiCo. At the user's request,
+  implementation/tests are committed as **`40b1f57`**, with this companion
+  documentation checkpoint. The branch remains unpublished. No Odoo write,
+  Docker or dependency/configuration change occurred; earlier discovery memory
+  is preserved.
+
+- Read-only financing discovery completed on 2026-10-26 on `categories`, based
+  on `main` at `81f03b1`. Live guarded Odoo reads confirm exact Lead Unit `206`
+  has **50 accessible projects: 45 active and 5 archived**. All 50 have
+  `funding_type_id` labels (**27 distinct**); no `organism_id` fallback or
+  `no info` result was needed. eXtRAI `54252043` is `JRDIC` with Innoviris.
+  Financing labels are preserved, including `COOCK - DO NOT USE`. The complete
+  project/code/type/organism table was prepared for user review. Follow-up reads
+  of the same 50 IDs confirm `bw_partner_ids` (15 populated, 35 empty) and
+  `technical_committee_ids` (45 populated, 5 empty). All 25 linked partner names
+  and 18 committee names resolved through exact-ID reads, including archived
+  relations; empty lists are shown as `no info`. Stored `Overhead` committee
+  labels are retained. Both complete tables were prepared for review. No app code,
+  configuration or Odoo data changed; financing-directive research is not yet
+  started. No tests/build were needed for these reads.
+
 - Completed on 2026-10-26 on user-requested branch `sankey` from `main`
   (`fe0eb37`): fullscreen purchase/correction/currency Sankeys support
   pointer-anchored mouse-wheel zoom (0.5–8 times fitted size) and right-button
@@ -2181,6 +2230,41 @@ A runnable dashboard, authenticated local connector and authentication integrati
 - No dedicated lint/typecheck command exists. Functional Odoo, workbook and deployment checks remain unverified.
 
 ## Session handoff
+
+- Current task completed locally on 2026-10-26: `force-diagrams` was created
+  from `main` at `81f03b1`, carrying the pre-existing uncommitted project-memory
+  update without altering it. The Programme layout no longer draws an Other
+  cloud, while keeping those bubble colours and forces. The follow-up hides
+  Partenaires and suspends its reads, adding **Organisme / Financier** from
+  dynamic exact `organism_id`/bounded body-name reads with each Unit catalogue
+  request. Existing in-memory catalogue reuse avoids extra calls on mode or
+  language changes; explicit refresh gets current data, without a fixed table.
+  Full **1229/1229**, renderer/language **67/67**, service/HTTP **50/50**, syntax
+  and whitespace pass. Independent review and offline French desktop/Dutch390px
+  Edge checks pass, including keyboard/focus, graph roundtrips, colours/counts
+  and contained scrolling; screenshots are outside the repo and resources closed.
+  Implementation/tests are committed as **`40b1f57`** at the user's request;
+  this companion documentation records the verification and discovery context.
+  The branch remains local and unpublished. Follow-up guarded
+  live verification confirms available financing bodies for **50/50** projects
+  (seven exact body IDs, including two namesakes). Focused checks pass **69/69**.
+  Reloaded the previously stale local server as hidden standard-user PID
+  **31728**, port **8765**; welcome **200**, anonymous unit API **401**, stderr
+  empty. Next action is reload/sign in again and refresh Unit DiCo for review;
+  push or merge only if explicitly requested. No Odoo write, Docker or
+  configuration change occurred.
+
+- Previous read-only discovery on 2026-10-26: `categories` was created from `main` at `81f03b1`.
+  The user requested a financing-type inventory before researching directives.
+  Guarded live reads of all accessible unit-206 projects, including archived
+  records, found 50 unique projects, all with financing types; 27 distinct
+  labels, no fallbacks/missing information. Subsequent partner/technical-committee
+  inventories use the same 50 project IDs: 15/45 populated respectively, with
+  all related names resolved. The three requested tables are ready for review.
+  This factual discovery memory is preserved in the force-diagrams documentation;
+  app code/configuration and Odoo were unchanged by that discovery. Next action
+  is user review of the inventory before selecting financing directives to
+  investigate. No publication was requested.
 
 - Current task completed and published on 2026-10-26: fullscreen-only wheel
   zoom/right-drag panning and diagram-only presentation were committed on

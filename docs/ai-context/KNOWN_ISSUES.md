@@ -2,13 +2,27 @@
 
 ## Active Issues
 
-- Programme mode now has its own physical grouping layout, but convex envelopes
-  remain approximate and can still overlap or enclose nonmembers, especially
-  the weakly grouped Other projects. Current plotted memberships remain DC1=7,
-  DC2=7, DC3=5 and Other=17. The UI labels contours as indicative and exposes
-  exact member counts/names in legend tooltips. Distances and boundaries are
-  presentation, not additional tag evidence. The programme projection reflects
-  the existing curated lists, not an authoritative Odoo membership field.
+- Programme and financing-organism modes have their own physical grouping layouts, but
+  named-group convex envelopes remain approximate and can still overlap or
+  enclose nonmembers. Unassigned programme/organism projects keep a distinct
+  bubble colour and weaker tag-based positioning without a background cloud.
+  Current plotted programme memberships remain DC1=7, DC2=7, DC3=5 and
+  Other=17. The UI labels contours as indicative and exposes exact member
+  counts/names in legend tooltips. Distances and boundaries are presentation,
+  not additional tag evidence. Programme membership still reflects curated
+  lists rather than an authoritative Odoo field.
+- **Partenaires** is temporarily hidden and its source reads are suspended.
+  **Organisme** uses current `project.project.organism_id` links and exact
+  `res.partner` names fetched with each Unit DiCo catalogue load/refresh. It
+  inherits Odoo record visibility and separate-read consistency limits;
+  unreadable/incomplete metadata disables only that option. The existing
+  browser catalogue cache can retain values until explicit refresh. No fixed
+  project-to-financing-body table is used, and no funding type or partner-list
+  inference fills missing evidence. Guarded live verification on 2026-10-26
+  confirms bodies for all 50 accessible unit projects; seven exact body IDs
+  include two separate Bureau de Normalisation records with the same name.
+  These retain separate groups rather than merging by name. Other-account
+  visibility and broad live browser behavior remain to be reviewed.
 
 - The 2026-10-22 Digital Construction Odoo snapshot has 31 projects without a
   usable macro-info narrative and one very short narrative (eDIH WallonIA Hub,

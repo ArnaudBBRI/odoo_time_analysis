@@ -32,19 +32,26 @@ pointer details. Tagged projects with no shared tags remain in a separate
 specialties panel. Parent/subtype relationships are not inferred; untagged
 projects are omitted. Opening a project is an explicit existing-app action.
 
-The grouping toggle selects separate retained thematic and programme layouts.
-Both use the same rarity-weighted semantic links and pair repulsion; programme
-mode adds attraction to the curated DC1/DC2/DC3 centres. Other projects have
-weaker central attraction rather than a tightly bound fourth programme.
+The grouping toggle selects separate retained thematic, programme and organism
+layouts. All use the same rarity-weighted semantic links and pair repulsion;
+programme mode adds attraction to the curated DC1/DC2/DC3 centres, while
+**Organisme / Financier** adds centres from current exact `organism_id`
+financing-body relations and resolved names. These are fetched with the DiCo
+catalogue and refreshed on request; the browser reuses its cached catalogue
+between refreshes. **Partenaires** is temporarily hidden. Other projects have
+weaker central attraction rather than a tightly bound fallback cluster.
 Programme membership is projected onto visible IDs using the same unique
-whole-code rules as the programme view. A shared member belongs to every matched
-list, with combined attraction and a segmented fill from the programme colours.
-Bubble fills and cloud colours match the active legend. Existing link endpoints
-move with their bubbles; identities, common tags, similarities and semantic
-communities remain unchanged. Deterministic settling/replay and smooth mode
-transitions are presentation, not new evidence of project similarity.
+whole-code rules as the programme view. A project in several programmes belongs
+to every matched group, with combined attraction and a segmented fill from the
+group colours. Financing-body membership is singular. Bubble fills and named
+cloud colours match the active legend; unassigned bubbles retain their fallback
+colour without a background cloud. Existing link endpoints move with their
+bubbles; identities, common tags, similarities and semantic communities remain
+unchanged. Deterministic settling/replay and smooth mode transitions are
+presentation, not new evidence of project similarity.
 
-Each mode has its own bounded label placement and member envelopes. Hulls can
+Each mode has its own bounded label placement. Named groups have member
+envelopes; unassigned programme/organism groups deliberately do not. Hulls can
 still overlap or enclose nonmembers, so the caption is explicit and legend
 counts/tooltips list exact plotted members. Animation respects reduced motion;
 retained mode/readiness avoids restarting settling on cached or language refresh.

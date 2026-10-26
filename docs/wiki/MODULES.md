@@ -36,8 +36,9 @@ Project-tag snapshot additions (2026-10-22):
   exact-tag graph, deterministic particle layouts, weighted communities, soft regions,
   hover/focus details, native relation controls and explicit project selection.
   The pure `layout(model, {groups, recordFrames})` solver returns positions,
-  labels, regions and optional independent settling frames. Programme groups
-  add persistent attraction centres; Other nodes retain weaker central gravity.
+  labels, regions and optional independent settling frames. Programme and exact
+  financing-body groups add persistent attraction centres; unassigned nodes
+  retain weaker central gravity.
   Bounded collision relaxation and glyph-aware label placement use the chart
   width; dashed noninteractive guides connect displaced labels to their bubbles.
   Pointer leave restores normal graph opacity while retaining detail actions;
@@ -46,11 +47,14 @@ Project-tag snapshot additions (2026-10-22):
   (localized label/ID ties) and lists exact related projects in the 345px
   desktop info panel; selected tag, disclosure and native tag/result focus are
   captured separately from project/relation exploration.
-  A native theme/programme switch retains a target layout for each mode and
+  A native theme/programme/organism switch retains a target layout for each mode and
   interpolates existing bubbles and link endpoints between them. Bubble fills
-  match the active region palette; overlapping programme memberships use a
-  segmented gradient. Captions, member-count legends and moving member hulls follow
-  the active grouping without changing tag evidence or link weights.
+  match the active region palette; overlapping programme memberships
+  use a segmented gradient. Captions, member-count legends and moving named-group
+  hulls follow the active grouping without changing tag evidence or link weights;
+  unassigned groups keep their colour and legend without a cloud.
+  Partenaires is temporarily hidden, and a retained partner mode/focus falls
+  back to themes.
   Initial settling and replay use sampled physical frames over 2.2 seconds;
   mode transitions take 850ms. Cloud points follow every frame and their opacity
   increases during settling; labels and guides fade in during the final 20%.
@@ -163,7 +167,7 @@ dated-planning and milestone styles are independent.
 | [tests/programme-browser.test.js](../../tests/programme-browser.test.js) | Synthetic fixed-identity normalization, ordered front/back content, safe-photo and malicious-label handling, native selection/focus, custom non-project descriptions and loading/error/retry fixtures. |
 | [tests/programme-service.test.js](../../tests/programme-service.test.js) | Offline exact responsible-name/photo scope and failure cases; fixed programme-code membership, strict code identity, foreign/duplicate/contradictory rows, canonical selection, optional date/budget recovery and honest coverage checks. |
 | [tests/programme-http.test.js](../../tests/programme-http.test.js) | Isolated authenticated catalogue/assets, strict empty-body/method/origin guards, session-visible portrait scope, ambiguity/fallback, safe raster images, UID reauthentication and read-only RPC verification. |
-| [unit-dico-service.js](../../unit-dico-service.js) | Fixed department-206 catalogue through guarded reads, exact department/ID postfilters, archived/zero-hour membership, precise Interne/Overhead exclusion, optional source dates and shared exact-ID full-convention budget/currency enrichment. |
+| [unit-dico-service.js](../../unit-dico-service.js) | Fixed department-206 catalogue through guarded reads, exact department/ID postfilters, archived/zero-hour membership, precise Interne/Overhead exclusion, optional source dates and shared exact-ID full-convention budget/currency enrichment. Each load dynamically projects metadata-confirmed `organism_id` and bounded exact `res.partner` names into an optional financing-body map. Partner-list reads are suspended while their helper remains dormant. |
 | [unit-dico.js](../../unit-dico.js) | Shared personal/Unit/programme calendar with full/default or rolling +/-3-year views, inclusive clipped geometry, short left names/full accessible source names, stable colors and completed-last reveals. Unit/programme monthly concurrency shares the selected scale, clipped month maxima, known-zero/unknown distinction and synchronized scrolling; FR/NL controls preserve focus/cleanup. |
 | [unit-dico.css](../../unit-dico.css) | Dense responsive 112px unit project cards with bounded faces and manager avatars, using the shared outline presentation and a 190px minimum touch/no-hover layout; 25px timeline rows, pronounced light-to-dark gradients with half-second reveals, grey completed bars and dotted today marker. The monthly concurrency area shares calendar gutters/contained scrolling, with a sticky count axis, month controls, tooltips and a bounded values table. |
 | [project-monthly.js](../../project-monthly.js) | Browser/CommonJS actual history through Brussels today, dated planning overlays and full-project monthly/cumulative planned-area data including future-only people and explicit TH/resource buckets. Planned convention points use precise daily proration through project end, independent of employee/Ormitter filtering, with explicit budget availability. Exact identities, signed stacks/prefix sums, continuous months, independent unavailable sources, default consultant exclusion and individual dotted linear references are preserved. |
@@ -183,7 +187,7 @@ dated-planning and milestone styles are independent.
 | [tests/project-hour-usage-ui.test.js](../../tests/project-hour-usage-ui.test.js) | Three usage cards' independent availability, stale/nonfinite delta rejection, signed over/under/balanced text and half-centihour tolerance, FR/NL rerenders, and independence from graph scopes/contributor filters. |
 | [tests/project-planning-service.test.js](../../tests/project-planning-service.test.js) | Offline exact-ID resource ownership, linked/unlinked/contradictory technical employee lists, TH marker precedence over positive original slot owners, unknown resource-name attribution, source denials and no guessed negative employee link. |
 | [tests/project-planning-http.test.js](../../tests/project-planning-http.test.js) | Isolated authenticated project-hours identity DTO, snapshot-before-legacy-enrichment, optional metadata/field denial and resource/employee scope preservation. |
-| [tests/unit-dico-service.test.js](../../tests/unit-dico-service.test.js) | Offline fixed unit-field/department scope, exact project identities, archived/zero-hour membership, pseudo-project filtering, strict optional dates/recovery and sanitized source-failure fixtures. |
+| [tests/unit-dico-service.test.js](../../tests/unit-dico-service.test.js) | Offline fixed unit-field/department scope, exact project identities, archived/zero-hour membership, pseudo-project filtering, strict optional dates/recovery, dynamic financing-body refresh/name scope, suspended partner-list reads and sanitized source-failure fixtures. Retained partner-helper tests call it directly. |
 | [tests/personal-project-dates.test.js](../../tests/personal-project-dates.test.js) | Offline personal catalogue date metadata/type validation, exact-ID projection, field-denial recovery, strict dates and full-handler preservation of hours/managers. |
 | [tests/unit-dico.test.js](../../tests/unit-dico.test.js) | Synthetic inclusive lifetime geometry, Brussels date/completion/marker boundaries, viewport reveals, adaptive axes, safe radios/photos and date notices. Monthly concurrency cases cover true simultaneous maxima, inclusive boundaries, zero gaps/future months, exclusions, unavailable/partial dates, matching chart scales, values/keyboard/touch controls and synchronized-scroll cleanup. Palette cases retain month/tooltip/table/focus/geometry identities and calendar colours across switches, and retire subscriptions on rerender, unavailable data and cleanup. |
 | [tests/unit-dico-http.test.js](../../tests/unit-dico-http.test.js) | Isolated authenticated catalogue/asset guards, exact session/unit scope, pagination, ignored caller overrides, optional date/manager failures, sanitized faults and read-only request verification. |

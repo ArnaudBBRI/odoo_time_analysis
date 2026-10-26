@@ -307,7 +307,7 @@ positive project ID, deduplicates IDs and excludes normalized exact Interne /
 Overhead names, including a displayed numeric-code prefix.
 
 The successful response is `{ok, unit, responsibleField, projects, warnings,
-asOf, tagMap, programmeMap}`. `unit` contains the fixed ID `206` and **RESEARCH & DEVELOPMENT / DIGITAL
+asOf, tagMap, programmeMap, organismMap, partnerMap}`. `unit` contains the fixed ID `206` and **RESEARCH & DEVELOPMENT / DIGITAL
 CONSTRUCTION UNIT**; `responsibleField` is `lead_unit_id`. Each project has
 `{id, name, startDate, endDate, manager, totalBudget}`. Accessible archived and zero-hour
 projects remain included without employee-membership or year/date restrictions.
@@ -338,6 +338,25 @@ their source names/codes are not returned; an ID can belong to multiple lists.
 Caller-supplied maps/IDs do not alter the result. Projection failures yield
 `{status: "unavailable", programmes: []}` without discarding projects or tags.
 No additional Odoo request is made.
+
+`organismMap` dynamically projects the metadata-confirmed
+`project.project.organism_id` many-to-one `res.partner` relation:
+`{status: "available", organisms: [{id, name, projectIds}]}`. The service reads
+that relation only for retained project IDs under the same fixed unit domain,
+then resolves only the referenced `res.partner` IDs through an exact bounded
+`id in [...]` name read. Each project has at most one financing body.
+Caller-supplied maps cannot alter the result, and foreign/unsolicited IDs are
+discarded. Missing/unsupported metadata, denied reads, unresolved names,
+duplicate evidence or incomplete exact-ID coverage yields
+`{status: "unavailable", organisms: []}` while preserving the catalogue and
+other maps. Empty readable relations remain available. The raw relation is not
+added to project DTOs. Each catalogue request rebuilds this projection from
+current reads; no stored project/body table is consulted.
+
+The temporarily hidden partner option does not fetch `bw_partner_ids` or its
+names during catalogue loads. `partnerMap` returns
+`{status: "unavailable", partners: []}`; `loadPartnerMap` remains a dormant
+backend helper for future use.
 
 Optional manager enrichment reuses the exact project/user-ID metadata and bounded
 raster-photo checks described for personal projects. Unavailable manager data

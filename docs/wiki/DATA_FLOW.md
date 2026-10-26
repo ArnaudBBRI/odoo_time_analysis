@@ -43,14 +43,33 @@ The unit handler also calls pure `programme-service.createProjectMap` on those
 same visible project rows. Its fixed reference resolver is shared with the
 programme lookup; no RPC is added. `result.programmeMap` carries only programme
 identity/subtitle and matched visible IDs. Optional projection errors retain the
-catalogue with unavailable mapping. `unit-dico.js` forwards it as a renderer
-option. The renderer builds one semantic model and a deterministic thematic
-physical layout. Programme geometry is computed separately on first use, with
+catalogue with unavailable mapping.
+
+The same service optionally confirms `organism_id` as a many-to-one
+`res.partner` relation. It reads that field only for the retained exact project
+IDs under unit 206, then resolves only the resulting exact financing-body IDs
+and names. Complete validated rows become `result.organismMap`; unsupported,
+denied, incomplete or contradictory evidence becomes unavailable without
+discarding the catalogue. The projection is rebuilt with every catalogue
+request. The dashboard's existing `unitDicoResult` cache retains it between
+refreshes; native grouping and language changes use cached data without another
+source call. Explicit Unit refresh replaces the catalogue and body mapping.
+No historical project/body table, financing type, collaboration partner or
+caller-provided relation is substituted. Partner mode is temporarily absent
+from the controls, `partnerMap` is unavailable and its source reads are suspended.
+
+`unit-dico.js` forwards programme and organism maps as renderer options. The
+renderer builds one semantic model and a deterministic thematic physical layout.
+Programme and organism geometries are computed separately on first use, with
 the same weighted semantic links and additional group attraction, then retained
-for later returns. A local native toggle interpolates displayed positions toward
-the chosen target while updating active fills, cloud layers and member legends.
-Existing circle/link elements remain; their coordinates change without altering
-the model or its source evidence.
+for later returns. More than three body centres use a bounded multi-row
+arrangement. Overlapping curated programme memberships still use combined
+attraction and a segmented bubble fill; each project has one funding-body group.
+A local native toggle interpolates displayed positions toward the chosen target
+while updating active fills, cloud layers and member legends. Unassigned
+programme/organism projects retain their group colour and weak central force
+without a background cloud. Existing circle/link elements remain; their
+coordinates change without altering the model or its source evidence.
 
 The pure solver records independent position snapshots for the initial settling
 and replay. Cumulative maximum displacement assigns proportional time to each
@@ -61,10 +80,10 @@ member hulls and both visible/hit-test link endpoints. Clouds become more opaque
 during settling; labels and guides fade in during the final 20%. Reduced motion
 or unavailable animation APIs paint the exact final layout
 immediately. Cleanup invalidates callbacks and removes the motion listener.
-Ready/mode/focus state is captured for cached and language refreshes; missing
-mapping falls back to themes. Counts/tooltips distinguish exact programme
-members from approximate spatial envelopes. No backend or RPC change is needed
-for animation.
+Ready/mode/focus state is captured for cached and language refreshes; a missing
+optional mapping disables only its mode and falls back to themes when needed.
+Counts/tooltips distinguish exact programme/organism members from approximate
+spatial envelopes. The animation itself adds no source request.
 
 ## Language and local preference
 
