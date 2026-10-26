@@ -10,6 +10,7 @@
 
   const TAG = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
   const COLORS = ["#00a99e", "#556a99", "#0087b7", "#dba90b", "#a36a4d", "#607f88"];
+  const groupColor = index => `hsl(${(190 + index * 137) % 360} 58% 40%)`;
   const lifecycles = new WeakMap();
   let cloudControlId = 0;
   const t = (key, values) => I18n.t(`timeline.similarity.${key}`, values);
@@ -152,8 +153,14 @@
     const regionGroups = (programme ? groups : model.communities).map(group => ({ ...group,
       ids: [...new Set(group.ids)].filter(id => visible.has(id)) })).filter(group => group.ids.length);
     const anchored = programme ? regionGroups.filter(group => !group.other) : [];
-    const centres = anchored.map((group, index) => ({ group,
-      x: anchored.length === 1 ? 500 : 210 + index * 580 / (anchored.length - 1), y: 285 }));
+    const centres = anchored.map((group, index) => {
+      if (anchored.length <= 3) return { group,
+        x: anchored.length === 1 ? 500 : 210 + index * 580 / (anchored.length - 1), y: 285 };
+      const columns = Math.ceil(Math.sqrt(anchored.length * 1.7)), rows = Math.ceil(anchored.length / columns);
+      const column = index % columns, row = Math.floor(index / columns);
+      return { group, x: columns === 1 ? 500 : 145 + column * 710 / (columns - 1),
+        y: rows === 1 ? 285 : 125 + row * 330 / (rows - 1) };
+    });
     const targets = new Map();
     for (const id of ids) {
       const memberships = centres.filter(({ group }) => group.ids.includes(id));
@@ -295,7 +302,30 @@
     }
     groups.sort((a, b) => a.key.localeCompare(b.key));
     const otherIds = [...geometry.positions.keys()].filter(id => !assigned.has(id));
-    if (otherIds.length) groups.push(cloudRegion({ key: "programme:other", ids: otherIds, color: COLORS[4], other: true }, geometry.positions));
+    if (otherIds.length) groups.push(cloudRegion({ key: "programme:other", ids: otherIds, color: COLORS[4], other: true, cloud: false }, geometry.positions));
+    return groups;
+  }
+
+  function organismRegions(geometry, organismMap) {
+    if (organismMap?.status !== "available" || !Array.isArray(organismMap.organisms)) return null;
+    const seen = new Set(), assigned = new Set(), rows = [];
+    for (const row of organismMap.organisms) {
+      const name = cleanText(row?.name);
+      if (!row || !positiveId(row.id) || seen.has(row.id) || !name || name.length > 160
+        || !Array.isArray(row.projectIds) || row.projectIds.some(id => !positiveId(id))) return null;
+      seen.add(row.id);
+      const ids = [...new Set(row.projectIds)].filter(id => geometry.positions.has(id)).sort((a, b) => a - b);
+      if (ids.some(id => assigned.has(id))) return null;
+      ids.forEach(id => assigned.add(id));
+      rows.push({ id: row.id, name, ids });
+    }
+    rows.sort((a, b) => a.name.localeCompare(b.name) || a.id - b.id);
+    const groups = rows.filter(row => row.ids.length).map((row, index) => cloudRegion({
+      key: `organism:${row.id}`, ids: row.ids, name: row.name,
+      color: groupColor(index)
+    }, geometry.positions));
+    const otherIds = [...geometry.positions.keys()].filter(id => !assigned.has(id));
+    if (otherIds.length) groups.push(cloudRegion({ key: "organism:other", ids: otherIds, color: COLORS[4], other: true, cloud: false }, geometry.positions));
     return groups;
   }
 
@@ -329,13 +359,16 @@
     const doc = container.ownerDocument, view = doc.defaultView;
     const model = buildModel(projects, tagMap), geometry = layout(model, { recordFrames: true });
     const programmeClouds = programmeRegions(geometry, options.programmeMap);
+    const organismClouds = organismRegions(geometry, options.organismMap);
+    const grouping = new Map([["programmes", programmeClouds], ["organisms", organismClouds]]);
     const layouts = new Map([["themes", geometry]]);
     const geometryFor = mode => {
-      if (!layouts.has(mode)) layouts.set(mode, layout(model, { groups: programmeClouds, recordFrames: true }));
+      if (!layouts.has(mode)) layouts.set(mode, layout(model, { groups: grouping.get(mode), recordFrames: true }));
       return layouts.get(mode);
     };
+    const modeAvailable = mode => mode === "themes" || grouping.has(mode) && grouping.get(mode) !== null;
     const state = { live: true, projectId: null, edgeKey: null, contextProjectId: null, tagId: null,
-      cloudMode: retained.cloudMode === "programmes" && programmeClouds !== null ? "programmes" : "themes" };
+      cloudMode: modeAvailable(retained.cloudMode) ? retained.cloudMode : "themes" };
     lifecycles.set(container, state);
     const node = (tag, className, text) => { const element = doc.createElement(tag); if (className) element.className = className; if (text !== undefined) element.textContent = text; return element; };
     const svgNode = (tag, attributes = {}, text) => { const element = doc.createElementNS("http://www.w3.org/2000/svg", tag); for (const [key, value] of Object.entries(attributes)) element.setAttribute(key, value); if (text !== undefined) element.textContent = text; return element; };
@@ -350,13 +383,13 @@
     const cloudControls = node("fieldset", "project-similarity-cloud-controls"), cloudInputs = new Map();
     cloudControls.append(node("legend", "project-card-sr-only", t("cloudGrouping")));
     const cloudName = `project-similarity-cloud-${++cloudControlId}`;
-    for (const mode of ["themes", "programmes"]) {
+    for (const mode of ["themes", "programmes", "organisms"]) {
       const control = node("label", "project-similarity-cloud-choice"), input = node("input");
       input.type = "radio"; input.name = cloudName; input.value = mode;
-      input.disabled = mode === "programmes" && programmeClouds === null;
+      input.disabled = !modeAvailable(mode);
       input.setAttribute("data-similarity-cloud-mode", mode);
       input.addEventListener("change", () => { if (state.live && input.checked && !input.disabled && state.cloudMode !== mode) switchLayout(mode); });
-      control.append(input, node("span", "", t(mode === "themes" ? "cloudThemes" : "cloudProgrammes")));
+      control.append(input, node("span", "", t({ themes: "cloudThemes", programmes: "cloudProgrammes", organisms: "cloudOrganism" }[mode])));
       cloudControls.append(control); cloudInputs.set(mode, input);
     }
     header.append(cloudControls);
@@ -374,22 +407,27 @@
     const byId = new Map(model.nodes.map(item => [item.id, item])), edgeElements = new Map(), nodeElements = new Map(), tagButtons = new Map(), nodeGraphics = new Map();
     const defs = svgNode("defs"); svg.append(defs);
     const cloudLayer = svgNode("g", { "data-similarity-cloud-layer": "", "aria-hidden": "true", "pointer-events": "none" }); svg.append(cloudLayer);
+    const cloudElements = new Map();
     const updateClouds = mode => {
       state.cloudMode = mode;
       for (const [value, input] of cloudInputs) input.checked = value === mode;
-      caption.textContent = t(mode === "programmes" ? "programmeCloudCaption" : "caption");
-      cloudLayer.replaceChildren(); legend.replaceChildren(node("strong", "project-similarity-legend-heading", t(mode === "programmes" ? "programmeLegend" : "themeLegend")));
+      caption.textContent = t({ themes: "caption", programmes: "programmeCloudCaption", organisms: "organismCloudCaption" }[mode]);
+      cloudLayer.replaceChildren(); cloudElements.clear();
+      legend.replaceChildren(node("strong", "project-similarity-legend-heading", t({ themes: "themeLegend", programmes: "programmeLegend", organisms: "organismLegend" }[mode])));
       defs.replaceChildren();
       const regions = geometryFor(mode).regions;
       for (const region of regions) {
-        cloudLayer.append(svgNode("polygon", { "data-similarity-cloud": region.key,
-          points: region.points.map(point => `${point.x},${point.y}`).join(" "), fill: region.color, "fill-opacity": ".065", stroke: region.color,
-          "stroke-opacity": ".22", "stroke-width": "1.3", "stroke-linejoin": "round", "aria-hidden": "true", "pointer-events": "none" }));
+        if (region.cloud !== false) {
+          const cloud = svgNode("polygon", { "data-similarity-cloud": region.key,
+            points: region.points.map(point => `${point.x},${point.y}`).join(" "), fill: region.color, "fill-opacity": ".065", stroke: region.color,
+            "stroke-opacity": ".22", "stroke-width": "1.3", "stroke-linejoin": "round", "aria-hidden": "true", "pointer-events": "none" });
+          cloudLayer.append(cloud); cloudElements.set(region.key, cloud);
+        }
         const item = node("span", "project-similarity-family"), dot = node("span", "project-similarity-family-dot");
         dot.style.backgroundColor = region.color; dot.setAttribute("aria-hidden", "true");
-        let name = mode === "programmes" ? region.other ? t("otherProjects") : region.name
-          : region.tags.map(tag => label(model.definitions[tag], tag)).join(" · ");
-        if (mode === "programmes") {
+        let name = mode === "themes" ? region.tags.map(tag => label(model.definitions[tag], tag)).join(" · ")
+          : region.other ? t(mode === "organisms" ? "withoutOrganism" : "otherProjects") : region.name;
+        if (mode !== "themes") {
           name += ` · ${I18n.t(region.ids.length === 1 ? "timeline.countOne" : "timeline.countMany", { count: I18n.formatNumber(region.ids.length) })}`;
           item.setAttribute("title", t("cloudMembers", { projects: region.ids.map(id => byId.get(id).shortName).join(", ") }));
         }
@@ -452,9 +490,11 @@
           line.setAttribute("x1", a.x); line.setAttribute("y1", a.y); line.setAttribute("x2", b.x); line.setAttribute("y2", b.y);
         }
       }
-      target.regions.forEach((region, index) => {
+      target.regions.forEach(region => {
+        const cloud = cloudElements.get(region.key);
+        if (!cloud) return;
         const points = progress >= 1 ? region.points : cloudRegion(region, positions).points;
-        cloudLayer.children[index].setAttribute("points", points.map(point => `${point.x},${point.y}`).join(" "));
+        cloud.setAttribute("points", points.map(point => `${point.x},${point.y}`).join(" "));
       });
       cloudLayer.setAttribute("opacity", progress >= 1 ? "1" : String(.12 + .88 * progress));
     };
@@ -661,7 +701,7 @@
       .find(element => element.getAttribute("data-similarity-relation") === retained.focusRelationKey);
     const tagProjectFocus = retained.focusTagProjectId && Array.from(relationControls.querySelectorAll("[data-similarity-tag-project]"))
       .find(element => Number(element.getAttribute("data-similarity-tag-project")) === retained.focusTagProjectId);
-    const cloudFocus = cloudInputs.get(retained.focusCloudMode);
+    const cloudFocus = retained.focusCloudMode && (cloudInputs.get(retained.focusCloudMode) || cloudInputs.get("themes"));
     const focused = (retained.focusReplay && replay) || (cloudFocus && (cloudFocus.disabled ? cloudInputs.get("themes") : cloudFocus)) || tagButtons.get(retained.focusTagId) || tagProjectFocus || relationFocus
       || (retained.focusProjectId ? nodeElements.get(retained.focusProjectId)?.[0] : edgeElements.get(retained.focusEdgeKey));
     if (retained.focusTagId && tagButtons.has(retained.focusTagId)) all.open = true;

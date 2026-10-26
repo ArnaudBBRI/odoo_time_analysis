@@ -570,7 +570,7 @@
     container.replaceChildren(content);
     if (similarityHost) {
       ProjectSimilarity.render(similarityHost, timeline.projects, result.tagMap, {
-        onSelect: options.onSelect, state: similarityState, programmeMap: result.programmeMap
+        onSelect: options.onSelect, state: similarityState, programmeMap: result.programmeMap, organismMap: result.organismMap
       });
       similarityHosts.set(container, similarityHost);
     }

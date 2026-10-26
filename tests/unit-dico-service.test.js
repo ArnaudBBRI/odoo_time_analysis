@@ -18,7 +18,7 @@ function fixture(options = {}) {
     fields: async model => {
       calls.push({ method: "fields_get", model });
       if (options.fieldsError) throw new Error("private-source-secret");
-      return definitions;
+      return options.modelDefinitions?.[model] || definitions;
     },
     read: async (model, domain, fields, readOptions) => {
       calls.push({ method: "search_read", model, domain, fields, options: readOptions });
@@ -39,12 +39,195 @@ test("fixed department catalogue retains archived and zero-hour projects without
     { id: 12, name: "Project B", startDate: "2026-01-01", endDate: "2026-12-31", manager: null,
       totalBudget: { amount: null, currencyId: null, currency: null } }
   ]);
+  assert.deepEqual(result.partnerMap, { status: "unavailable", partners: [] });
+  assert.deepEqual(result.organismMap, { status: "unavailable", organisms: [] });
   assert.deepEqual(result.warnings, []);
   assert.deepEqual(rpc.calls.map(call => [call.method, call.model]), [["fields_get", "project.project"], ["search_read", "project.project"]]);
   assert.deepEqual(rpc.calls[1].domain, [["lead_unit_id", "=", 206]]);
   assert.deepEqual(rpc.calls[1].options.context, { active_test: false });
   assert.ok(rpc.calls[1].fields.includes("lead_unit_id"));
   assert.doesNotMatch(JSON.stringify(result), /effective_hours|active|private-source/);
+});
+
+function partnerFixture(options = {}) {
+  const source = fixture().rows.map((row, index) => ({ ...row, bw_partner_ids: index ? [502] : [501, 502] }));
+  const partnerRows = options.partnerRows || [
+    { id: 501, name: "  Partner Alpha  " }, { id: 502, name: "Partner Beta" }
+  ];
+  const rpc = fixture({ rows: source, modelDefinitions: { "res.partner": {
+    id: { type: "integer" }, name: { type: "char" }
+  } }, read: async (model, domain, fields) => {
+    if (options.deniedField && fields.includes(options.deniedField)) throw new Error("private-partner-source-secret");
+    if (options.read) return options.read(model, domain, fields, source, partnerRows);
+    const rows = model === "res.partner" ? partnerRows : source;
+    return rows.map(row => Object.fromEntries(fields.map(field => [field, row[field]])));
+  } });
+  rpc.definitions.bw_partner_ids = { type: "many2many", relation: "res.partner" };
+  return rpc;
+}
+
+async function retainedPartnerLoad(rpc) {
+  const result = await service.load(rpc, now);
+  result.partnerMap = await service.loadPartnerMap(rpc,
+    new Map(result.projects.map(project => [project.id, project])), rpc.definitions, result.responsibleField);
+  return result;
+}
+
+test("partners are projected from exact metadata-confirmed many-to-many links and bounded partner-name reads", async () => {
+  const rpc = partnerFixture(), result = await retainedPartnerLoad(rpc);
+  assert.deepEqual(result.partnerMap, { status: "available", partners: [
+    { id: 501, name: "Partner Alpha", projectIds: [11] },
+    { id: 502, name: "Partner Beta", projectIds: [11, 12] }
+  ] });
+  assert.deepEqual(rpc.calls[2], { method: "search_read", model: "project.project",
+    domain: [["id", "in", [11, 12]], ["lead_unit_id", "=", 206]],
+    fields: ["id", "lead_unit_id", "bw_partner_ids"], options: { context: { active_test: false } } });
+  assert.deepEqual(rpc.calls[3], { method: "fields_get", model: "res.partner" });
+  assert.deepEqual(rpc.calls[4], { method: "search_read", model: "res.partner",
+    domain: [["id", "in", [501, 502]]], fields: ["id", "name"], options: { context: { active_test: false } } });
+  assert.ok(result.projects.every(project => !Object.hasOwn(project, "bw_partner_ids")), "Raw source relations stay outside project DTOs");
+});
+
+test("partner projection ignores foreign or unsolicited records and keeps exact overlapping memberships", async () => {
+  const rpc = partnerFixture({ read: async (model, _, fields, source, partners) => {
+    if (model === "res.partner") return [...partners, { id: 999, name: "PRIVATE_UNSOLICITED_PARTNER" }];
+    if (!fields.includes("bw_partner_ids")) return source.map(row => Object.fromEntries(fields.map(field => [field, row[field]])));
+    return [
+      { id: 11, lead_unit_id: [206, "DiCo"], bw_partner_ids: [501, 502] },
+      { id: 12, lead_unit_id: [206, "DiCo"], bw_partner_ids: [502] },
+      { id: 13, lead_unit_id: [207, "Other"], bw_partner_ids: [999] },
+      { id: 999, lead_unit_id: [206, "DiCo"], bw_partner_ids: [999] }
+    ];
+  } });
+  const result = await retainedPartnerLoad(rpc);
+  assert.deepEqual(result.partnerMap.partners.map(partner => [partner.id, partner.projectIds]), [[501, [11]], [502, [11, 12]]]);
+  assert.doesNotMatch(JSON.stringify(result), /PRIVATE_|999/);
+});
+
+test("missing, denied, incomplete or contradictory partner evidence fails closed without losing projects", async () => {
+  const scenarios = [
+    partnerFixture({ deniedField: "bw_partner_ids" }),
+    partnerFixture({ partnerRows: [{ id: 501, name: "Partner Alpha" }] }),
+    partnerFixture({ partnerRows: [{ id: 501, name: "Partner Alpha" }, { id: 501, name: "Contradiction" }, { id: 502, name: "Partner Beta" }] })
+  ];
+  for (const rpc of scenarios) {
+    const result = await retainedPartnerLoad(rpc);
+    assert.deepEqual(result.projects.map(project => project.id), [11, 12]);
+    assert.deepEqual(result.partnerMap, { status: "unavailable", partners: [] });
+    assert.doesNotMatch(JSON.stringify(result), /private-partner-source-secret/);
+  }
+});
+
+test("the hidden partner option adds no partner source reads during a normal catalogue load", async () => {
+  const rpc = partnerFixture(), result = await service.load(rpc, now);
+  assert.deepEqual(result.partnerMap, { status: "unavailable", partners: [] });
+  assert.ok(!rpc.calls.some(call => call.fields?.includes("bw_partner_ids") || call.model === "res.partner"));
+});
+
+function organismFixture(options = {}) {
+  const source = fixture().rows.map((row, index) => ({ ...row,
+    organism_id: [index ? 602 : 601, `Decorated source body ${index + 1} BE0123`],
+    funding_type_id: [901, "Not a financing body"], bw_partner_ids: [999] }));
+  const organisms = options.organisms || [{ id: 601, name: "  Funding Alpha  " }, { id: 602, name: "Funding Beta" }];
+  const rpc = fixture({ rows: source, modelDefinitions: { "res.partner": {
+    id: { type: "integer" }, name: { type: "char" }
+  } }, read: async (model, domain, fields) => {
+    if (options.deniedField && fields.includes(options.deniedField)) throw new Error("private-organism-source-secret");
+    if (options.deniedModel === model) throw new Error("private-organism-source-secret");
+    if (options.read) return options.read(model, domain, fields, source, organisms);
+    const rows = model === "res.partner" ? organisms : source;
+    return rows.map(row => Object.fromEntries(fields.map(field => [field, row[field]])));
+  } });
+  rpc.definitions.organism_id = { type: "many2one", relation: "res.partner" };
+  rpc.definitions.funding_type_id = { type: "many2one", relation: "bw.project.funding.type" };
+  rpc.definitions.bw_partner_ids = { type: "many2many", relation: "res.partner" };
+  return { rpc, source, organisms };
+}
+
+test("financing bodies use exact project organism links and only linked partner names", async () => {
+  const { rpc } = organismFixture(), result = await service.load(rpc, now);
+  assert.deepEqual(result.organismMap, { status: "available", organisms: [
+    { id: 601, name: "Funding Alpha", projectIds: [11] },
+    { id: 602, name: "Funding Beta", projectIds: [12] }
+  ] });
+  assert.deepEqual(rpc.calls[2], { method: "search_read", model: "project.project",
+    domain: [["id", "in", [11, 12]], ["lead_unit_id", "=", 206]],
+    fields: ["id", "lead_unit_id", "organism_id"], options: { context: { active_test: false } } });
+  assert.deepEqual(rpc.calls[4], { method: "search_read", model: "res.partner",
+    domain: [["id", "in", [601, 602]]], fields: ["id", "name"], options: { context: { active_test: false } } });
+  assert.ok(!rpc.calls.some(call => call.fields?.some(field => ["funding_type_id", "bw_partner_ids"].includes(field))));
+  assert.doesNotMatch(JSON.stringify(result), /Decorated|BE0123|Not a financing body|organism_id|bw_partner_ids/);
+});
+
+test("each catalogue refresh reflects financing-body changes, new projects and renamed source bodies dynamically", async () => {
+  const { rpc, source, organisms } = organismFixture();
+  const first = await service.load(rpc, now);
+  source[0].organism_id = [602, "Funding Beta"];
+  source.push({ ...source[1], id: 16, name: "Project C", organism_id: [603, "New body"] });
+  organisms[1].name = "Funding Beta renamed";
+  organisms.push({ id: 603, name: "New body" });
+  const refreshed = await service.load(rpc, new Date("2026-10-26T12:00:00Z"));
+  assert.deepEqual(refreshed.organismMap, { status: "available", organisms: [
+    { id: 602, name: "Funding Beta renamed", projectIds: [11, 12] },
+    { id: 603, name: "New body", projectIds: [16] }
+  ] });
+  assert.deepEqual(first.organismMap.organisms.map(body => [body.id, body.name, body.projectIds]),
+    [[601, "Funding Alpha", [11]], [602, "Funding Beta", [12]]]);
+});
+
+test("financing projection discards foreign units and unsolicited projects and body names", async () => {
+  const { rpc } = organismFixture({ read: async (model, _, fields, source, organisms) => {
+    if (model === "res.partner") return [...organisms, { id: 999, name: "PRIVATE_FOREIGN_BODY" }];
+    const rows = source.map(row => Object.fromEntries(fields.map(field => [field, row[field]])));
+    return fields.includes("organism_id") ? [...rows,
+      { id: 13, lead_unit_id: [207, "Other"], organism_id: [999, "PRIVATE_FOREIGN_BODY"] },
+      { id: 999, lead_unit_id: [206, "DiCo"], organism_id: [999, "PRIVATE_UNSOLICITED_BODY"] }] : rows;
+  } });
+  const result = await service.load(rpc, now);
+  assert.equal(result.organismMap.status, "available");
+  assert.deepEqual(result.organismMap.organisms.map(body => body.projectIds), [[11], [12]]);
+  assert.doesNotMatch(JSON.stringify(result), /PRIVATE_|999/);
+});
+
+test("unsupported financing metadata never substitutes funding type, partners or similarly labelled fields", async () => {
+  for (const change of [defs => { delete defs.organism_id; }, defs => { defs.organism_id.type = "many2many"; },
+    defs => { defs.organism_id.relation = "res.company"; }]) {
+    const { rpc } = organismFixture(); change(rpc.definitions);
+    rpc.definitions.lookalike_body = { string: "Funding Organism", type: "many2one", relation: "res.partner" };
+    const result = await service.load(rpc, now);
+    assert.deepEqual(result.organismMap, { status: "unavailable", organisms: [] });
+    assert.equal(rpc.calls.length, 2);
+  }
+});
+
+test("denied, incomplete, malformed or conflicting financing evidence disables only its map", async () => {
+  const cases = [
+    organismFixture({ deniedField: "organism_id" }), organismFixture({ deniedModel: "res.partner" }),
+    organismFixture({ organisms: [{ id: 601, name: "Funding Alpha" }] }),
+    organismFixture({ organisms: [{ id: 601, name: "Funding Alpha" }, { id: 601, name: "Contradiction" }, { id: 602, name: "Funding Beta" }] }),
+    organismFixture({ read: async (model, _, fields, source) => model === "project.project"
+      ? source.slice(0, fields.includes("organism_id") ? 1 : 2).map(row => Object.fromEntries(fields.map(field => [field, row[field]]))) : [] })
+  ];
+  for (const invalid of [[0, "Invalid"], ["601", "String ID"], 601, [], undefined]) {
+    const entry = organismFixture(); entry.source[0].organism_id = invalid; cases.push(entry);
+  }
+  for (const { rpc } of cases) {
+    const result = await service.load(rpc, now);
+    assert.deepEqual(result.projects.map(project => project.id), [11, 12]);
+    assert.deepEqual(result.organismMap, { status: "unavailable", organisms: [] });
+    assert.doesNotMatch(JSON.stringify(result), /private-organism-source-secret/);
+  }
+});
+
+test("readable absent financing bodies and empty catalogues remain known empty without body lookups", async () => {
+  for (const emptyCatalogue of [false, true]) {
+    const { rpc, source } = organismFixture();
+    if (emptyCatalogue) source.length = 0;
+    else { source[0].organism_id = false; source[1].organism_id = null; }
+    const result = await service.load(rpc, now);
+    assert.deepEqual(result.organismMap, { status: "available", organisms: [] });
+    assert.ok(!rpc.calls.some(call => call.model === "res.partner"));
+  }
 });
 
 test("verified technical responsible-unit field ignores translated labels while requiring its strict department relation", async () => {

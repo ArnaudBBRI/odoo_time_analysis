@@ -78,6 +78,18 @@ test("programme forces maintain cohesive separate centres while unassigned proje
   assert.deepEqual(programme.regions.map(group => group.key), groups.map(group => group.key));
 });
 
+test("more than three partner groups use a deterministic bounded multi-row force layout", () => {
+  const { model } = portfolio(), active = model.nodes.filter(node => !model.isolates.includes(node.id));
+  const groups = Array.from({ length: 25 }, (_, index) => ({ key: `partner:${index + 1}`,
+    ids: active.filter((_, nodeIndex) => nodeIndex % 25 === index).map(node => node.id), color: `color-${index}` }));
+  const first = layout(model, { groups }), second = layout(model, { groups });
+  assert.deepEqual(first, second); assertBounds(first.positions);
+  assert.deepEqual(first.regions.map(group => group.key), groups.map(group => group.key));
+  const centres = groups.map(group => radius(group.ids, first.positions));
+  assert.ok(new Set(centres.map(centre => Math.round(centre.y))).size > 1, "Partner centres span more than one row");
+  assert.ok(centres.every(centre => centre.radius < 145));
+});
+
 test("both settled layouts preserve visible bubble separation and collision-free bounded project labels", () => {
   const { model, groups } = portfolio();
   for (const selected of [null, groups]) {

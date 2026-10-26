@@ -15,6 +15,9 @@ const programmeMap = () => ({ status: "available", programmes: [
   { id: "DC2", code: "DC2", subtitle: "Insight", projectIds: [2] },
   { id: "DC3", code: "DC3", subtitle: "Manufacturing", projectIds: [3] }
 ] });
+const organismMap = () => ({ status: "available", organisms: [
+  { id: 501, name: "Innoviris", projectIds: [1, 2] }
+] });
 const first = (host, selector) => host.querySelectorAll(selector)[0];
 
 function animationFixture({ reduced = false, legacyMedia = false } = {}) {
@@ -120,6 +123,19 @@ test("reduced motion uses final layouts immediately for introduction, replay and
   assert.deepEqual(lineFacts(host), facts); assert.deepEqual(result.model, originalModel);
   choose(host, "themes");
   assert.deepEqual(appearance(host), original, "The thematic target and its bubble colours return exactly");
+  cleanup(host);
+});
+
+test("organism switching uses the saved physical target immediately under reduced motion", () => {
+  const clock = animationFixture({ reduced: true }), { host } = clock;
+  const result = render(host, projects, source(), { organismMap: organismMap() });
+  const thematic = structuredClone(result.geometry.positions);
+  choose(host, "organisms");
+  assert.equal(clock.pending.size, 0); assert.deepEqual(points(host), result.geometry.positions);
+  assert.notDeepEqual(result.geometry.positions, thematic);
+  const organismCloud = first(host, '[data-similarity-cloud="organism:501"]');
+  for (const id of [1, 2]) assert.equal(first(first(host, `[data-similarity-project="${id}"]`), "circle").getAttribute("fill"), organismCloud.getAttribute("fill"));
+  assert.equal(host.querySelectorAll('[data-similarity-cloud="organism:other"]').length, 0);
   cleanup(host);
 });
 

@@ -5,6 +5,7 @@
 const UNIT = Object.freeze({ id: 206, name: "RESEARCH & DEVELOPMENT / DIGITAL CONSTRUCTION UNIT" });
 const positiveId = value => Number.isSafeInteger(value) && value > 0 ? value : null;
 const relationId = value => positiveId(Array.isArray(value) ? value[0] : value);
+const cleanLabel = value => typeof value === "string" ? value.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim() : "";
 const normalized = value => typeof value === "string" ? value.normalize("NFKD")
   .replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/\s+/g, " ") : "";
 
@@ -89,6 +90,97 @@ async function enrichProjectBudgets(rpc, projects, definitions, unitField = null
   }
 }
 
+async function loadPartnerMap(rpc, projects, definitions, unitField) {
+  const unavailable = { status: "unavailable", partners: [] };
+  if (definitions?.bw_partner_ids?.type !== "many2many" || definitions.bw_partner_ids.relation !== "res.partner") return unavailable;
+  const projectIds = [...projects.keys()].filter(id => positiveId(id)).sort((a, b) => a - b);
+  if (!projectIds.length) return { status: "available", partners: [] };
+  const domain = [["id", "in", projectIds], [unitField, "=", UNIT.id]];
+  let rows;
+  try {
+    rows = await rpc.read("project.project", domain, ["id", unitField, "bw_partner_ids"], { context: { active_test: false } });
+  } catch (_) { return unavailable; }
+  if (!Array.isArray(rows)) return unavailable;
+  const requested = new Set(projectIds), byProject = new Map();
+  for (const row of rows) {
+    if (!row || !requested.has(row.id) || relationId(row[unitField]) !== UNIT.id) continue;
+    if (byProject.has(row.id) || !Object.hasOwn(row, "bw_partner_ids")) return unavailable;
+    const value = row.bw_partner_ids;
+    if (value === false || value === null) { byProject.set(row.id, []); continue; }
+    if (!Array.isArray(value) || value.some(id => !positiveId(id))) return unavailable;
+    byProject.set(row.id, [...new Set(value)].sort((a, b) => a - b));
+  }
+  if (byProject.size !== requested.size) return unavailable;
+  const partnerIds = [...new Set([...byProject.values()].flat())].sort((a, b) => a - b);
+  if (!partnerIds.length) return { status: "available", partners: [] };
+  let partnerDefinitions, partnerRows;
+  try {
+    partnerDefinitions = await rpc.fields("res.partner");
+    if (partnerDefinitions?.id?.type !== "integer" || !["char", "text"].includes(partnerDefinitions?.name?.type)) return unavailable;
+    partnerRows = await rpc.read("res.partner", [["id", "in", partnerIds]], ["id", "name"], { context: { active_test: false } });
+  } catch (_) { return unavailable; }
+  if (!Array.isArray(partnerRows)) return unavailable;
+  const names = new Map(), expectedPartners = new Set(partnerIds);
+  for (const row of partnerRows) {
+    if (!row || !expectedPartners.has(row.id)) continue;
+    if (names.has(row.id)) return unavailable;
+    const name = cleanLabel(row.name);
+    if (!name || name.length > 160) return unavailable;
+    names.set(row.id, name);
+  }
+  if (names.size !== expectedPartners.size) return unavailable;
+  const partners = new Map(partnerIds.map(id => [id, { id, name: names.get(id), projectIds: [] }]));
+  for (const projectId of projectIds) {
+    for (const partnerId of byProject.get(projectId)) partners.get(partnerId).projectIds.push(projectId);
+  }
+  return { status: "available", partners: [...partners.values()].sort((a, b) => a.name.localeCompare(b.name) || a.id - b.id) };
+}
+
+async function loadOrganismMap(rpc, projects, definitions, unitField) {
+  const unavailable = { status: "unavailable", organisms: [] };
+  if (definitions?.organism_id?.type !== "many2one" || definitions.organism_id.relation !== "res.partner") return unavailable;
+  const projectIds = [...projects.keys()].filter(id => positiveId(id)).sort((a, b) => a - b);
+  if (!projectIds.length) return { status: "available", organisms: [] };
+  let rows;
+  try {
+    rows = await rpc.read("project.project", [["id", "in", projectIds], [unitField, "=", UNIT.id]],
+      ["id", unitField, "organism_id"], { context: { active_test: false } });
+  } catch (_) { return unavailable; }
+  if (!Array.isArray(rows)) return unavailable;
+  const requested = new Set(projectIds), byProject = new Map();
+  for (const row of rows) {
+    if (!row || !requested.has(row.id) || relationId(row[unitField]) !== UNIT.id) continue;
+    if (byProject.has(row.id) || !Object.hasOwn(row, "organism_id")) return unavailable;
+    const value = row.organism_id;
+    if (value === false || value === null) { byProject.set(row.id, null); continue; }
+    if (!Array.isArray(value) || value.length !== 2 || !positiveId(value[0]) || typeof value[1] !== "string") return unavailable;
+    byProject.set(row.id, value[0]);
+  }
+  if (byProject.size !== requested.size) return unavailable;
+  const organismIds = [...new Set([...byProject.values()].filter(id => id !== null))].sort((a, b) => a - b);
+  if (!organismIds.length) return { status: "available", organisms: [] };
+  let organismRows;
+  try {
+    const organismDefinitions = await rpc.fields("res.partner");
+    if (organismDefinitions?.id?.type !== "integer" || !["char", "text"].includes(organismDefinitions?.name?.type)) return unavailable;
+    organismRows = await rpc.read("res.partner", [["id", "in", organismIds]], ["id", "name"], { context: { active_test: false } });
+  } catch (_) { return unavailable; }
+  if (!Array.isArray(organismRows)) return unavailable;
+  const expected = new Set(organismIds), organisms = new Map();
+  for (const row of organismRows) {
+    if (!row || !expected.has(row.id)) continue;
+    const name = cleanLabel(row.name);
+    if (organisms.has(row.id) || !name || name.length > 160) return unavailable;
+    organisms.set(row.id, { id: row.id, name, projectIds: [] });
+  }
+  if (organisms.size !== expected.size) return unavailable;
+  for (const [projectId, organismId] of byProject) {
+    if (organismId !== null) organisms.get(organismId).projectIds.push(projectId);
+  }
+  for (const organism of organisms.values()) organism.projectIds.sort((a, b) => a - b);
+  return { status: "available", organisms: [...organisms.values()].sort((a, b) => a.name.localeCompare(b.name) || a.id - b.id) };
+}
+
 async function load(rpc, now = new Date()) {
   let definitions;
   try { definitions = await rpc.fields("project.project"); }
@@ -153,10 +245,14 @@ async function load(rpc, now = new Date()) {
       : typeof row.name === "string" && row.name.trim() ? row.name.trim() : `Projet ${row.id}`;
     return { id: row.id, name, startDate, endDate, manager: null };
   }).sort((a, b) => a.name.localeCompare(b.name) || a.id - b.id);
-  await enrichProjectBudgets(rpc, new Map(projects.map(project => [project.id, project])), definitions, field);
+  const projectMap = new Map(projects.map(project => [project.id, project]));
+  await enrichProjectBudgets(rpc, projectMap, definitions, field);
+  // The partner option is temporarily hidden, so its optional reads are suspended.
+  const partnerMap = { status: "unavailable", partners: [] };
+  const organismMap = await loadOrganismMap(rpc, projectMap, definitions, field);
   if (incompleteDates) warnings.push(`${incompleteDates} projet(s) ont des dates absentes, invalides ou indisponibles ; leur durée ne peut pas être tracée complètement.`);
   if (reversedDates) warnings.push(`${reversedDates} projet(s) ont une fin antérieure au début ; leur durée ne peut pas être tracée.`);
-  return { ok: true, unit: { ...UNIT }, responsibleField: field, projects, warnings, asOf: now.toISOString() };
+  return { ok: true, unit: { ...UNIT }, responsibleField: field, projects, partnerMap, organismMap, warnings, asOf: now.toISOString() };
 }
 
-module.exports = { UNIT, load, responsibleField, isExcludedProjectName, projectDate, enrichProjectBudgets };
+module.exports = { UNIT, load, responsibleField, isExcludedProjectName, projectDate, enrichProjectBudgets, loadPartnerMap, loadOrganismMap };

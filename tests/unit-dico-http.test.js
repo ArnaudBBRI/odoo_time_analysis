@@ -132,6 +132,81 @@ test("Unit DiCo HTTP retains its catalogue if the optional pure programme projec
   assertReadOnly(runtime.calls);
 });
 
+test("Unit DiCo HTTP projects financing bodies only onto exact session-visible IDs", async t => {
+  const source = unitFixture();
+  source.definitions["project.project"].organism_id = { type: "many2one", relation: "res.partner" };
+  source.definitions["project.project"].bw_partner_ids = { type: "many2many", relation: "res.partner" };
+  source.definitions["res.partner"] = { id: { type: "integer" }, name: { type: "char" } };
+  source.records["project.project"][0].bw_partner_ids = [501, 502];
+  source.records["project.project"][1].bw_partner_ids = [502];
+  source.records["project.project"][0].organism_id = [601, "Funding Alpha BE0123"];
+  source.records["project.project"][1].organism_id = [602, "Funding Beta BE0456"];
+  source.records["project.project"][2].organism_id = [999, "PRIVATE_FOREIGN_BODY"];
+  source.records["res.partner"] = [{ id: 601, name: "Funding Alpha" }, { id: 602, name: "Funding Beta" },
+    { id: 999, name: "PRIVATE_FOREIGN_BODY" }];
+  const runtime = await startRuntime({ ...source, disabled: true }); t.after(() => runtime.close());
+  const first = cookie(await runtime.login()), second = cookie(await runtime.login("second@example.com"));
+  const response = await post(runtime, first, { organismMap: { status: "available", organisms: [
+    { id: 999, name: "PRIVATE_ATTACKER_BODY", projectIds: [13] }
+  ] }, organismField: "funding_type_id", projectIds: [13] });
+  assert.equal(response.status, 200); const full = await response.json();
+  assert.deepEqual(full.organismMap, { status: "available", organisms: [
+    { id: 601, name: "Funding Alpha", projectIds: [11] },
+    { id: 602, name: "Funding Beta", projectIds: [12] }
+  ] });
+  const limited = await (await post(runtime, second, { organismMap: full.organismMap })).json();
+  assert.deepEqual(limited.projects.map(project => project.id), [12]);
+  assert.deepEqual(limited.organismMap, { status: "unavailable", organisms: [] },
+    "Denied body-name visibility fails closed without losing the unit catalogue");
+  assert.doesNotMatch(JSON.stringify(full.organismMap) + JSON.stringify(limited.organismMap), /PRIVATE_|999|Foreign|BE0123|BE0456/);
+  assert.deepEqual(full.partnerMap, { status: "unavailable", partners: [] });
+  assert.ok(!runtime.calls.some(xml => xml.includes("<string>bw_partner_ids</string>") || xml.includes("<string>funding_type_id</string>")));
+  const bodyReads = projectReads(runtime.calls).filter(xml => xml.includes("<string>organism_id</string>"));
+  assert.equal(bodyReads.length, 2);
+  assert.ok(bodyReads.every(xml => /<string>id<\/string><\/value><value><string>in<\/string>/.test(xml)
+    && /<string>lead_unit_id<\/string><\/value><value><string>=<\/string><\/value><value><int>206<\/int>/.test(xml)));
+  const nameReads = runtime.calls.filter(xml => xml.includes("<string>res.partner</string>") && xml.includes("<string>search_read</string>"));
+  assert.equal(nameReads.length, 2); assert.ok(nameReads.every(xml => !xml.includes("<string>ilike</string>")));
+  assert.match(nameReads[0], /<string>id<\/string><\/value><value><string>in<\/string>.*<int>601<\/int>.*<int>602<\/int>/s);
+  assert.match(nameReads[1], /<string>id<\/string><\/value><value><string>in<\/string>.*<int>602<\/int>/s);
+  assertReadOnly(runtime.calls);
+});
+
+test("Unit DiCo HTTP keeps the catalogue when optional financing metadata is denied", async t => {
+  const source = unitFixture();
+  source.definitions["project.project"].organism_id = { type: "many2one", relation: "res.partner" };
+  source.records["project.project"][0].organism_id = [601, "Funding Alpha"];
+  const runtime = await startRuntime({ ...source, disabled: true,
+    failReadFields: { "project.project": ["organism_id"] } }); t.after(() => runtime.close());
+  const auth = cookie(await runtime.login()), response = await post(runtime, auth);
+  assert.equal(response.status, 200); const result = await response.json();
+  assert.deepEqual(result.projects.map(project => project.id), [11, 12]);
+  assert.deepEqual(result.organismMap, { status: "unavailable", organisms: [] });
+  assertReadOnly(runtime.calls);
+});
+
+test("Unit DiCo HTTP refreshes financing-body labels and memberships on each catalogue request", async t => {
+  const source = unitFixture();
+  source.definitions["project.project"].organism_id = { type: "many2one", relation: "res.partner" };
+  source.definitions["res.partner"] = { id: { type: "integer" }, name: { type: "char" } };
+  source.records["project.project"][0].organism_id = [601, "Funding Alpha"];
+  source.records["project.project"][1].organism_id = false;
+  source.records["res.partner"] = [{ id: 601, name: "Funding Alpha" }];
+  const runtime = await startRuntime({ ...source, disabled: true }); t.after(() => runtime.close());
+  const auth = cookie(await runtime.login());
+  const first = await (await post(runtime, auth)).json();
+  assert.deepEqual(first.organismMap, { status: "available", organisms: [
+    { id: 601, name: "Funding Alpha", projectIds: [11] }
+  ] });
+  source.records["project.project"][1].organism_id = [601, "Funding Alpha"];
+  source.records["res.partner"][0].name = "Funding Alpha renamed";
+  const refreshed = await (await post(runtime, auth)).json();
+  assert.deepEqual(refreshed.organismMap, { status: "available", organisms: [
+    { id: 601, name: "Funding Alpha renamed", projectIds: [11, 12] }
+  ] });
+  assertReadOnly(runtime.calls);
+});
+
 test("Unit DiCo HTTP uses fixed confirmed department and session visibility independently of disabled steering or overrides", async t => {
   const runtime = await startRuntime({ ...unitFixture(), disabled: true }); t.after(() => runtime.close());
   const first = cookie(await runtime.login()), second = cookie(await runtime.login("second@example.com"));

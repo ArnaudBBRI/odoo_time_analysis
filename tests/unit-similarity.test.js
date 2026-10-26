@@ -32,6 +32,26 @@ test("the unit forwards scoped programme membership and retains cloud mode witho
   } finally { I18n.setLanguage(previous); }
 });
 
+test("the unit forwards funding bodies and retains organism mode and focus across language rerenders", () => {
+  const host = domFixture(), data = fixture(), previous = I18n.language();
+  data.organismMap = { status: "available", organisms: [
+    { id: 501, name: "Innoviris", projectIds: [1, 999] }
+  ] };
+  try {
+    I18n.setLanguage("fr"); Unit.render(host, data, { showSimilarityMap: true });
+    const input = first(host, '[data-similarity-cloud-mode="organisms"]');
+    input.checked = true; input.dispatch("change"); input.focus();
+    assert.equal(host.querySelectorAll('[data-similarity-cloud="organism:501"]').length, 1);
+    assert.equal(host.querySelectorAll('[data-similarity-cloud="organism:other"]').length, 0);
+    assert.equal(host.querySelectorAll('[data-similarity-cloud-mode="partners"]').length, 0);
+    assert.match(first(host, ".project-similarity-legend").textContent, /Innoviris.*Organisme non renseigné/);
+    I18n.setLanguage("nl"); Unit.render(host, data, { showSimilarityMap: true });
+    assert.equal(first(host, '[data-similarity-cloud-mode="organisms"]').checked, true);
+    assert.equal(host.ownerDocument.activeElement.getAttribute("data-similarity-cloud-mode"), "organisms");
+    assert.match(first(host, ".project-similarity-legend").textContent, /Innoviris.*Financieringsinstantie niet ingevuld/);
+  } finally { I18n.setLanguage(previous); }
+});
+
 test("the unit map sits between the project cards and unchanged 02 calendar, excluding untagged and foreign projects", () => {
   const host = domFixture(), data = fixture(), before = structuredClone(data);
   Unit.render(host, data, { showSimilarityMap: true });

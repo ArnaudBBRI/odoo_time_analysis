@@ -13,6 +13,10 @@ const programmeMap = () => ({ status: "available", programmes: [
   { id: "DC2", code: "DC2", subtitle: "Insight", projectIds: [2] },
   { id: "DC3", code: "DC3", subtitle: "Manufacturing", projectIds: [] }
 ] });
+const organismMap = () => ({ status: "available", organisms: [
+  { id: 10, name: "Innoviris", projectIds: [1, 99] },
+  { id: 20, name: "VLAIO", projectIds: [2] }
+] });
 function chooseClouds(host, mode) {
   const input = first(host, `[data-similarity-cloud-mode="${mode}"]`);
   input.checked = true; input.dispatch("change"); return input;
@@ -64,12 +68,14 @@ test("switching layouts moves and recolours bubbles while retaining tag links, a
   const originalClouds = clouds();
   const selected = chooseClouds(host, "programmes");
   assert.equal(selected.checked, true); assert.equal(first(host, '[data-similarity-cloud-mode="themes"]').checked, false);
-  assert.deepEqual(host.querySelectorAll("[data-similarity-cloud]").map(element => element.getAttribute("data-similarity-cloud")), ["programme:DC1", "programme:DC2", "programme:other"]);
+  assert.deepEqual(host.querySelectorAll("[data-similarity-cloud]").map(element => element.getAttribute("data-similarity-cloud")), ["programme:DC1", "programme:DC2"]);
   assert.match(first(host, ".project-similarity-legend").textContent, /DC1 · Backbone.*DC2 · Insight.*Autres projets/);
   const programmeLabels = host.querySelectorAll(".project-similarity-family");
   assert.match(programmeLabels[0].textContent, /2 projets/);
   assert.equal(programmeLabels[0].getAttribute("title"), "Projets : Demo 1, Demo 2");
   assert.equal(programmeLabels[2].getAttribute("title"), "Projets : Demo 3");
+  assert.equal(circles[2].getAttribute("fill"), programmeLabels[2].children[0].style.backgroundColor,
+    "Unassigned projects retain their programme-mode bubble colour without a cloud");
   assert.notDeepEqual(clouds(), originalClouds);
   assert.deepEqual(host.querySelectorAll("circle"), circles);
   assert.deepEqual(host.querySelectorAll("[data-similarity-edge]").filter(element => element.tagName === "g"), edges);
@@ -83,10 +89,10 @@ test("switching layouts moves and recolours bubbles while retaining tag links, a
   assert.equal(captureState(host).cloudMode, "themes");
 });
 
-test("programme zones retain overlapping memberships, singleton and unassigned nodes, excluding foreign and unplotted IDs", () => {
+test("programme zones retain overlapping memberships and singleton nodes while unassigned bubbles have no cloud", () => {
   const host = domFixture(), result = render(host, projects, source(), { programmeMap: programmeMap() });
   chooseClouds(host, "programmes");
-  for (const [key, ids] of [["programme:DC1", [1, 2]], ["programme:DC2", [2]], ["programme:other", [3]]]) {
+  for (const [key, ids] of [["programme:DC1", [1, 2]], ["programme:DC2", [2]]]) {
     const polygon = first(host, `[data-similarity-cloud="${key}"]`);
     const points = polygon.getAttribute("points").split(" ").map(pair => pair.split(",").map(Number));
     const centres = ids.map(id => result.geometry.positions.get(id));
@@ -96,8 +102,35 @@ test("programme zones retain overlapping memberships, singleton and unassigned n
     assert.equal(polygon.getAttribute("pointer-events"), "none"); assert.equal(polygon.getAttribute("aria-hidden"), "true");
   }
   assert.equal(host.querySelectorAll('[data-similarity-cloud="programme:DC3"]').length, 0);
+  assert.equal(host.querySelectorAll('[data-similarity-cloud="programme:other"]').length, 0);
+  assert.match(first(host, ".project-similarity-legend").textContent, /Autres projets · 1 projet/);
   assert.equal(host.querySelectorAll("circle").length, 3);
   assert.equal(host.querySelectorAll(".project-similarity-isolated").length, 1);
+});
+
+test("organism mode groups exact financing bodies, omits the unassigned cloud and retains tag evidence on roundtrips", () => {
+  const host = domFixture(), map = organismMap(), before = structuredClone(map);
+  const result = render(host, projects, source(), { programmeMap: programmeMap(), organismMap: map });
+  first(host, '[data-similarity-tag="bim"]').dispatch("click");
+  const originalModel = structuredClone(result.model), edges = host.querySelectorAll("[data-similarity-edge]");
+  const details = first(host, ".project-similarity-details").textContent;
+  const thematic = structuredClone(result.geometry.positions), selected = chooseClouds(host, "organisms");
+  assert.equal(selected.checked, true);
+  assert.deepEqual(host.querySelectorAll("[data-similarity-cloud]").map(element => element.getAttribute("data-similarity-cloud")),
+    ["organism:10", "organism:20"]);
+  assert.equal(host.querySelectorAll('[data-similarity-cloud="organism:other"]').length, 0);
+  assert.match(first(host, ".project-similarity-legend").textContent, /Innoviris · 1 projet.*VLAIO · 1 projet.*Organisme non renseigné · 1 projet/);
+  const circles = host.querySelectorAll("circle"), labels = host.querySelectorAll(".project-similarity-family");
+  assert.equal(circles[0].getAttribute("fill"), first(host, '[data-similarity-cloud="organism:10"]').getAttribute("fill"));
+  assert.equal(circles[1].getAttribute("fill"), first(host, '[data-similarity-cloud="organism:20"]').getAttribute("fill"));
+  assert.equal(circles[2].getAttribute("fill"), labels[2].children[0].style.backgroundColor);
+  assert.notDeepEqual(result.geometry.positions, thematic);
+  assert.deepEqual(map, before);
+  const organismTarget = structuredClone(result.geometry.positions);
+  assert.deepEqual(result.model, originalModel); assert.deepEqual(host.querySelectorAll("[data-similarity-edge]"), edges);
+  assert.equal(first(host, ".project-similarity-details").textContent, details);
+  chooseClouds(host, "themes"); assert.deepEqual(result.geometry.positions, thematic);
+  chooseClouds(host, "organisms"); assert.deepEqual(result.geometry.positions, organismTarget);
 });
 
 test("cloud mode and toggle focus survive localized cached renders while details, ungreyed state and unavailable fallback stay correct", () => {
@@ -110,15 +143,41 @@ test("cloud mode and toggle focus survive localized cached renders while details
     I18n.setLanguage("nl"); render(host, projects, source(), { ...options, state });
     assert.equal(captureState(host).cloudMode, "programmes");
     assert.equal(host.ownerDocument.activeElement.getAttribute("data-similarity-cloud-mode"), "programmes");
-    assert.match(first(host, ".project-similarity-cloud-controls").textContent, /Thema’s.*Programma’s/);
+    assert.match(first(host, ".project-similarity-cloud-controls").textContent, /Thema’s.*Programma’s.*Financier/);
     assert.match(first(host, ".project-similarity-legend").textContent, /Andere projecten/);
     assert.equal(first(host, '[data-similarity-project="4"]').getAttribute("opacity"), "1");
     assert.match(first(host, ".project-similarity-detail-content").textContent, /NL computer-vision/);
     render(host, projects, source());
     assert.equal(captureState(host).cloudMode, "themes");
     assert.equal(first(host, '[data-similarity-cloud-mode="programmes"]').disabled, true);
+    assert.equal(first(host, '[data-similarity-cloud-mode="organisms"]').disabled, true);
     assert.equal(host.ownerDocument.activeElement.getAttribute("data-similarity-cloud-mode"), "themes");
   } finally { I18n.setLanguage(previous); }
+});
+
+test("missing or malformed organism maps cannot invent financing-body zones", () => {
+  const malformed = [undefined, { status: "unavailable", organisms: [] }, { status: "available", organisms: null },
+    { status: "available", organisms: [{ id: 10, name: "Innoviris", projectIds: [1] }, { id: 10, name: "Duplicate", projectIds: [2] }] },
+    { status: "available", organisms: [{ id: 10, name: "Innoviris", projectIds: ["1"] }] },
+    { status: "available", organisms: [{ id: 10, name: "Innoviris", projectIds: [1] }, { id: 20, name: "VLAIO", projectIds: [1] }] }];
+  for (const map of malformed) {
+    const host = domFixture(); render(host, projects, source(), { organismMap: map });
+    assert.equal(first(host, '[data-similarity-cloud-mode="organisms"]').disabled, true);
+    assert.equal(host.querySelectorAll("[data-similarity-cloud]")
+      .filter(element => element.getAttribute("data-similarity-cloud").startsWith("organism:")).length, 0);
+    assert.equal(captureState(host).cloudMode, "themes");
+  }
+});
+
+test("Partenaires stays hidden and its retained mode or focus falls back to themes", () => {
+  const host = domFixture();
+  render(host, projects, source(), { organismMap: organismMap(),
+    partnerMap: { status: "available", partners: [{ id: 10, name: "Old partner", projectIds: [1, 2] }] },
+    state: { cloudMode: "partners", focusCloudMode: "partners", layoutReady: true } });
+  assert.equal(host.querySelectorAll('[data-similarity-cloud-mode="partners"]').length, 0);
+  assert.doesNotMatch(first(host, ".project-similarity-cloud-controls").textContent, /Partenaires|Partners/);
+  assert.equal(captureState(host).cloudMode, "themes");
+  assert.equal(host.ownerDocument.activeElement.getAttribute("data-similarity-cloud-mode"), "themes");
 });
 
 test("missing or malformed programme maps cannot invent programme zones and retired toggles are inert", () => {
