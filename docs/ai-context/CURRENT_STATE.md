@@ -2,6 +2,15 @@
 
 ## Functional State
 
+- Published on 2026-10-28 at the user's explicit request: `force-diagrams`
+  commits `40b1f57` and `0652030` were fast-forwarded into `main` from
+  `81f03b1` and pushed to `origin/main`. The checkout is `main`; the local
+  feature branch is retained. Remote ancestry, clean working tree and whitespace
+  were verified. No runtime code changed during publication, so the recorded
+  **1229/1229** offline result remains applicable; tests were not repeated.
+  This documentation checkpoint records the completed publication. No Odoo
+  access, server restart or configuration change was needed.
+
 - Completed locally on 2026-10-26 on user-requested branch `force-diagrams`
   from `main` at `81f03b1`: **Carte des proximités technologiques** now offers
   **Organisme / Financier** beside Thématiques and Programmes. **Partenaires**
@@ -32,7 +41,8 @@
   **401**, empty stderr. Focused visibility/service checks pass **69/69**.
   Reload and sign in again, then refresh Unit DiCo. At the user's request,
   implementation/tests are committed as **`40b1f57`**, with this companion
-  documentation checkpoint. The branch remains unpublished. No Odoo write,
+  documentation checkpoint `0652030`; both are now published on `origin/main`
+  as recorded above. No Odoo write,
   Docker or dependency/configuration change occurred; earlier discovery memory
   is preserved.
 
@@ -2245,13 +2255,16 @@ A runnable dashboard, authenticated local connector and authentication integrati
   and contained scrolling; screenshots are outside the repo and resources closed.
   Implementation/tests are committed as **`40b1f57`** at the user's request;
   this companion documentation records the verification and discovery context.
-  The branch remains local and unpublished. Follow-up guarded
+  Both commits were fast-forwarded into `main` and pushed to `origin/main` on
+  2026-10-28 at the user's explicit request. Checkout is `main`; the local
+  `force-diagrams` branch is retained. Publication introduced no runtime changes;
+  prior test results remain applicable and were not repeated. Follow-up guarded
   live verification confirms available financing bodies for **50/50** projects
   (seven exact body IDs, including two namesakes). Focused checks pass **69/69**.
   Reloaded the previously stale local server as hidden standard-user PID
   **31728**, port **8765**; welcome **200**, anonymous unit API **401**, stderr
-  empty. Next action is reload/sign in again and refresh Unit DiCo for review;
-  push or merge only if explicitly requested. No Odoo write, Docker or
+  empty. Next action is reload/sign in again and refresh Unit DiCo for review.
+  Merge and publication are complete. No Odoo write, Docker or
   configuration change occurred.
 
 - Previous read-only discovery on 2026-10-26: `categories` was created from `main` at `81f03b1`.
